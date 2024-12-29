@@ -1,0 +1,259 @@
+---
+title: "内在能力建模"
+author: "Ruifu Kang & Yirou Niu"
+date: "2024-12-26"
+format: docx
+---
+
+# 数据准备
+## 读取并合并数据
+- 读取所有老年人的个人数据（暂不考虑家庭数据和整体数据权重）
+- 将所有数据以ID为键值进行匹配合并到一个数据框中
+```{R}
+# 安装并加载所需要的包
+if (!requireNamespace("haven", quietly = TRUE)) {
+    install.packages("haven")
+}
+if (!requireNamespace("dplyr", quietly = TRUE)) {
+    install.packages("dplyr")
+}
+library(haven)
+library(dplyr)
+
+# 读取并合并数据
+files <- list.files("data_raw/self",
+    pattern = "\\.dta$",
+    full.names = TRUE
+)
+data_list <- lapply(files, read_dta)
+my_data_raw <- Reduce(function(x, y) full_join(x, y, by = "ID"), data_list)
+print(my_data_raw)
+```
+## 变量重命名
+- 将所有的变量重命名为可读性更好的名称
+- 重命名后的变量名保存在一个新的数据框中
+```{R}
+# 变量重命名
+my_data_rename <- my_data_raw %>%
+    rename(
+        # 基本信息重命名
+        id_birth_year = ba004_w3_1,   # ID出生年份
+        actual_birth_year = ba002_1,   # 实际出生年份 
+        death = died,                 # 是否死亡
+        # 内在能力运动维度重命名
+        walk_time_first = qg002,       # 步行测试时间1
+        walk_time_second = qg003,      # 步行测试时间2
+        stand_test_semi_tandem = qd002,  # 双脚半前后站立测试
+        stand_test_tandem = qe002,       # 双脚一条线站立测试
+        stand_test_feet_together = qf002, # 双脚并拢站立测试
+        sit_stand_test_time = qh003,  # 完成五次坐下起来测试的时间
+
+        # 内在能力认知维度重命名
+        subtraction_test_1 = dc019,    # 减法测试1
+        subtraction_test_2 = dc020,    # 减法测试2
+        subtraction_test_3 = dc021,    # 减法测试3
+        subtraction_test_4 = dc022,    # 减法测试4
+        subtraction_test_5 = dc023,    # 减法测试5
+        drawing_test = dc025,         # 画图测试
+        recall_year = dc001s1,        # 回忆年份
+        recall_month = dc001s2,       # 回忆月份
+        recall_day = dc001s3,         # 回忆日期
+        recall_weekday = dc002,        # 回忆星期
+        recall_season = dc003,         # 回忆季节是否正确
+        recall_word_1 = dc006s1,       # 回忆词汇1
+        recall_word_2 = dc006s2,       # 回忆词汇2
+        recall_word_3 = dc006s3,       # 回忆词汇3
+        recall_word_4 = dc006s4,       # 回忆词汇4
+        recall_word_5 = dc006s5,       # 回忆词汇5
+        recall_word_6 = dc006s6,       # 回忆词汇6
+        recall_word_7 = dc006s7,       # 回忆词汇7
+        recall_word_8 = dc006s8,       # 回忆词汇8
+        recall_word_9 = dc006s9,       # 回忆词汇9
+        recall_word_10 = dc006s10,     # 回忆词汇10
+        recall_none = dc006s11,        # 是否一个都没回忆起来
+        recall_refused = dc006s12,     # 是否拒绝回忆
+        # 内在能力心理维度重命名
+        sleep_time = da049,            # 睡眠时间
+        depression_scale_1 = dc009,    # 心理量表问题1
+        depression_scale_2 = dc010,    # 心理量表问题2
+        depression_scale_3 = dc011,    # 心理量表问题3
+        depression_scale_4 = dc012,    # 心理量表问题4
+        depression_scale_5 = dc013,    # 心理量表问题5
+        depression_scale_6 = dc014,    # 心理量表问题6
+        poor_sleep_frequency = dc015,  # 睡眠不佳频率
+        depression_scale_7 = dc016,    # 心理量表问题7
+        depression_scale_8 = dc017,    # 心理量表问题8
+        depression_scale_9 = dc018,    # 心理量表问题9
+        # 内在能力感官维度重命名
+        far_vision = da033,            # 看远处视力情况
+        near_vision = da034,           # 看近处视力情况
+        hearing_status = da039,        # 听力情况
+        # 内在能力活力维度重命名
+        left_hand_grip_1 = qc003,      # 第一次左手握力测量
+        right_hand_grip_1 = qc004,     # 第一次右手握力测量
+        left_hand_grip_2 = qc005,      # 第二次左手握力测量
+        right_hand_grip_2 = qc006,     # 第二次右手握力测量
+        breath_test_1 = qb002,         # 第一次呼吸功能测定
+        breath_test_2 = qb003,         # 第二次呼吸功能测定
+        breath_test_3 = qb004          # 第三次呼吸功能测定
+    )
+```
+## 年龄数据清洗
+- 计算年龄
+- 按照年龄筛选出60岁及以上的老年人
+```{R}
+# 去除实际出生年份和ID出生年份同时缺失的数据
+my_data_year_na <- my_data_rename %>%
+    filter(!(is.na(actual_birth_year) & is.na(id_birth_year)))
+
+# 计算年龄值
+my_data_age <- my_data_year_na %>%
+    mutate(age = 2015 - coalesce(actual_birth_year, id_birth_year))
+
+# 年龄清洗
+my_data_elder <- my_data_age %>%
+    filter(age >= 60)
+```
+## 内在能力分数初步计算
+```{R}
+# 处理步行测试时间
+my_data_final <- my_data_elder %>%
+    mutate(
+        final_walk_time = case_when(
+            is.na(walk_time_first) & is.na(walk_time_second) ~ NA_real_,
+            walk_time_first %in% c(NA, 993, 999) & walk_time_second %in% c(NA, 993, 999) ~ NA_real_,
+            walk_time_first %in% c(NA, 993, 999) ~ walk_time_second,
+            walk_time_second %in% c(NA, 993, 999) ~ walk_time_first,
+            TRUE ~ (walk_time_first + walk_time_second) / 2
+        )
+    )
+
+# 处理左手握力
+my_data_final <- my_data_final %>%
+    mutate(
+        final_left_hand_grip = case_when(
+            is.na(left_hand_grip_1) & is.na(left_hand_grip_2) ~ NA_real_,
+            left_hand_grip_1 %in% c(NA, 993, 999) & left_hand_grip_2 %in% c(NA, 993, 999) ~ NA_real_,
+            left_hand_grip_1 %in% c(NA, 993, 999) ~ left_hand_grip_2,
+            left_hand_grip_2 %in% c(NA, 993, 999) ~ left_hand_grip_1,
+            TRUE ~ (left_hand_grip_1 + left_hand_grip_2) / 2
+        )
+    )
+
+# 处理右手握力
+my_data_final <- my_data_final %>%
+    mutate(
+        final_right_hand_grip = case_when(
+            is.na(right_hand_grip_1) & is.na(right_hand_grip_2) ~ NA_real_,
+            right_hand_grip_1 %in% c(NA, 993, 999) & right_hand_grip_2 %in% c(NA, 993, 999) ~ NA_real_,
+            right_hand_grip_1 %in% c(NA, 993, 999) ~ right_hand_grip_2,
+            right_hand_grip_2 %in% c(NA, 993, 999) ~ right_hand_grip_1,
+            TRUE ~ (right_hand_grip_1 + right_hand_grip_2) / 2
+        )
+    )
+
+# 处理呼吸功能
+my_data_final <- my_data_final %>%
+    mutate(
+        final_breath_test = case_when(
+            is.na(breath_test_1) & is.na(breath_test_2) & is.na(breath_test_3) ~ NA_real_,
+            breath_test_1 %in% c(NA, 993, 999) & breath_test_2 %in% c(NA, 993, 999) & breath_test_3 %in% c(NA, 993, 999) ~ NA_real_,
+            breath_test_1 %in% c(NA, 993, 999) & breath_test_2 %in% c(NA, 993, 999) ~ breath_test_3,
+            breath_test_1 %in% c(NA, 993, 999) & breath_test_3 %in% c(NA, 993, 999) ~ breath_test_2,
+            breath_test_2 %in% c(NA, 993, 999) & breath_test_3 %in% c(NA, 993, 999) ~ breath_test_1,
+            breath_test_1 %in% c(NA, 993, 999) ~ (breath_test_2 + breath_test_3) / 2,
+            breath_test_2 %in% c(NA, 993, 999) ~ (breath_test_1 + breath_test_3) / 2,
+            breath_test_3 %in% c(NA, 993, 999) ~ (breath_test_1 + breath_test_2) / 2,
+            TRUE ~ (breath_test_1 + breath_test_2 + breath_test_3) / 3
+        )
+    )
+    
+# 计算最终回忆分数
+my_data_final <- my_data_final %>%
+    mutate(
+        final_recall_score = case_when(
+            !is.na(recall_refused) ~ 0,
+            !is.na(recall_none) ~ NA_real_,
+            TRUE ~ rowSums(select(., starts_with("recall_word_")), na.rm = TRUE)
+        )
+    )
+
+# 计算抑郁总分
+my_data_final <- my_data_final %>%
+    mutate(
+        total_depression_score = if_else(
+            rowSums(select(., starts_with("depression_scale_")), na.rm = TRUE) == 0 & 
+            rowSums(is.na(select(., starts_with("depression_scale_")))) == 9,
+            NA_real_,
+            rowSums(select(., starts_with("depression_scale_")), na.rm = TRUE) + 
+            rowSums(is.na(select(., starts_with("depression_scale_"))))
+        )
+    )
+
+# 计算减法测试总分
+my_data_final <- my_data_final %>%
+    mutate(
+        total_subtraction_score = if_else(
+            rowSums(is.na(select(., starts_with("subtraction_test_")))) == 5,
+            NA_real_,
+            rowSums(!is.na(select(., starts_with("subtraction_test_"))))
+        )
+    )
+```
+## 内在能力清洗
+- 剔除内在能力指标缺失20%以上的个体
+```{R}
+# 分出来前100个个体数据
+my_data_final_top100 <- my_data_final %>%
+    slice_head(n = 100)
+print(my_data_final_top100)
+
+# 导出前100个个体数据为CSV文件
+write.csv(my_data_final_top100, "top100_individuals.csv", row.names = FALSE)
+
+# 剔除除了ID和这些内在能力指标以外的变量保存到新数据里
+required_columns <- c(
+    "ID", "final_walk_time", "stand_test_semi_tandem", "stand_test_tandem", "stand_test_feet_together", "sit_stand_test_time",
+    "final_recall_score",  
+    "sleep_time", "poor_sleep_frequency", "total_depression_score",  
+    "far_vision", "near_vision", "hearing_status",
+    "final_left_hand_grip", "final_right_hand_grip", "final_breath_test"
+)
+
+my_data_final_filtered <- my_data_final %>%
+    select(all_of(required_columns))
+
+print(my_data_final_filtered)
+
+# 筛选出所有内在能力指标非NA值大于80%的观察值数量
+threshold <- 0.8
+non_na_counts <- my_data_final_filtered %>%
+    mutate(non_na_count = rowSums(!is.na(select(., -ID)))) %>%
+    filter(non_na_count / (ncol(my_data_final_filtered) - 1) > threshold) %>%
+    nrow()
+# 输出非NA值大于80%的观察值数量（带文字）
+print(paste("覆盖内在能力80%以上的个体数量:", non_na_counts))
+
+# 将大于80%的数据放到一个新的数据框
+my_data_above_80 <- my_data_final_filtered %>%
+    mutate(non_na_count = rowSums(!is.na(select(., -ID)))) %>%
+    filter(non_na_count / (ncol(my_data_final_filtered) - 1) > threshold) %>%
+    select(-non_na_count)
+
+# 打印新的数据框
+print(my_data_above_80)
+
+# 用筛选后的数据筛选my_data_final，用ID号匹配
+filtered_ids <- my_data_above_80 %>% select(ID)
+my_data_final_matched <- my_data_final %>% semi_join(filtered_ids, by = "ID")
+
+# 打印匹配后的数据
+print(my_data_final_matched)
+
+# 导出匹配后的数据为CSV文件
+write.csv(my_data_final_matched, "matched_data.csv", row.names = FALSE)
+```
+# 内在能力维度分数计算
+
+# 模型建立
+# 模型验证
