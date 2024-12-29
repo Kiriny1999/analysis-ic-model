@@ -254,6 +254,12 @@ print(my_data_final_matched)
 write.csv(my_data_final_matched, "matched_data.csv", row.names = FALSE)
 ```
 # 内在能力维度分数计算
+## 计算认知维度
 
+## 计算活力维度
+## 计算心理维度
+## 计算感官维度
+## 总分计算
 # 模型建立
+
 # 模型验证
