@@ -243,7 +243,7 @@ my_data_final <- my_data_final %>%
 
 ## 内在能力清洗
 
--   剔除内在能力指标缺失20%以上的个体
+-   剔除内在能力指标缺失0%,20%以上的个体
 
 ```{R}
 # 分出来前100个个体数据
@@ -267,6 +267,17 @@ my_data_final_filtered <- my_data_final %>%
     select(all_of(required_columns))
 
 print(my_data_final_filtered)
+
+# 导出清洗后的数据为CSV文件
+write.csv(my_data_final_filtered, "cleaned_data.csv", row.names = FALSE)
+
+# 筛选出覆盖所有内在能力指标的个体数量
+non_na_counts <- my_data_final_filtered %>%
+    mutate(non_na_count = rowSums(!is.na(select(., -ID)))) %>%
+    filter(non_na_count == length(required_columns) - 1) %>%
+    nrow()  
+# 输出覆盖所有内在能力指标的个体数量（带文字）
+print(paste("覆盖所有内在能力的个体数量:", non_na_counts))
 
 # 筛选出所有内在能力指标非NA值大于80%的观察值数量
 threshold <- 0.8
