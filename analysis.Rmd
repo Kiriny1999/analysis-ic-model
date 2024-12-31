@@ -233,34 +233,33 @@ my_data_final <- my_data_final %>%
 # 计算减法测试总分
 my_data_final <- my_data_final %>%
     mutate(
-        total_subtraction_score = if_else(
-            rowSums(is.na(select(., starts_with("subtraction_test_")))) == 5,
-            NA_real_,
-            rowSums(!is.na(select(., starts_with("subtraction_test_"))))
+        total_subtraction_score = case_when(
+            rowSums(is.na(select(., starts_with("subtraction_test_")))) == 5 ~ 0,
+            TRUE ~ rowSums(
+                cbind(
+                    if_else(subtraction_test_1 == 93, 1, 0),
+                    if_else(subtraction_test_2 == 86, 1, 0),
+                    if_else(subtraction_test_3 == 79, 1, 0),
+                    if_else(subtraction_test_4 == 72, 1, 0),
+                    if_else(subtraction_test_5 == 65, 1, 0)
+                ),
+                na.rm = TRUE
+            )
         )
     )
-```
 
 ## 内在能力清洗
-
 -   剔除内在能力指标缺失0%,20%以上的个体
 
 ```{R}
-# 分出来前100个个体数据
-my_data_final_top100 <- my_data_final %>%
-    slice_head(n = 100)
-print(my_data_final_top100)
-
-# 导出前100个个体数据为CSV文件
-write.csv(my_data_final_top100, "top100_individuals.csv", row.names = FALSE)
-
 # 剔除除了ID和这些内在能力指标以外的变量保存到新数据里
 required_columns <- c(
     "ID", "final_walk_time", "stand_test_semi_tandem", "stand_test_tandem", "stand_test_feet_together", "sit_stand_test_time",
     "final_recall_score",  
     "sleep_time", "poor_sleep_frequency", "total_depression_score",  
     "far_vision", "near_vision", "hearing_status",
-    "final_left_hand_grip", "final_right_hand_grip", "final_breath_test"
+    "final_left_hand_grip", "final_right_hand_grip", "final_breath_test",
+    "subtraction_test_1", "subtraction_test_2", "subtraction_test_3", "subtraction_test_4", "subtraction_test_5"
 )
 
 my_data_final_filtered <- my_data_final %>%
@@ -311,15 +310,25 @@ write.csv(my_data_final_matched, "matched_data.csv", row.names = FALSE)
 # 内在能力维度分数计算
 
 ## 计算认知维度
+```{R}
 
+```
 ## 计算活力维度
+```{R}
 
+```
 ## 计算心理维度
+```{R}
 
+```
 ## 计算感官维度
+```{R}
 
+```
 ## 总分计算
+```{R}
 
+```
 # 模型建立
 
 # 模型验证
