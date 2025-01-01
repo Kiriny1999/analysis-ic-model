@@ -9,6 +9,11 @@ format: docx
 
 ## 1.  运动
 - 2.5米步行速度≥ 1米/秒得1分
+  - pg002:是否有外在因素对走路形成限制
+  - pg003:是否明白方法并愿意参加测试
+  - qg001:为什么未完成步行测试
+  - qg005：步行辅助器
+  - qg006：依从性
 - 重复坐下5次≤12秒得1分；
 - 平衡：3个10秒完成2个及以上得1分。满分3分
 
@@ -154,7 +159,6 @@ my_data_elder <- my_data_age %>%
 ```
 
 ## 内在能力分数初步计算
-
 ```{R}
 # 处理步行测试时间
 my_data_final <- my_data_elder %>%
@@ -247,10 +251,8 @@ my_data_final <- my_data_final %>%
             )
         )
     )
-
-## 内在能力清洗
--   剔除内在能力指标缺失0%,20%以上的个体
-
+```
+# 内在能力清洗
 ```{R}
 # 剔除除了ID和这些内在能力指标以外的变量保存到新数据里
 required_columns <- c(
@@ -284,6 +286,7 @@ non_na_counts <- my_data_final_filtered %>%
     mutate(non_na_count = rowSums(!is.na(select(., -ID)))) %>%
     filter(non_na_count / (ncol(my_data_final_filtered) - 1) > threshold) %>%
     nrow()
+
 # 输出非NA值大于80%的观察值数量（带文字）
 print(paste("覆盖内在能力80%以上的个体数量:", non_na_counts))
 
