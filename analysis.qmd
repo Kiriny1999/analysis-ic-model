@@ -44,9 +44,11 @@ format: docx
 - FEV：男性≥ 400得1分，女性≥ 290得1分;
 - 血红蛋白：男性≥ 130g/L得1分，女性≥ 120g/L得1分。
 - 满分3分
+
 ## 内在能力筛选
-- 根据内在能力计算情况筛选出覆盖内在能力指标范围大于80%的个体
+- 根据内在能力计算情况筛选出覆盖内在能力指标范围大于100%的个体
 - 保存筛选后的数据到一个新的数据框中
+
 ## 自变量筛选与清洗
 
 ## 数据拆分
@@ -379,6 +381,7 @@ write.csv(my_data_physical, "physical_dimension_data.csv", row.names = FALSE)
 
 
 ```
+
 ## 认知维度计算
 ```{R}
 # 计算最终回忆分数
@@ -549,6 +552,7 @@ my_data_psychological <- my_data_wash %>%
 
 write.csv(my_data_psychological, "psychological_dimension_data.csv", row.names = FALSE)
 ```
+
 ## 感官维度计算
 ```{R}
 # 计算视力总分
@@ -600,6 +604,7 @@ my_data_sensory <- my_data_wash %>%
 
 write.csv(my_data_sensory, "sensory_dimension_data.csv", row.names = FALSE)
 ```
+
 ## 活力维度计算
 ```{R}
 # 计算左手握力分数
@@ -677,6 +682,7 @@ my_data_vitality <- my_data_wash %>%select(all_of(required_columns))
 write.csv(my_data_vitality, "vitality_dimension_data.csv", row.names = FALSE)
 
 ```
+
 # 内在能力清洗
 ```{R}
 # 挑出只包含ID和五个内在能力维度总分的变量
