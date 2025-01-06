@@ -272,7 +272,7 @@ my_data_wash <- my_data_elder
 ## 内在能力分数计算
 ### 运动维度计算
 ```{R}
-# 计算步行测试时间（无误）
+# 计算步行测试时间（）
 my_data_wash <- my_data_wash %>%
     mutate(
         final_walk_time = case_when(
@@ -290,7 +290,7 @@ my_data_wash <- my_data_wash %>%
                 walk_test_aid %in% c(2, 3, 4, 97) ~ 0,
                 is.na(walk_test_aid) ~ NA_real_,
                 TRUE ~ 0
-                )
+                ),
             )
         )
 
@@ -345,7 +345,7 @@ my_data_wash <- my_data_wash %>%
             rowSums(select(., final_semi_tandem_time, final_tandem_time, final_feet_together_time) == 0, na.rm = TRUE) == 1 ~ NA_real_,
         )
     )
-# 计算坐起测试时间
+# 计算坐起测试时间()
 my_data_wash <- my_data_wash %>%
     mutate(
         final_sit_stand_time = case_when(
@@ -354,14 +354,29 @@ my_data_wash <- my_data_wash %>%
                 rowSums(select(., starts_with("sit_stand_test_reason_")) == 6, na.rm = TRUE) > 0 ~ 0,
                 TRUE ~ NA_real_
             ),
-            TRUE ~ if_else(sit_stand_test_time <= 12, 1, 0)
+            sit_stand_test_completed == 1 ~ case_when(
+                sit_stand_test_arm_use == 1 ~ 0,
+                sit_stand_test_arm_use == 2 ~ case_when(
+                    sit_stand_test_time <= 12 ~ 1,
+                    sit_stand_test_time > 12 ~ 0,
+                    TRUE ~ NA_real_
+                    ),
+                TRUE ~ 0 # 貌似是这个地方NA多，怎么考虑呢
+            ),
+            sit_stand_test_completed == 5 ~ 0,
+            TRUE ~ NA_real_
         )
     )
-# 计算运动维度总分
+
+# 计算运动维度总分（无误）
 my_data_wash <- my_data_wash %>%
     mutate(
         final_physical_score = rowSums(select(., final_walk_time, final_balance_score, final_sit_stand_time), na.rm = FALSE)
     )
+
+# 计算运动维度总分缺失值数量
+missing_physical_score <- sum(is.na(my_data_wash$final_physical_score))
+print(paste("运动维度总分缺失值数量:", missing_physical_score))
 
 # 导出运动维度所有变量和ID，去除其他所有变量，导出一个csv
 required_columns <- c(
