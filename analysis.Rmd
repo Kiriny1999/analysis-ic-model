@@ -592,8 +592,11 @@ write.csv(my_data_sensory, "sensory_dimension_data.csv", row.names = FALSE)
 my_data_wash <- my_data_wash %>%
     mutate(
         final_left_hand_grip = case_when(
-            rowSums(select(., starts_with("grip_test_reason_")) == 4, na.rm = TRUE) > 0 ~ 0,
-            rowSums(select(., starts_with("grip_test_reason_")) == 6, na.rm = TRUE) > 0 ~ 0,
+            left_hand_grip_1 %in% c(NA, 993, 999) ~ case_when(
+                rowSums(select(., starts_with("grip_test_reason_")) == 4, na.rm = TRUE) > 0 ~ 0,
+                rowSums(select(., starts_with("grip_test_reason_")) == 6, na.rm = TRUE) > 0 ~ 0,
+                TRUE ~ NA_real_
+            ),
             TRUE ~ pmax(left_hand_grip_1, left_hand_grip_2, na.rm = TRUE)
         )
     )
@@ -602,8 +605,11 @@ my_data_wash <- my_data_wash %>%
 my_data_wash <- my_data_wash %>%
     mutate(
         final_right_hand_grip = case_when(
-            rowSums(select(., starts_with("grip_test_reason_")) == 4, na.rm = TRUE) > 0 ~ 0,
-            rowSums(select(., starts_with("grip_test_reason_")) == 6, na.rm = TRUE) > 0 ~ 0,
+            right_hand_grip_1 %in% c(NA, 993, 999) ~ case_when(
+                rowSums(select(., starts_with("grip_test_reason_")) == 4, na.rm = TRUE) > 0 ~ 0,
+                rowSums(select(., starts_with("grip_test_reason_")) == 6, na.rm = TRUE) > 0 ~ 0,
+                TRUE ~ NA_real_
+            ),
             TRUE ~ pmax(right_hand_grip_1, right_hand_grip_2, na.rm = TRUE)
         )
     )
@@ -617,43 +623,44 @@ my_data_wash <- my_data_wash %>%
             TRUE ~ NA_real_
         )
     )
-# 计算呼吸功能总分
+
+# 计算呼吸功能总分（这种和性别关联的还要考虑性别是否是NA）
 my_data_wash <- my_data_wash %>%
     mutate(
         final_breath_test = case_when(
-            rowSums(select(., starts_with("breath_test_")) == 993, na.rm = TRUE) == 3 |
-            rowSums(select(., starts_with("breath_test_")) == 999, na.rm = TRUE) == 3 |
-            rowSums(is.na(select(., starts_with("breath_test_"))), na.rm = TRUE) == 3 ~ case_when(
-                rowSums(select(., starts_with("breath_test_reason_")) == 4, na.rm = TRUE) > 0 ~ 0,
-                rowSums(select(., starts_with("breath_test_reason_")) == 6, na.rm = TRUE) > 0 ~ 0,
-                TRUE ~ NA_real_
+            breath_test_1 %in% c(NA, 993, 999) ~ case_when(
+            rowSums(select(., starts_with("breath_test_reason_")) == 4, na.rm = TRUE) > 0 ~ 0,
+            rowSums(select(., starts_with("breath_test_reason_")) == 6, na.rm = TRUE) > 0 ~ 0,
+            TRUE ~ NA_real_
             ),
+            TRUE ~ case_when(
             gender == 1 ~ if_else(pmax(breath_test_1, breath_test_2, breath_test_3, na.rm = TRUE) >= 400, 1, 0),
             gender == 2 ~ if_else(pmax(breath_test_1, breath_test_2, breath_test_3, na.rm = TRUE) >= 290, 1, 0),
             TRUE ~ NA_real_
+            )
         )
     )
-# 计算血红蛋白
-my_data_wash <- my_data_wash %>%
-    mutate(
-        final_hemoglobin = hemoglobin * 10
-    )
+
+
 # 计算血红蛋白分数
 my_data_wash <- my_data_wash %>%
     mutate(
         final_hemoglobin_score = case_when(
             is.na(hemoglobin) ~ NA_real_,
-            gender == 1 & hemoglobin >= 120 ~ 1,
-            gender == 1 & hemoglobin < 120 ~ 0,
-            gender == 2 & hemoglobin >= 110 ~ 1,
-            gender == 2 & hemoglobin < 110 ~ 0,
+            gender == 1 & hemoglobin * 10 >= 120 & hemoglobin * 10 <= 160 ~ 1,
+            gender == 1 & (hemoglobin * 10 < 120 | hemoglobin * 10 > 160) ~ 0,
+            gender == 2 & hemoglobin * 10 >= 110 & hemoglobin * 10 <= 150 ~ 1,
+            gender == 2 & (hemoglobin * 10 < 110 | hemoglobin * 10 > 150) ~ 0,
             TRUE ~ NA_real_
         )
     )
+    
+
+
 # 计算活力维度总分
 my_data_wash <- my_data_wash %>%
     mutate(
-        final_vitality_score = rowSums(select(., final_grip_score, final_breath_test, final_hemoglobin_score), na.rm = TRUE)
+        final_vitality_score = rowSums(select(., final_grip_score, final_breath_test, final_hemoglobin_score), na.rm = FALSE)
     )
 # 导出活力维度所有变量和ID，去除其他所有变量，导出一个csv
 required_columns <- c(
