@@ -265,15 +265,14 @@ my_data_elder <- my_data_age %>%
     # 输出现在总共多少人
 total_individuals <- nrow(my_data_elder)
 print(paste("总共人数:", total_individuals))
-my_data_wash <- my_data_elder
 
 ```
 
-## 内在能力分数计算
-### 运动维度计算
+# 内在能力分数计算
+## 运动维度计算
 ```{R}
-# 计算步行测试时间（无误）
-my_data_wash <- my_data_wash %>%
+# 计算步行测试时间
+my_data_wash <- my_data_elder %>%
     mutate(
         final_walk_time = case_when(
             walk_time_first %in% c(993, 999, NA) ~ case_when(
@@ -282,19 +281,14 @@ my_data_wash <- my_data_wash %>%
                 TRUE ~ NA_real_
             ),
             TRUE ~ case_when(
-                walk_test_aid == 1 ~ case_when(
-                    walk_time_second %in% c(993, 999, NA) ~ if_else(2.5 / walk_time_first >= 1, 1, 0),
-                    walk_time_first %in% c(993, 999, NA) ~ if_else(2.5 / walk_time_second >= 1, 1, 0),
-                    TRUE ~ if_else(2.5 / pmax(walk_time_first, walk_time_second, na.rm = TRUE) >= 1, 1, 0)
-                ),
-                walk_test_aid %in% c(2, 3, 4, 97) ~ 0,
-                is.na(walk_test_aid) ~ NA_real_,
-                TRUE ~ 0
-                )
+                walk_test_aid != 1 ~ 0,
+                walk_time_second %in% c(993, 999, NA) ~ if_else(2.5 / walk_time_first >= 1, 1, 0),
+                TRUE ~ if_else(2.5 / pmin(walk_time_first, walk_time_second) >= 1, 1, 0)
             )
         )
+    )
 
-# 计算双脚半前后站立时间分数（无误）
+# 计算双脚半前后站立时间分数
 my_data_wash <- my_data_wash %>%
     mutate(
         final_semi_tandem_time = case_when(
@@ -306,8 +300,7 @@ my_data_wash <- my_data_wash %>%
             TRUE ~ if_else(stand_test_semi_tandem == 1, 1, 0)
         )
     )
-
-# 计算双脚前后一条线站立时间分数（无误）
+# 计算双脚前后一条线站立时间分数
 my_data_wash <- my_data_wash %>%
     mutate(
         final_tandem_time = case_when(
@@ -321,7 +314,7 @@ my_data_wash <- my_data_wash %>%
             TRUE ~ 0
         )
     )
-# 计算双脚并拢站立时间分数（无误）
+# 计算双脚并拢站立时间分数
 my_data_wash <- my_data_wash %>%
     mutate(
         final_feet_together_time = case_when(
@@ -330,19 +323,18 @@ my_data_wash <- my_data_wash %>%
                 rowSums(select(., starts_with("stand_test_feet_together_reason_")) == 6, na.rm = TRUE) > 0 ~ 0,
                 TRUE ~ NA_real_
             ),
-            TRUE ~ if_else(stand_test_feet_together == 1, 1, 0)
+            stand_test_feet_together == 1 ~ 1,
+            TRUE ~ 0
         )
     )
-
-# 计算最终平衡得分（无误）
+# 计算平衡总分
+# 计算最终平衡得分
 my_data_wash <- my_data_wash %>%
     mutate(
         final_balance_score = case_when(
             rowSums(select(., final_semi_tandem_time, final_tandem_time, final_feet_together_time) == 1, na.rm = TRUE) >= 2 ~ 1,
-            rowSums(is.na(select(., final_semi_tandem_time, final_tandem_time, final_feet_together_time))) >= 2 ~ NA_real_,
-            rowSums(is.na(select(., final_semi_tandem_time, final_tandem_time, final_feet_together_time))) == 1 &
-            rowSums(select(., final_semi_tandem_time, final_tandem_time, final_feet_together_time) == 1, na.rm = TRUE) == 1 &
-            rowSums(select(., final_semi_tandem_time, final_tandem_time, final_feet_together_time) == 0, na.rm = TRUE) == 1 ~ NA_real_,
+            rowSums(is.na(select(., final_semi_tandem_time, final_tandem_time, final_feet_together_time))) == 3 ~ NA_real_,
+            TRUE ~ 0
         )
     )
 # 计算坐起测试时间
@@ -363,10 +355,9 @@ my_data_wash <- my_data_wash %>%
         final_physical_score = if_else(
             rowSums(is.na(select(., final_walk_time, final_balance_score, final_sit_stand_time))) > 0,
             NA_real_,
-            rowSums(select(., final_walk_time, final_balance_score, final_sit_stand_time), na.rm = FALSE)
+            rowSums(select(., final_walk_time, final_balance_score, final_sit_stand_time), na.rm = TRUE)
         )
     )
-
 # 导出运动维度所有变量和ID，去除其他所有变量，导出一个csv
 required_columns <- c(
     "ID", "final_walk_time", "final_semi_tandem_time", "final_tandem_time", "final_feet_together_time", "final_balance_score", "final_sit_stand_time", "final_physical_score"
@@ -378,9 +369,10 @@ write.csv(my_data_physical, "physical_dimension_data.csv", row.names = FALSE)
 
 
 
+
 ```
 
-### 认知维度计算（需要考虑别人代问时也是NA）
+## 认知维度计算
 ```{R}
 # 计算最终回忆分数
 my_data_wash <- my_data_wash %>%
@@ -392,7 +384,7 @@ my_data_wash <- my_data_wash %>%
         )
     )
 
-# 计算减法测试总分（数字是错的是0，那如果是NA也算0还是算成NA）
+# 计算减法测试总分
 my_data_wash <- my_data_wash %>%
     mutate(
         total_subtraction_score = case_when(
@@ -411,32 +403,22 @@ my_data_wash <- my_data_wash %>%
         )
     )
 
-# 计算日期感知总分(这个NA值到底处理成0还是NA)
+# 计算时间感知总分
 my_data_wash <- my_data_wash %>%
     mutate(
-        final_date_perception_score = rowSums(
+        final_time_perception_score = rowSums(
             cbind(
                 if_else(!is.na(recall_year), 1, 0),
                 if_else(!is.na(recall_month), 1, 0),
-                if_else(!is.na(recall_day), 1, 0)
+                if_else(!is.na(recall_day), 1, 0),
+                if_else(recall_weekday == 1, 1, 0),
+                if_else(recall_season == 1, 1, 0)
             ),
             na.rm = TRUE
         )
     )
 
-# 计算星期和季节感知总分
-my_data_wash <- my_data_wash %>%
-    mutate(
-        final_week_season_perception_score = rowSums(
-            cbind(
-                if_else(recall_weekday == 1, 1, if_else(recall_weekday == 2, 2, NA_real_)),
-                if_else(recall_season == 1, 1, if_else(recall_season == 2, 2, NA_real_))
-            ),
-            na.rm = FALSE
-        )
-    )
-
-# 计算最终绘画得分（NA算0还是NA）
+# 计算最终绘画得分
 my_data_wash <- my_data_wash %>%
     mutate(
         final_drawing_score = case_when(
@@ -463,9 +445,21 @@ my_data_cognitive <- my_data_wash %>%
 
 write.csv(my_data_cognitive, "cognitive_dimension_data.csv", row.names = FALSE)
 ```
-### 心理维度计算
+## 心理维度计算
 ```{R}
-# 计算总睡眠时间（午睡时间和晚上睡觉时间缺失一个，到底算0还是整个算NA）
+# 计算抑郁总分
+my_data_wash <- my_data_wash %>%
+    mutate(
+        total_depression_score = if_else(
+            rowSums(select(., starts_with("depression_scale_")), na.rm = TRUE) == 0 & 
+            rowSums(is.na(select(., starts_with("depression_scale_")))) == 9,
+            NA_real_,
+            rowSums(select(., starts_with("depression_scale_")), na.rm = TRUE) + 
+            rowSums(is.na(select(., starts_with("depression_scale_"))))
+        )
+    )
+
+# 计算总睡眠时间
 my_data_wash <- my_data_wash %>%
     mutate(
         total_sleep_time = case_when(
@@ -473,8 +467,7 @@ my_data_wash <- my_data_wash %>%
             TRUE ~ coalesce(night_sleep_time, 0) + coalesce(nap_time, 0)
         )
     )
-
-# 计算睡眠时间分数（同上）
+# 计算睡眠时间分数
 my_data_wash <- my_data_wash %>%
     mutate(
         final_sleep_time_score = case_when(
@@ -494,7 +487,8 @@ my_data_wash <- my_data_wash %>%
             TRUE ~ NA_real_
         )
     )
-# 计算抑郁总分（抑郁量表缺少条目算0分还是缺失）
+
+# 计算抑郁总分
 my_data_wash <- my_data_wash %>%
     mutate(
         total_depression_score = if_else(
@@ -549,7 +543,7 @@ my_data_psychological <- my_data_wash %>%
 write.csv(my_data_psychological, "psychological_dimension_data.csv", row.names = FALSE)
 ```
 
-### 感官维度计算
+## 感官维度计算
 ```{R}
 # 计算视力总分
 my_data_wash <- my_data_wash %>%
@@ -589,7 +583,7 @@ my_data_wash <- my_data_wash %>%
 # 计算感官维度总分
 my_data_wash <- my_data_wash %>%
     mutate(
-        final_sensory_score = rowSums(select(., final_far_vision, final_near_vision, final_hearing_score), na.rm = FALSE)
+        final_sensory_score = rowSums(select(., final_far_vision, final_near_vision, final_hearing_score), na.rm = TRUE)
     )
 # 导出感官维度所有变量和ID，去除其他所有变量，导出一个csv
 required_columns <- c(
@@ -601,17 +595,14 @@ my_data_sensory <- my_data_wash %>%
 write.csv(my_data_sensory, "sensory_dimension_data.csv", row.names = FALSE)
 ```
 
-### 活力维度计算
+## 活力维度计算
 ```{R}
 # 计算左手握力分数
 my_data_wash <- my_data_wash %>%
     mutate(
         final_left_hand_grip = case_when(
-            left_hand_grip_1 %in% c(NA, 993, 999) ~ case_when(
-                rowSums(select(., starts_with("grip_test_reason_")) == 4, na.rm = TRUE) > 0 ~ 0,
-                rowSums(select(., starts_with("grip_test_reason_")) == 6, na.rm = TRUE) > 0 ~ 0,
-                TRUE ~ NA_real_
-            ),
+            rowSums(select(., starts_with("grip_test_reason_")) == 4, na.rm = TRUE) > 0 ~ 0,
+            rowSums(select(., starts_with("grip_test_reason_")) == 6, na.rm = TRUE) > 0 ~ 0,
             TRUE ~ pmax(left_hand_grip_1, left_hand_grip_2, na.rm = TRUE)
         )
     )
@@ -620,11 +611,8 @@ my_data_wash <- my_data_wash %>%
 my_data_wash <- my_data_wash %>%
     mutate(
         final_right_hand_grip = case_when(
-            right_hand_grip_1 %in% c(NA, 993, 999) ~ case_when(
-                rowSums(select(., starts_with("grip_test_reason_")) == 4, na.rm = TRUE) > 0 ~ 0,
-                rowSums(select(., starts_with("grip_test_reason_")) == 6, na.rm = TRUE) > 0 ~ 0,
-                TRUE ~ NA_real_
-            ),
+            rowSums(select(., starts_with("grip_test_reason_")) == 4, na.rm = TRUE) > 0 ~ 0,
+            rowSums(select(., starts_with("grip_test_reason_")) == 6, na.rm = TRUE) > 0 ~ 0,
             TRUE ~ pmax(right_hand_grip_1, right_hand_grip_2, na.rm = TRUE)
         )
     )
@@ -638,44 +626,43 @@ my_data_wash <- my_data_wash %>%
             TRUE ~ NA_real_
         )
     )
-
-# 计算呼吸功能总分（这种和性别关联的还要考虑性别是否是NA）
+# 计算呼吸功能总分
 my_data_wash <- my_data_wash %>%
     mutate(
         final_breath_test = case_when(
-            breath_test_1 %in% c(NA, 993, 999) ~ case_when(
-            rowSums(select(., starts_with("breath_test_reason_")) == 4, na.rm = TRUE) > 0 ~ 0,
-            rowSums(select(., starts_with("breath_test_reason_")) == 6, na.rm = TRUE) > 0 ~ 0,
-            TRUE ~ NA_real_
+            rowSums(select(., starts_with("breath_test_")) == 993, na.rm = TRUE) == 3 |
+            rowSums(select(., starts_with("breath_test_")) == 999, na.rm = TRUE) == 3 |
+            rowSums(is.na(select(., starts_with("breath_test_"))), na.rm = TRUE) == 3 ~ case_when(
+                rowSums(select(., starts_with("breath_test_reason_")) == 4, na.rm = TRUE) > 0 ~ 0,
+                rowSums(select(., starts_with("breath_test_reason_")) == 6, na.rm = TRUE) > 0 ~ 0,
+                TRUE ~ NA_real_
             ),
-            TRUE ~ case_when(
             gender == 1 ~ if_else(pmax(breath_test_1, breath_test_2, breath_test_3, na.rm = TRUE) >= 400, 1, 0),
             gender == 2 ~ if_else(pmax(breath_test_1, breath_test_2, breath_test_3, na.rm = TRUE) >= 290, 1, 0),
             TRUE ~ NA_real_
-            )
         )
     )
-
-
+# 计算血红蛋白
+my_data_wash <- my_data_wash %>%
+    mutate(
+        final_hemoglobin = hemoglobin * 10
+    )
 # 计算血红蛋白分数
 my_data_wash <- my_data_wash %>%
     mutate(
         final_hemoglobin_score = case_when(
             is.na(hemoglobin) ~ NA_real_,
-            gender == 1 & hemoglobin * 10 >= 120 & hemoglobin * 10 <= 160 ~ 1,
-            gender == 1 & (hemoglobin * 10 < 120 | hemoglobin * 10 > 160) ~ 0,
-            gender == 2 & hemoglobin * 10 >= 110 & hemoglobin * 10 <= 150 ~ 1,
-            gender == 2 & (hemoglobin * 10 < 110 | hemoglobin * 10 > 150) ~ 0,
+            gender == 1 & hemoglobin >= 120 ~ 1,
+            gender == 1 & hemoglobin < 120 ~ 0,
+            gender == 2 & hemoglobin >= 110 ~ 1,
+            gender == 2 & hemoglobin < 110 ~ 0,
             TRUE ~ NA_real_
         )
     )
-    
-
-
 # 计算活力维度总分
 my_data_wash <- my_data_wash %>%
     mutate(
-        final_vitality_score = rowSums(select(., final_grip_score, final_breath_test, final_hemoglobin_score), na.rm = FALSE)
+        final_vitality_score = rowSums(select(., final_grip_score, final_breath_test, final_hemoglobin_score), na.rm = TRUE)
     )
 # 导出活力维度所有变量和ID，去除其他所有变量，导出一个csv
 required_columns <- c(
@@ -686,7 +673,7 @@ write.csv(my_data_vitality, "vitality_dimension_data.csv", row.names = FALSE)
 
 ```
 
-## 内在能力清洗
+# 内在能力清洗
 ```{R}
 # 挑出只包含ID和五个内在能力维度总分的变量
 my_data_final <- my_data_wash %>%
@@ -704,6 +691,6 @@ print(paste("覆盖百分之百内在能力变量的个体数量:", covered_coun
 write.csv(my_data_final, "final_data.csv", row.names = FALSE)
 ```
 
-## 模型建立
+# 模型建立
 
-## 模型验证
+# 模型验证
