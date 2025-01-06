@@ -360,11 +360,7 @@ my_data_wash <- my_data_wash %>%
 # 计算运动维度总分
 my_data_wash <- my_data_wash %>%
     mutate(
-        final_physical_score = if_else(
-            rowSums(is.na(select(., final_walk_time, final_balance_score, final_sit_stand_time))) > 0,
-            NA_real_,
-            rowSums(select(., final_walk_time, final_balance_score, final_sit_stand_time), na.rm = FALSE)
-        )
+        final_physical_score = rowSums(select(., final_walk_time, final_balance_score, final_sit_stand_time), na.rm = FALSE)
     )
 
 # 导出运动维度所有变量和ID，去除其他所有变量，导出一个csv
