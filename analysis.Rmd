@@ -387,7 +387,7 @@ my_data_wash <- my_data_wash %>%
         )
     )
 
-# 计算减法测试总分
+# 计算减法测试总分（数字是错的是0，那如果是NA也算0还是算成NA）
 my_data_wash <- my_data_wash %>%
     mutate(
         total_subtraction_score = case_when(
@@ -406,22 +406,32 @@ my_data_wash <- my_data_wash %>%
         )
     )
 
-# 计算时间感知总分
+# 计算日期感知总分(这个NA值到底处理成0还是NA)
 my_data_wash <- my_data_wash %>%
     mutate(
-        final_time_perception_score = rowSums(
+        final_date_perception_score = rowSums(
             cbind(
                 if_else(!is.na(recall_year), 1, 0),
                 if_else(!is.na(recall_month), 1, 0),
-                if_else(!is.na(recall_day), 1, 0),
-                if_else(recall_weekday == 1, 1, 0),
-                if_else(recall_season == 1, 1, 0)
+                if_else(!is.na(recall_day), 1, 0)
             ),
             na.rm = TRUE
         )
     )
 
-# 计算最终绘画得分
+# 计算星期和季节感知总分
+my_data_wash <- my_data_wash %>%
+    mutate(
+        final_week_season_perception_score = rowSums(
+            cbind(
+                if_else(recall_weekday == 1, 1, if_else(recall_weekday == 2, 2, NA_real_)),
+                if_else(recall_season == 1, 1, if_else(recall_season == 2, 2, NA_real_))
+            ),
+            na.rm = FALSE
+        )
+    )
+
+# 计算最终绘画得分（NA算0还是NA）
 my_data_wash <- my_data_wash %>%
     mutate(
         final_drawing_score = case_when(
