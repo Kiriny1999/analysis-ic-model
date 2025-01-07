@@ -92,6 +92,8 @@ my_data_rename <- my_data_raw %>%
         gender = ba000_w2_3,          # 性别
 
         # 内在能力运动维度重命名
+        balance_test_affected = pd001,  # 是否影响完成平衡测试
+        understand_and_willing_semi_tandem = pd002,  # 是否明白且愿意参加双脚前后半站立测试
         stand_test_semi_tandem_reason_1 = qd001s1,  # 未完成双脚半前后站立测试的第一个原因
         stand_test_semi_tandem_reason_2 = qd001s2,  # 未完成双脚半前后站立测试的第二个原因
         stand_test_semi_tandem_reason_3 = qd001s3,  # 未完成双脚半前后站立测试的第三个原因
@@ -103,6 +105,7 @@ my_data_rename <- my_data_raw %>%
         stand_test_semi_tandem_reason_other = qd001s97,  # 未完成双脚半前后站立测试的其他原因
         stand_test_semi_tandem = qd002,  # 是否完成双脚半前后站立测试
 
+        understand_and_willing_tandem = pe002,  # 是否明白且愿意参加双脚一条线站立测试
         stand_test_tandem_reason_1 = qe001s1,  # 未完成双脚一条线站立测试的第一个原因
         stand_test_tandem_reason_2 = qe001s2,  # 未完成双脚一条线站立测试的第二个原因
         stand_test_tandem_reason_3 = qe001s3,  # 未完成双脚一条线站立测试的第三个原因
@@ -115,6 +118,7 @@ my_data_rename <- my_data_raw %>%
         stand_test_tandem = qe002,       # 双脚一条线站立测试
         stand_test_tandem_time = qe003,  # 双脚一条线站立测试时间
 
+        understand_and_willing_feet_together = pf001,  # 是否明白且愿意参加双脚并拢站立测试
         stand_test_feet_together_reason_1 = qf001s1,  # 未完成双脚并拢站立测试的第一个原因
         stand_test_feet_together_reason_2 = qf001s2,  # 未完成双脚并拢站立测试的第二个原因
         stand_test_feet_together_reason_3 = qf001s3,  # 未完成双脚并拢站立测试的第三个原因
@@ -125,8 +129,6 @@ my_data_rename <- my_data_raw %>%
         stand_test_feet_together_reason_8 = qf001s8,  # 未完成双脚并拢站立测试的第八个原因
         stand_test_feet_together_reason_other = qf001s97,  # 未完成双脚并拢站立测试的其他原因
         stand_test_feet_together = qf002, # 双脚并拢站立测试
-
-
 
         walk_test_reason_1 = qg001s1,  # 未完成步行测试的第一个原因
         walk_test_reason_2 = qg001s2,  # 未完成步行测试的第二个原因
@@ -140,7 +142,6 @@ my_data_rename <- my_data_raw %>%
         walk_time_first = qg002,       # 步行测试时间1
         walk_time_second = qg003,      # 步行测试时间2
         walk_test_aid = qg005,       # 步行测试使用辅具情况
-
 
         sit_stand_test_reason_1 = qh001s1,  # 未完成五次坐下起来测试的第一个原因
         sit_stand_test_reason_2 = qh001s2,  # 未完成五次坐下起来测试的第二个原因
@@ -272,67 +273,87 @@ my_data_wash <- my_data_elder
 ## 内在能力分数计算
 ### 运动维度计算
 ```{R}
-# 计算步行测试时间（）
+# 计算步行测试时间（无误）
 my_data_wash <- my_data_wash %>%
     mutate(
         final_walk_time = case_when(
-            walk_time_first %in% c(993, 999, NA) ~ case_when(
+            walk_time_first %in% c(993) ~ 0,
+            walk_time_first %in% c(999, NA) ~ case_when(
                 rowSums(select(., starts_with("walk_test_reason_")) == 4, na.rm = TRUE) > 0 ~ 0,
                 rowSums(select(., starts_with("walk_test_reason_")) == 6, na.rm = TRUE) > 0 ~ 0,
                 TRUE ~ NA_real_
             ),
             TRUE ~ case_when(
-                walk_test_aid == 1 ~ case_when(
-                    walk_time_second %in% c(993, 999, NA) ~ if_else(2.5 / walk_time_first >= 1, 1, 0),
-                    walk_time_first %in% c(993, 999, NA) ~ if_else(2.5 / walk_time_second >= 1, 1, 0),
-                    TRUE ~ if_else(2.5 / pmax(walk_time_first, walk_time_second, na.rm = TRUE) >= 1, 1, 0)
-                ),
+                walk_test_aid == 1 ~ if_else(2.5 / pmin(walk_time_first, walk_time_second, na.rm = TRUE) >= 1, 1, 0),
                 walk_test_aid %in% c(2, 3, 4, 97) ~ 0,
                 is.na(walk_test_aid) ~ NA_real_,
-                TRUE ~ 0
-                ),
+                TRUE ~ NA_real_
             )
         )
+    )
+
+# 统计最终步行时间分数不同取值的数量，包括NA
+table(my_data_wash$final_walk_time, useNA = "always")
+
+# 计算平衡分数
 
 # 计算双脚半前后站立时间分数（无误）
 my_data_wash <- my_data_wash %>%
     mutate(
         final_semi_tandem_time = case_when(
-            stand_test_semi_tandem %in% c(993, 999, NA) ~ case_when(
+            stand_test_semi_tandem %in% c(993) ~ 0, # 因为存在这个变量为993但是原因没有4和6的情况，所以这种直接赋值为0了，按这个变量优先
+            stand_test_semi_tandem %in% c(999, NA) ~ case_when(
                 rowSums(select(., starts_with("stand_test_semi_tandem_reason_")) == 4, na.rm = TRUE) > 0 ~ 0,
                 rowSums(select(., starts_with("stand_test_semi_tandem_reason_")) == 6, na.rm = TRUE) > 0 ~ 0,
                 TRUE ~ NA_real_
             ),
-            TRUE ~ if_else(stand_test_semi_tandem == 1, 1, 0)
+            stand_test_semi_tandem == 1 ~ 1,
+            stand_test_semi_tandem == 5 ~ 0,
+            TRUE ~ NA_real_
         )
     )
+
+
+# 统计双脚半前后站立时间分数不同取值的数量，包括NA
+table(my_data_wash$final_semi_tandem_time, useNA = "always")
+
 
 # 计算双脚前后一条线站立时间分数（无误）
 my_data_wash <- my_data_wash %>%
     mutate(
         final_tandem_time = case_when(
-            stand_test_tandem %in% c(993, 999, NA) ~ case_when(
+            stand_test_tandem %in% c(993) ~ 0, # 因为存在这个变量为993但是原因没有4和6的情况，所以这种直接赋值为0了，按这个变量优先
+            stand_test_tandem %in% c(999, NA) ~ case_when(
                 rowSums(select(., starts_with("stand_test_tandem_reason_")) == 4, na.rm = TRUE) > 0 ~ 0,
                 rowSums(select(., starts_with("stand_test_tandem_reason_")) == 6, na.rm = TRUE) > 0 ~ 0,
                 TRUE ~ NA_real_
             ),
             stand_test_tandem == 1 ~ 1,
             stand_test_tandem == 5 ~ if_else(stand_test_tandem_time >= 10, 1, 0),
-            TRUE ~ 0
+            TRUE ~ NA_real_
         )
     )
+# 统计双脚前后一条线站立分数不同取值的数量，包括NA
+table(my_data_wash$final_tandem_time, useNA = "always")
+
 # 计算双脚并拢站立时间分数（无误）
 my_data_wash <- my_data_wash %>%
     mutate(
         final_feet_together_time = case_when(
-            stand_test_feet_together %in% c(993, 999, NA) ~ case_when(
+            stand_test_feet_together %in% c(993) ~ 0,
+            stand_test_feet_together %in% c(999, NA) ~ case_when(
                 rowSums(select(., starts_with("stand_test_feet_together_reason_")) == 4, na.rm = TRUE) > 0 ~ 0,
                 rowSums(select(., starts_with("stand_test_feet_together_reason_")) == 6, na.rm = TRUE) > 0 ~ 0,
                 TRUE ~ NA_real_
             ),
-            TRUE ~ if_else(stand_test_feet_together == 1, 1, 0)
+            stand_test_feet_together == 1 ~ 1,
+            stand_test_feet_together == 5 ~ 0,
+            TRUE ~ NA_real_
         )
     )
+
+# 统计双脚并拢站立分数不同取值的数量，包括NA
+table(my_data_wash$final_feet_together_time, useNA = "always")
 
 # 计算最终平衡得分（无误）
 my_data_wash <- my_data_wash %>%
@@ -345,28 +366,43 @@ my_data_wash <- my_data_wash %>%
             rowSums(select(., final_semi_tandem_time, final_tandem_time, final_feet_together_time) == 0, na.rm = TRUE) == 1 ~ NA_real_,
         )
     )
-# 计算坐起测试时间()
+my_data_wash <- my_data_wash %>%
+    mutate(
+        final_balance_score = case_when(
+            balance_test_affected == 1 ~ 0,
+            TRUE ~ final_balance_score
+        )
+    )
+
+# 统计最终平衡得分不同取值的数量，包括NA
+table(my_data_wash$final_balance_score, useNA = "always")
+
+# 计算坐起测试时间(无误)
 my_data_wash <- my_data_wash %>%
     mutate(
         final_sit_stand_time = case_when(
-            sit_stand_test_completed %in% c(993, 999, NA) ~ case_when(
+            sit_stand_test_completed %in% c(993) ~ 0,
+            sit_stand_test_completed %in% c(999, NA) ~ case_when(
                 rowSums(select(., starts_with("sit_stand_test_reason_")) == 4, na.rm = TRUE) > 0 ~ 0,
                 rowSums(select(., starts_with("sit_stand_test_reason_")) == 6, na.rm = TRUE) > 0 ~ 0,
                 TRUE ~ NA_real_
             ),
             sit_stand_test_completed == 1 ~ case_when(
                 sit_stand_test_arm_use == 1 ~ 0,
-                sit_stand_test_arm_use == 2 ~ case_when(
+                sit_stand_test_arm_use == 5 ~ case_when( # 这个地方数据和代码本否是5，但questionare是1，弄了半天
                     sit_stand_test_time <= 12 ~ 1,
                     sit_stand_test_time > 12 ~ 0,
                     TRUE ~ NA_real_
                     ),
-                TRUE ~ 0 # 貌似是这个地方NA多，怎么考虑呢
+                TRUE ~ NA_real_ 
             ),
             sit_stand_test_completed == 5 ~ 0,
             TRUE ~ NA_real_
         )
     )
+
+# 查看起坐测试时间分数不同取值的数量，包括NA
+table(my_data_wash$final_sit_stand_time, useNA = "always")
 
 # 计算运动维度总分（无误）
 my_data_wash <- my_data_wash %>%
@@ -374,9 +410,8 @@ my_data_wash <- my_data_wash %>%
         final_physical_score = rowSums(select(., final_walk_time, final_balance_score, final_sit_stand_time), na.rm = FALSE)
     )
 
-# 计算运动维度总分缺失值数量
-missing_physical_score <- sum(is.na(my_data_wash$final_physical_score))
-print(paste("运动维度总分缺失值数量:", missing_physical_score))
+# 查看运动维度总分不同取值的数量，包括NA
+table(my_data_wash$final_physical_score, useNA = "always")
 
 # 导出运动维度所有变量和ID，去除其他所有变量，导出一个csv
 required_columns <- c(
@@ -386,9 +421,6 @@ my_data_physical <- my_data_wash %>%
     select(all_of(required_columns))
 
 write.csv(my_data_physical, "physical_dimension_data.csv", row.names = FALSE)
-
-
-
 ```
 
 ### 认知维度计算（需要考虑别人代问时也是NA）
