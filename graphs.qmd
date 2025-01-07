@@ -1,74 +1,58 @@
 ```{mermaid}
-graph TD
-    A[Start] --> B[Calculate Walk Time]
-    B --> C{Walk Time Conditions}
-    C -->|walk_time_first == 993| D[final_walk_time = 0]
-    C -->|walk_time_first == 999 or NA| E{Check Reasons}
-    E -->|Reason 4 or 6| F[final_walk_time = 0]
-    E -->|Else| G[final_walk_time = NA]
-    C -->|Else| H{Check Aid}
-    H -->|Aid == 1| I[final_walk_time = if_else(2.5 / min(walk_time_first, walk_time_second) >= 1, 1, 0)]
-    H -->|Aid in (2, 3, 4, 97)| J[final_walk_time = 0]
-    H -->|Else| K[final_walk_time = NA]
+sequenceDiagram
+  participant Alice
+  participant Bob
+  Alice->>John: Hello John, how are you?
+  loop Healthcheck
+    John->>John: Fight against hypochondria
+  end
+  Note right of John: Rational thoughts <br/>prevail!
+  John-->>Alice: Great!
+  John->>Bob: How about you?
+  Bob-->>John: Jolly good!
+```
 
-    A --> L[Calculate Balance Score]
-    L --> M[Calculate Semi-Tandem Time]
-    M --> N{Semi-Tandem Conditions}
-    N -->|stand_test_semi_tandem == 993| O[final_semi_tandem_time = 0]
-    N -->|stand_test_semi_tandem == 999 or NA| P{Check Reasons}
-    P -->|Reason 4 or 6| Q[final_semi_tandem_time = 0]
-    P -->|Else| R[final_semi_tandem_time = NA]
-    N -->|stand_test_semi_tandem == 1| S[final_semi_tandem_time = 1]
-    N -->|stand_test_semi_tandem == 5| T[final_semi_tandem_time = 0]
-    N -->|Else| U[final_semi_tandem_time = NA]
+```{dot}
+graph G {
+  layout=neato
+  run -- intr;
+  intr -- runbl;
+  runbl -- run;
+  run -- kernel;
+  kernel -- zombie;
+  kernel -- sleep;
+  kernel -- runmem;
+  sleep -- swap;
+  swap -- runswap;
+  runswap -- new;
+  runswap -- runmem;
+  new -- runmem;
+  sleep -- runmem;
+}
+```
 
-    L --> V[Calculate Tandem Time]
-    V --> W{Tandem Conditions}
-    W -->|stand_test_tandem == 993| X[final_tandem_time = 0]
-    W -->|stand_test_tandem == 999 or NA| Y{Check Reasons}
-    Y -->|Reason 4 or 6| Z[final_tandem_time = 0]
-    Y -->|Else| AA[final_tandem_time = NA]
-    W -->|stand_test_tandem == 1| AB[final_tandem_time = 1]
-    W -->|stand_test_tandem == 5| AC[final_tandem_time = if_else(stand_test_tandem_time >= 10, 1, 0)]
-    W -->|Else| AD[final_tandem_time = NA]
+```{r}
+# 安装并加载所需要的包
+if (!requireNamespace("haven", quietly = TRUE)) {
+    install.packages("haven")
+}
+if (!requireNamespace("dplyr", quietly = TRUE)) {
+    install.packages("dplyr")
+}
+if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    install.packages("ggplot2")
+}
+library(haven)
+library(dplyr)
+library(ggplot2)
 
-    L --> AE[Calculate Feet Together Time]
-    AE --> AF{Feet Together Conditions}
-    AF -->|stand_test_feet_together == 993| AG[final_feet_together_time = 0]
-    AF -->|stand_test_feet_together == 999 or NA| AH{Check Reasons}
-    AH -->|Reason 4 or 6| AI[final_feet_together_time = 0]
-    AH -->|Else| AJ[final_feet_together_time = NA]
-    AF -->|stand_test_feet_together == 1| AK[final_feet_together_time = 1]
-    AF -->|stand_test_feet_together == 5| AL[final_feet_together_time = 0]
-    AF -->|Else| AM[final_feet_together_time = NA]
+# 读取并合并数据
+files <- list.files("data_raw/self",
+    pattern = "\\.dta$",
+    full.names = TRUE
+)
+data_list <- lapply(files, read_dta)
+my_data_raw <- Reduce(function(x, y) full_join(x, y, by = "ID"), data_list)
+print(my_data_raw)
 
-    L --> AN[Calculate Final Balance Score]
-    AN --> AO{Balance Score Conditions}
-    AO -->|2 or more tests == 1| AP[final_balance_score = 1]
-    AO -->|2 or more tests NA| AQ[final_balance_score = NA]
-    AO -->|1 test NA, 1 test == 1, 1 test == 0| AR[final_balance_score = NA]
-    AO -->|Else| AS[final_balance_score = 0]
-    AN --> AT{Balance Test Affected}
-    AT -->|balance_test_affected == 1| AU[final_balance_score = 0]
-    AT -->|Else| AV[final_balance_score = final_balance_score]
-
-    A --> AW[Calculate Sit-Stand Time]
-    AW --> AX{Sit-Stand Conditions}
-    AX -->|sit_stand_test_completed == 993| AY[final_sit_stand_time = 0]
-    AX -->|sit_stand_test_completed == 999 or NA| AZ{Check Reasons}
-    AZ -->|Reason 4 or 6| BA[final_sit_stand_time = 0]
-    AZ -->|Else| BB[final_sit_stand_time = NA]
-    AX -->|sit_stand_test_completed == 1| BC{Check Arm Use}
-    BC -->|sit_stand_test_arm_use == 1| BD[final_sit_stand_time = 0]
-    BC -->|sit_stand_test_arm_use == 5| BE{Check Time}
-    BE -->|sit_stand_test_time <= 12| BF[final_sit_stand_time = 1]
-    BE -->|sit_stand_test_time > 12| BG[final_sit_stand_time = 0]
-    BE -->|Else| BH[final_sit_stand_time = NA]
-    AX -->|sit_stand_test_completed == 5| BI[final_sit_stand_time = 0]
-    AX -->|Else| BJ[final_sit_stand_time = NA]
-
-    A --> BK[Calculate Final Physical Score]
-    BK --> BL[final_physical_score = final_walk_time + final_balance_score + final_sit_stand_time]
-    BL --> BM[Export Physical Dimension Data]
-    BM --> BN[End]
 ```
