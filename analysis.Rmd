@@ -2,7 +2,7 @@
 title: "内在能力建模"
 author: "Ruifu Kang & Yirou Niu"
 date: "2024-12-26"
-format: docx
+format: pptx
 ---
 
 # 建模步骤
@@ -67,8 +67,12 @@ if (!requireNamespace("haven", quietly = TRUE)) {
 if (!requireNamespace("dplyr", quietly = TRUE)) {
     install.packages("dplyr")
 }
+if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    install.packages("ggplot2")
+}
 library(haven)
 library(dplyr)
+library(ggplot2)
 
 # 读取并合并数据
 files <- list.files("data_raw/self",
@@ -159,6 +163,8 @@ my_data_rename <- my_data_raw %>%
         
 
         # 内在能力认知维度重命名
+        # 内在能力认知维度重命名
+        proxy_answer = db032,          # 是否由别人代答
         recall_word_1 = dc006s1,       # 回忆词汇1
         recall_word_2 = dc006s2,       # 回忆词汇2
         recall_word_3 = dc006s3,       # 回忆词汇3
@@ -271,7 +277,7 @@ my_data_wash <- my_data_elder
 ```
 
 ## 内在能力分数计算
-### 运动维度计算
+### 运动维度计算（无误）
 ```{R}
 # 计算步行测试时间（无误）
 my_data_wash <- my_data_wash %>%
@@ -286,7 +292,6 @@ my_data_wash <- my_data_wash %>%
             TRUE ~ case_when(
                 walk_test_aid == 1 ~ if_else(2.5 / pmin(walk_time_first, walk_time_second, na.rm = TRUE) >= 1, 1, 0),
                 walk_test_aid %in% c(2, 3, 4, 97) ~ 0,
-                is.na(walk_test_aid) ~ NA_real_,
                 TRUE ~ NA_real_
             )
         )
@@ -364,18 +369,18 @@ my_data_wash <- my_data_wash %>%
             rowSums(is.na(select(., final_semi_tandem_time, final_tandem_time, final_feet_together_time))) == 1 &
             rowSums(select(., final_semi_tandem_time, final_tandem_time, final_feet_together_time) == 1, na.rm = TRUE) == 1 &
             rowSums(select(., final_semi_tandem_time, final_tandem_time, final_feet_together_time) == 0, na.rm = TRUE) == 1 ~ NA_real_,
-        )
-    )
-my_data_wash <- my_data_wash %>%
-    mutate(
-        final_balance_score = case_when(
-            balance_test_affected == 1 ~ 0,
-            TRUE ~ final_balance_score
+            TRUE ~ 0
         )
     )
 
-# 统计最终平衡得分不同取值的数量，包括NA
-table(my_data_wash$final_balance_score, useNA = "always")
+# 根据平衡是否受影响调整NA值
+my_data_wash <- my_data_wash %>%
+    mutate(
+        final_balance_score = case_when(
+            is.na(final_balance_score) & balance_test_affected == 1 ~ 0,
+            TRUE ~ final_balance_score
+        )
+    )
 
 # 计算坐起测试时间(无误)
 my_data_wash <- my_data_wash %>%
@@ -425,7 +430,7 @@ write.csv(my_data_physical, "physical_dimension_data.csv", row.names = FALSE)
 
 ### 认知维度计算（需要考虑别人代问时也是NA）
 ```{R}
-# 计算最终回忆分数
+# 计算最终回忆分数（无误，代填的也会有分，这种怎么处理，暂时不考虑这个条目）
 my_data_wash <- my_data_wash %>%
     mutate(
         final_recall_score = case_when(
@@ -435,12 +440,17 @@ my_data_wash <- my_data_wash %>%
         )
     )
 
-# 计算减法测试总分（数字是错的是0，那如果是NA也算0还是算成NA）
+# 统计最终回忆分数不同取值的数量，包括NA
+table(my_data_wash$final_recall_score, useNA = "always")
+
+
+# 计算减法测试总分
 my_data_wash <- my_data_wash %>%
     mutate(
         total_subtraction_score = case_when(
+            is.na(subtraction_tool_use) ~ NA_real_,# 辅助工具这项NA还挺多的，要考虑这个吗
+            subtraction_tool_use == 1 ~ 0,
             rowSums(is.na(select(., starts_with("subtraction_test_")))) == 5 ~ 0,
-            !is.na(subtraction_tool_use) & subtraction_tool_use == 1 ~ 0,
             TRUE ~ rowSums(
                 cbind(
                     if_else(subtraction_test_1 == 93, 1, 0),
@@ -454,7 +464,11 @@ my_data_wash <- my_data_wash %>%
         )
     )
 
-# 计算日期感知总分(这个NA值到底处理成0还是NA)
+# 统计减法测试总分不同取值的数量，包括NA
+table(my_data_wash$total_subtraction_score, useNA = "always")
+
+
+# 计算日期感知总分(NA处理成0)
 my_data_wash <- my_data_wash %>%
     mutate(
         final_date_perception_score = rowSums(
@@ -467,17 +481,33 @@ my_data_wash <- my_data_wash %>%
         )
     )
 
-# 计算星期和季节感知总分
+# 统计日期感知总分不同取值的数量，包括NA
+table(my_data_wash$final_date_perception_score, useNA = "always")
+
+
+# 计算星期和季节感知总分（NA处理成NA，这样确实值还挺多）
 my_data_wash <- my_data_wash %>%
     mutate(
         final_week_season_perception_score = rowSums(
             cbind(
-                if_else(recall_weekday == 1, 1, if_else(recall_weekday == 2, 2, NA_real_)),
-                if_else(recall_season == 1, 1, if_else(recall_season == 2, 2, NA_real_))
+                if_else(recall_weekday == 1, 1, if_else(recall_weekday == 2, 0, NA_real_)),
+                if_else(recall_season == 1, 1, if_else(recall_season == 2, 0, NA_real_))
             ),
             na.rm = FALSE
         )
     )
+
+# 统计星期和季节感知总分不同取值的数量，包括NA
+table(my_data_wash$final_week_season_perception_score, useNA = "always")
+
+# 计算时间感知总分
+my_data_wash <- my_data_wash %>%
+    mutate(
+        final_time_perception_score = final_date_perception_score + final_week_season_perception_score
+    )
+
+# 统计时间感知总分不同取值的数量，包括NA
+table(my_data_wash$final_time_perception_score, useNA = "always")
 
 # 计算最终绘画得分（NA算0还是NA）
 my_data_wash <- my_data_wash %>%
@@ -485,10 +515,13 @@ my_data_wash <- my_data_wash %>%
         final_drawing_score = case_when(
             drawing_test == 1 ~ 1,
             drawing_test == 2 ~ 0,
-            is.na(drawing_test) ~ 0,
             TRUE ~ NA_real_
         )
     )
+
+# 统计最终绘画得分不同取值的数量，包括NA
+table(my_data_wash$final_drawing_score, useNA = "always")
+
 # 认知维度总分计算
 my_data_wash <- my_data_wash %>%
     mutate(
@@ -497,9 +530,29 @@ my_data_wash <- my_data_wash %>%
             TRUE ~ final_recall_score + total_subtraction_score + final_time_perception_score + final_drawing_score
         )
     )
+
+# 统计认知维度总分不同取值的数量，包括NA
+table(my_data_wash$final_cognitive_score, useNA = "always")
+
+# 计算认知维度层次
+quantiles <- quantile(my_data_wash$final_cognitive_score, probs = c(0.25, 0.5, 0.75), na.rm = TRUE)
+my_data_wash <- my_data_wash %>%
+    mutate(
+        cognitive_level = case_when(
+            is.na(final_cognitive_score) ~ NA_real_,
+            final_cognitive_score <= quantiles[1] ~ 0,
+            final_cognitive_score > quantiles[1] & final_cognitive_score <= quantiles[2] ~ 1,
+            final_cognitive_score > quantiles[2] & final_cognitive_score <= quantiles[3] ~ 2,
+            final_cognitive_score > quantiles[3] ~ 3
+        )
+    )
+
+# 查看认知维度层次不同取值的数量，包括NA
+table(my_data_wash$cognitive_level, useNA = "always")
+
 # 导出认知维度所有变量和ID，去除其他所有变量，导出一个csv
 required_columns <- c(
-    "ID", "final_recall_score", "total_subtraction_score", "final_time_perception_score", "final_drawing_score", "final_cognitive_score"
+    "ID", "final_recall_score", "total_subtraction_score", "final_time_perception_score", "final_drawing_score", "final_cognitive_score", "cognitive_level"
 )
 my_data_cognitive <- my_data_wash %>%
     select(all_of(required_columns))
@@ -508,16 +561,16 @@ write.csv(my_data_cognitive, "cognitive_dimension_data.csv", row.names = FALSE)
 ```
 ### 心理维度计算
 ```{R}
-# 计算总睡眠时间（午睡时间和晚上睡觉时间缺失一个，到底算0还是整个算NA）
+# 计算总睡眠时间（无误）
 my_data_wash <- my_data_wash %>%
     mutate(
         total_sleep_time = case_when(
-            is.na(night_sleep_time) & is.na(nap_time) ~ NA_real_,
-            TRUE ~ coalesce(night_sleep_time, 0) + coalesce(nap_time, 0)
+            is.na(night_sleep_time) ~ NA_real_,
+            TRUE ~ night_sleep_time + coalesce(nap_time / 60, 0)
         )
     )
 
-# 计算睡眠时间分数（同上）
+# 计算睡眠时间分数（无误）
 my_data_wash <- my_data_wash %>%
     mutate(
         final_sleep_time_score = case_when(
@@ -527,17 +580,23 @@ my_data_wash <- my_data_wash %>%
         )
     )
 
-# 计算不良睡眠频率分数
+# 查看睡眠时间分数不同取值的数量，包括NA
+table(my_data_wash$final_sleep_time_score, useNA = "always")
+
+# 计算不良睡眠频率分数（无误）
 my_data_wash <- my_data_wash %>%
     mutate(
         final_poor_sleep_score = case_when(
-            is.na(poor_sleep_frequency) ~ NA_real_,
             poor_sleep_frequency %in% c(1, 2) ~ 1,
             poor_sleep_frequency %in% c(3, 4) ~ 0,
             TRUE ~ NA_real_
         )
     )
-# 计算抑郁总分（抑郁量表缺少条目算0分还是缺失）
+
+# 查看不良睡眠频率分数不同取值的数量，包括NA
+table(my_data_wash$final_poor_sleep_score, useNA = "always")
+
+# 计算抑郁总分（目前全部NA才算NA）
 my_data_wash <- my_data_wash %>%
     mutate(
         total_depression_score = if_else(
@@ -569,17 +628,29 @@ my_data_wash <- my_data_wash %>%
                         )
                     ),
                 na.rm = TRUE
-            ) / 3
+            )
         )
     ) %>%
     mutate(
-        final_depression_score = if_else(total_depression_score >= 12, 0, 1)
+        final_depression_score = case_when(
+            is.na(total_depression_score) ~ NA_real_,
+            total_depression_score <= 9 ~ 1,
+            TRUE ~ 0
+        )
     )
+
+# 统计抑郁总分不同取值的数量，包括NA
+table(my_data_wash$final_depression_score, useNA = "always")
+
 # 心理维度总分计算
 my_data_wash <- my_data_wash %>%
     mutate(
-        final_psychological_score = rowSums(select(., final_sleep_time_score, final_poor_sleep_score, final_depression_score), na.rm = TRUE)
+        final_psychological_score = rowSums(select(., final_sleep_time_score, final_poor_sleep_score, final_depression_score), na.rm = FALSE)
     )
+
+# 统计心理维度总分不同取值的数量，包括NA
+table(my_data_wash$final_psychological_score, useNA = "always")
+
 # 导出心理维度所有变量和ID，去除其他所有变量，导出一个csv
 required_columns <- c(
     "ID", "total_sleep_time", "final_sleep_time_score", "final_poor_sleep_score", "final_depression_score", "final_psychological_score",
@@ -592,9 +663,9 @@ my_data_psychological <- my_data_wash %>%
 write.csv(my_data_psychological, "psychological_dimension_data.csv", row.names = FALSE)
 ```
 
-### 感官维度计算
+### 感官维度计算(无误)
 ```{R}
-# 计算视力总分
+# 计算视力总分（无误）
 my_data_wash <- my_data_wash %>%
     mutate(
         final_far_vision = case_when(
@@ -616,7 +687,12 @@ my_data_wash <- my_data_wash %>%
             TRUE ~ NA_real_
         )
     )
-# 计算听力总分
+
+# 统计视力总分不同取值的数量，包括NA
+table(my_data_wash$final_far_vision, useNA = "always")
+table(my_data_wash$final_near_vision, useNA = "always")
+
+# 计算听力总分（无误）
 my_data_wash <- my_data_wash %>%
     mutate(
         final_hearing_score = case_when(
@@ -629,11 +705,17 @@ my_data_wash <- my_data_wash %>%
             TRUE ~ NA_real_
         )
     )
+# 统计听力总分不同取值的数量，包括NA
+table(my_data_wash$final_hearing_score, useNA = "always")
+
 # 计算感官维度总分
 my_data_wash <- my_data_wash %>%
     mutate(
         final_sensory_score = rowSums(select(., final_far_vision, final_near_vision, final_hearing_score), na.rm = FALSE)
     )
+# 统计感官维度总分不同取值的数量，包括NA
+table(my_data_wash$final_sensory_score, useNA = "always")
+
 # 导出感官维度所有变量和ID，去除其他所有变量，导出一个csv
 required_columns <- c(
     "ID", "final_far_vision", "final_near_vision", "final_hearing_score", "final_sensory_score"
@@ -644,13 +726,14 @@ my_data_sensory <- my_data_wash %>%
 write.csv(my_data_sensory, "sensory_dimension_data.csv", row.names = FALSE)
 ```
 
-### 活力维度计算
+### 活力维度计算（无误，性别没有的也都没法衡量，为NA）
 ```{R}
-# 计算左手握力分数
+# 计算左手握力分数（无误）
 my_data_wash <- my_data_wash %>%
     mutate(
         final_left_hand_grip = case_when(
-            left_hand_grip_1 %in% c(NA, 993, 999) ~ case_when(
+            left_hand_grip_1 == 993 ~ 0,
+            left_hand_grip_1 %in% c(999, NA) ~ case_when(
                 rowSums(select(., starts_with("grip_test_reason_")) == 4, na.rm = TRUE) > 0 ~ 0,
                 rowSums(select(., starts_with("grip_test_reason_")) == 6, na.rm = TRUE) > 0 ~ 0,
                 TRUE ~ NA_real_
@@ -659,11 +742,12 @@ my_data_wash <- my_data_wash %>%
         )
     )
 
-# 计算右手握力分数
+# 计算右手握力分数（无误）
 my_data_wash <- my_data_wash %>%
     mutate(
         final_right_hand_grip = case_when(
-            right_hand_grip_1 %in% c(NA, 993, 999) ~ case_when(
+            right_hand_grip_1 == 993 ~ 0,
+            right_hand_grip_1 %in% c(999, NA) ~ case_when(
                 rowSums(select(., starts_with("grip_test_reason_")) == 4, na.rm = TRUE) > 0 ~ 0,
                 rowSums(select(., starts_with("grip_test_reason_")) == 6, na.rm = TRUE) > 0 ~ 0,
                 TRUE ~ NA_real_
@@ -672,35 +756,41 @@ my_data_wash <- my_data_wash %>%
         )
     )
 
-# 计算最终握力分数
+# 计算最终握力分数（无误）
 my_data_wash <- my_data_wash %>%
     mutate(
         final_grip_score = case_when(
             gender == 1 ~ if_else(pmax(final_left_hand_grip, final_right_hand_grip, na.rm = TRUE) >= 35, 1, 0),
             gender == 2 ~ if_else(pmax(final_left_hand_grip, final_right_hand_grip, na.rm = TRUE) >= 25, 1, 0),
-            TRUE ~ NA_real_
+            TRUE ~ NA_real_ # 性别没法获取的时候这个也没法赋值
         )
     )
 
-# 计算呼吸功能总分（这种和性别关联的还要考虑性别是否是NA）
+# 统计握力分数不同取值的数量，包括NA
+table(my_data_wash$final_grip_score, useNA = "always")
+
+# 计算呼吸功能总分（无误）
 my_data_wash <- my_data_wash %>%
     mutate(
         final_breath_test = case_when(
-            breath_test_1 %in% c(NA, 993, 999) ~ case_when(
-            rowSums(select(., starts_with("breath_test_reason_")) == 4, na.rm = TRUE) > 0 ~ 0,
-            rowSums(select(., starts_with("breath_test_reason_")) == 6, na.rm = TRUE) > 0 ~ 0,
-            TRUE ~ NA_real_
+            breath_test_1 == 993 ~ 0,
+            breath_test_1 %in% c(999, NA) ~ case_when(
+                rowSums(select(., starts_with("breath_test_reason_")) == 4, na.rm = TRUE) > 0 ~ 0,
+                rowSums(select(., starts_with("breath_test_reason_")) == 6, na.rm = TRUE) > 0 ~ 0,
+                TRUE ~ NA_real_
             ),
             TRUE ~ case_when(
-            gender == 1 ~ if_else(pmax(breath_test_1, breath_test_2, breath_test_3, na.rm = TRUE) >= 400, 1, 0),
-            gender == 2 ~ if_else(pmax(breath_test_1, breath_test_2, breath_test_3, na.rm = TRUE) >= 290, 1, 0),
-            TRUE ~ NA_real_
+                gender == 1 ~ if_else(pmax(breath_test_1, breath_test_2, breath_test_3, na.rm = TRUE) >= 400, 1, 0),
+                gender == 2 ~ if_else(pmax(breath_test_1, breath_test_2, breath_test_3, na.rm = TRUE) >= 290, 1, 0),
+                TRUE ~ NA_real_
             )
         )
     )
 
+# 统计呼吸功能分数不同取值的数量，包括NA
+table(my_data_wash$final_breath_test, useNA = "always")
 
-# 计算血红蛋白分数
+# 计算血红蛋白分数（算法无误，但不知道上界和下界算不算正常值）
 my_data_wash <- my_data_wash %>%
     mutate(
         final_hemoglobin_score = case_when(
@@ -712,7 +802,9 @@ my_data_wash <- my_data_wash %>%
             TRUE ~ NA_real_
         )
     )
-    
+
+# 统计血红蛋白分数不同取值的数量，包括NA
+table(my_data_wash$final_hemoglobin_score, useNA = "always")    
 
 
 # 计算活力维度总分
@@ -720,6 +812,10 @@ my_data_wash <- my_data_wash %>%
     mutate(
         final_vitality_score = rowSums(select(., final_grip_score, final_breath_test, final_hemoglobin_score), na.rm = FALSE)
     )
+
+# 统计活力维度总分不同取值的数量，包括NA
+table(my_data_wash$final_vitality_score, useNA = "always")
+
 # 导出活力维度所有变量和ID，去除其他所有变量，导出一个csv
 required_columns <- c(
     "ID", "final_left_hand_grip", "final_right_hand_grip", "final_grip_score", "final_breath_test", "final_hemoglobin_score", "final_vitality_score"
@@ -730,14 +826,14 @@ write.csv(my_data_vitality, "vitality_dimension_data.csv", row.names = FALSE)
 ```
 
 ## 内在能力清洗
-```{R}
+```{R 内在能力清洗}
 # 挑出只包含ID和五个内在能力维度总分的变量
 my_data_final <- my_data_wash %>%
-    select(ID, final_physical_score, final_cognitive_score, final_psychological_score, final_sensory_score, final_vitality_score)
+    select(ID, final_physical_score, cognitive_level, final_psychological_score, final_sensory_score, final_vitality_score)
 
 # 计算覆盖百分之百内在能力变量的个体数量
 covered_individuals <- my_data_final %>%
-    filter(!is.na(final_physical_score) & !is.na(final_cognitive_score) & !is.na(final_psychological_score) & !is.na(final_sensory_score) & !is.na(final_vitality_score))
+    filter(!is.na(final_physical_score) & !is.na(cognitive_level) & !is.na(final_psychological_score) & !is.na(final_sensory_score) & !is.na(final_vitality_score))
 
 # 输出覆盖百分之百内在能力变量的个体数量
 covered_count <- nrow(covered_individuals)
@@ -745,8 +841,10 @@ print(paste("覆盖百分之百内在能力变量的个体数量:", covered_coun
 
 # 导出成一个新的数据框
 write.csv(my_data_final, "final_data.csv", row.names = FALSE)
+covered_individuals
 ```
-
-## 模型建立
+## 自变量筛选
+## 数据分割
+## 模型构建
 
 ## 模型验证
