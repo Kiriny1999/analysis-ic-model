@@ -2,6 +2,7 @@
 title: "内在能力建模"
 author: "Ruifu Kang & Yirou Niu"
 date: "2024-12-26"
+format: "docx"
 ---
 
 # 建模步骤
@@ -15,70 +16,52 @@ date: "2024-12-26"
 
 ### 1.  运动
 - 2.5米步行速度≥ 1米/秒得1分；
-- 重复坐下5次≤12秒得1分；
-- 平衡：3个10秒完成2个及以上得1分。
-- 满分3分
 ```{mermaid}
-graph TD
-    A["读取并合并数据"] --> B["计算步行测试时间"]
-    B --> B1["判断步行测试时间是否为993"]
-    B1 -->|是| B2["步行测试时间得分为0"]
-    B1 -->|否| B3["判断步行测试时间是否为999或NA"]
-    B3 -->|是| B4["判断步行测试未完成原因"]
-    B4 -->|原因是4或6| B5["步行测试时间得分为0"]
-    B4 -->|其他原因| B6["步行测试时间得分为NA"]
-    B3 -->|否| B7["判断步行测试使用辅具情况"]
-    B7 -->|使用辅具| B8["步行速度 >= 1米/秒得1分，否则得0分"]
-    B7 -->|未使用辅具| B9["步行测试时间得分为NA"]
-    B8 --> C["计算双脚半前后站立时间分数"]
-    C --> C1["判断双脚半前后站立时间是否为993"]
-    C1 -->|是| C2["双脚半前后站立时间得分为0"]
-    C1 -->|否| C3["判断双脚半前后站立时间是否为999或NA"]
-    C3 -->|是| C4["判断未完成原因"]
-    C4 -->|原因是4或6| C5["双脚半前后站立时间得分为0"]
-    C4 -->|其他原因| C6["双脚半前后站立时间得分为NA"]
-    C3 -->|否| C7["判断是否完成双脚半前后站立测试"]
-    C7 -->|完成| C8["双脚半前后站立时间得分为1"]
-    C7 -->|未完成| C9["双脚半前后站立时间得分为0"]
-    C8 --> D["计算双脚前后一条线站立时间分数"]
-    D --> D1["判断双脚前后一条线站立时间是否为993"]
-    D1 -->|是| D2["双脚前后一条线站立时间得分为0"]
-    D1 -->|否| D3["判断双脚前后一条线站立时间是否为999或NA"]
-    D3 -->|是| D4["判断未完成原因"]
-    D4 -->|原因是4或6| D5["双脚前后一条线站立时间得分为0"]
-    D4 -->|其他原因| D6["双脚前后一条线站立时间得分为NA"]
-    D3 -->|否| D7["判断是否完成双脚前后一条线站立测试"]
-    D7 -->|完成| D8["双脚前后一条线站立时间 >= 10秒得1分，否则得0分"]
-    D7 -->|未完成| D9["双脚前后一条线站立时间得分为0"]
-    D8 --> E["计算双脚并拢站立时间分数"]
-    E --> E1["判断双脚并拢站立时间是否为993"]
-    E1 -->|是| E2["双脚并拢站立时间得分为0"]
-    E1 -->|否| E3["判断双脚并拢站立时间是否为999或NA"]
-    E3 -->|是| E4["判断未完成原因"]
-    E4 -->|原因是4或6| E5["双脚并拢站立时间得分为0"]
-    E4 -->|其他原因| E6["双脚并拢站立时间得分为NA"]
-    E3 -->|否| E7["判断是否完成双脚并拢站立测试"]
-    E7 -->|完成| E8["双脚并拢站立时间得分为1"]
-    E7 -->|未完成| E9["双脚并拢站立时间得分为0"]
-    E8 --> F["计算最终平衡得分"]
-    F --> F1["判断平衡测试是否受影响"]
-    F1 -->|受影响| F2["最终平衡得分为0"]
-    F1 -->|未受影响| F3["根据各项平衡测试得分计算最终平衡得分"]
-    F2 --> G["计算坐起测试时间"]
-    F3 --> G
-    G --> G1["判断坐起测试时间是否为993"]
-    G1 -->|是| G2["坐起测试时间得分为0"]
-    G1 -->|否| G3["判断坐起测试时间是否为999或NA"]
-    G3 -->|是| G4["判断未完成原因"]
-    G4 -->|原因是4或6| G5["坐起测试时间得分为0"]
-    G4 -->|其他原因| G6["坐起测试时间得分为NA"]
-    G3 -->|否| G7["判断是否完成坐起测试"]
-    G7 -->|完成| G8["坐起测试时间 <= 12秒且未使用手臂得1分，否则得0分"]
-    G7 -->|未完成| G9["坐起测试时间得分为0"]
-    G8 --> H["计算运动维度总分"]
-    H --> I["导出运动维度所有变量和ID"]
-```
+flowchart TD
+    subgraph s1["步行测试"]
+        A["计算步行测试时间"] --> B["判断两次步行测试时间是否均为993"]
+        B -->|是| C["步行测试时间得分为0"]
+        B -->|否| D["判断两次步行测试时间是否都为999或NA"]
+        D -->|是| E["判断步行测试未完成原因"]
+        E -->|原因是4或6| F["步行测试时间得分为0"]
+        E -->|其他原因或NA| G["步行测试时间得分为NA"]
+        D -->|否| H["判断步行测试使用辅具情况"]
+        H -->|未使用辅具| I["计算两次步行时间测试的最大值"]
+        I -->|步行速度 >= 1米/秒| J["步行测试时间得分为1"]
+        I -->|步行速度 < 1米/秒| K["步行测试时间得分为0"]
+        I -->|NA| L["步行测试时间得分为NA"]
+        H -->|使用辅具| M["步行测试时间得分为0"]
+        H -->|NA| N["步行测试时间得分为NA（应该不会出现，怕有没想到的情况）"]
+    end
 
+    subgraph s2["坐起测试"]
+        A1["坐起测试评分"] --> B1["坐起测试是否完成是否为993"]
+        B1 -->|是| C1["得分=0"]
+        B1 -->|否| D1["是否为999或NA"]
+        D1 -->|是| E1["判断未完成原因"]
+        E1 -->|含4或6| F1["得分=0"]
+        E1 -->|其他或NA| G1["得分=NA"]
+        D1 -->|否| H1["是否完成测试"]
+        H1 -->|完成| I1["是否使用手臂？"]
+        I1 -->|使用手臂| M1["得分=0"]
+        I1 -->|未使用手臂| L1["判断完成时间"]
+        I1 -->|NA| P1["得分=NA"]
+        L1 -->|"≤12秒"| O1["得分=1"]
+        L1 -->|">12秒"| N1["得分=0"]
+        L1 -->|NA| Q1["得分=NA"]
+        H1 -->|未完成| J1["得分=0"]
+        H1 -->|NA| K1["得分=NA"]
+    end
+    
+    s2 --> n1["计算运动维度总分"]
+    s1 --> n1
+```
+- 重复坐下5次≤12秒得1分；
+
+- 平衡：3个10秒完成2个及以上得1分。
+
+
+- 满分3分
 ### 2.  认知：
 - 情景记忆（基于延迟回忆得分）：0-10分；
 - 减7测试：5分；
@@ -88,32 +71,7 @@ graph TD
 - 进一步：范围18-20：得3分；范围14-17：得2分；范围7-13：得1分；范围0-6：得0分。
 - 满分3分
 ```{mermaid}
-graph TD
-    A["读取并合并数据"] --> B["计算最终回忆分数"]
-    B --> B1["判断是否拒绝回忆"]
-    B1 -->|是| B2["最终回忆分数为NA"]
-    B1 -->|否| B3["判断是否一个都没回忆起来"]
-    B3 -->|是| B4["最终回忆分数为0"]
-    B3 -->|否| B5["计算回忆词汇得分"]
-    B5 --> C["计算减法测试总分"]
-    C --> C1["判断是否使用工具计算"]
-    C1 -->|是| C2["减法测试总分为0"]
-    C1 -->|否| C3["计算减法测试得分"]
-    C3 --> D["计算日期感知总分"]
-    D --> D1["计算年份、月份、日期得分"]
-    D1 --> E["计算星期和季节感知总分"]
-    E --> E1["计算星期和季节得分"]
-    E1 --> F["计算时间感知总分"]
-    F --> G["计算最终绘画得分"]
-    G --> G1["判断绘画测试结果"]
-    G1 -->|通过| G2["最终绘画得分为1"]
-    G1 -->|未通过| G3["最终绘画得分为0"]
-    G1 -->|NA| G4["最终绘画得分为NA"]
-    G2 --> H["计算认知维度总分"]
-    G3 --> H
-    G4 --> H
-    H --> I["计算认知维度层次"]
-    I --> J["导出认知维度所有变量和ID"]
+
 ```
 
 ### 3. 心理
@@ -147,7 +105,7 @@ graph TD
 
 # 代码
 ## 读取并合并数据
-```{r}
+```{r 读取并合并数据}
 # 安装并加载所需要的包
 if (!requireNamespace("haven", quietly = TRUE)) {
     install.packages("haven")
@@ -171,9 +129,8 @@ data_list <- lapply(files, read_dta)
 my_data_raw <- Reduce(function(x, y) full_join(x, y, by = "ID"), data_list)
 print(my_data_raw)
 ```
-
 ## 变量重命名
-```{r}
+```{r 变量重命名}
 # 变量重命名
 my_data_rename <- my_data_raw %>%
     rename(
@@ -343,9 +300,8 @@ my_data_rename <- my_data_raw %>%
     write.csv(my_data_renamed_only, "renamed_data.csv", row.names = FALSE)
 
 ```
-
 ## 年龄数据清洗
-```{r}
+```{r 年龄数据清洗}
 # 去除实际出生年份和ID出生年份同时缺失的数据
 my_data_year_na <- my_data_rename %>%
     filter(!(is.na(actual_birth_year) & is.na(id_birth_year)))
@@ -363,16 +319,15 @@ print(paste("总共人数:", total_individuals))
 my_data_wash <- my_data_elder
 
 ```
-
 ## 内在能力分数计算
 ### 运动维度计算（无误）
-```{r}
+```{r 运动维度计算}
 # 计算步行测试时间（无误）
 my_data_wash <- my_data_wash %>%
     mutate(
         final_walk_time = case_when(
-            walk_time_first %in% c(993) ~ 0,
-            walk_time_first %in% c(999, NA) ~ case_when(
+            walk_time_first == 993 & walk_time_second == 993 ~ 0,
+            (is.na(walk_time_first) & is.na(walk_time_second)) | (walk_time_first == 999 & walk_time_second == 999) | (is.na(walk_time_first) & walk_time_second == 999) | (walk_time_first == 999 & is.na(walk_time_second)) ~ case_when(
                 rowSums(select(., starts_with("walk_test_reason_")) == 4, na.rm = TRUE) > 0 ~ 0,
                 rowSums(select(., starts_with("walk_test_reason_")) == 6, na.rm = TRUE) > 0 ~ 0,
                 TRUE ~ NA_real_
@@ -389,7 +344,6 @@ my_data_wash <- my_data_wash %>%
 table(my_data_wash$final_walk_time, useNA = "always")
 
 # 计算平衡分数
-
 # 计算双脚半前后站立时间分数（无误）
 my_data_wash <- my_data_wash %>%
     mutate(
@@ -429,6 +383,7 @@ my_data_wash <- my_data_wash %>%
 # 统计双脚前后一条线站立分数不同取值的数量，包括NA
 table(my_data_wash$final_tandem_time, useNA = "always")
 
+
 # 计算双脚并拢站立时间分数（无误）
 my_data_wash <- my_data_wash %>%
     mutate(
@@ -460,15 +415,8 @@ my_data_wash <- my_data_wash %>%
             TRUE ~ 0
         )
     )
-
-# 根据平衡是否受影响调整NA值
-my_data_wash <- my_data_wash %>%
-    mutate(
-        final_balance_score = case_when(
-            is.na(final_balance_score) & balance_test_affected == 1 ~ 0,
-            TRUE ~ final_balance_score
-        )
-    )
+# 统计最终平衡得分不同取值的数量，包括NA
+table(my_data_wash$final_balance_score, useNA = "always")
 
 # 计算坐起测试时间(无误)
 my_data_wash <- my_data_wash %>%
@@ -515,10 +463,9 @@ my_data_physical <- my_data_wash %>%
 
 write.csv(my_data_physical, "physical_dimension_data.csv", row.names = FALSE)
 ```
-
-### 认知维度计算（需要考虑别人代问时也是NA）
-```{r}
-# 计算最终回忆分数（无误，代填的也会有分，这种怎么处理，暂时不考虑这个条目）
+### 认知维度计算（无误）
+```{r 认知维度计算}
+# 计算最终回忆分数（无误）
 my_data_wash <- my_data_wash %>%
     mutate(
         final_recall_score = case_when(
@@ -531,6 +478,8 @@ my_data_wash <- my_data_wash %>%
 # 统计最终回忆分数不同取值的数量，包括NA
 table(my_data_wash$final_recall_score, useNA = "always")
 
+# 统计是否使用计算工具
+table(my_data_wash$subtraction_tool_use, useNA = "always")
 
 # 计算减法测试总分
 my_data_wash <- my_data_wash %>%
@@ -597,7 +546,7 @@ my_data_wash <- my_data_wash %>%
 # 统计时间感知总分不同取值的数量，包括NA
 table(my_data_wash$final_time_perception_score, useNA = "always")
 
-# 计算最终绘画得分（NA算0还是NA）
+# 计算最终绘画得分
 my_data_wash <- my_data_wash %>%
     mutate(
         final_drawing_score = case_when(
@@ -613,10 +562,7 @@ table(my_data_wash$final_drawing_score, useNA = "always")
 # 认知维度总分计算
 my_data_wash <- my_data_wash %>%
     mutate(
-        final_cognitive_score = case_when(
-            final_recall_score + total_subtraction_score + final_time_perception_score + final_drawing_score > 21 ~ 21,
-            TRUE ~ final_recall_score + total_subtraction_score + final_time_perception_score + final_drawing_score
-        )
+        final_cognitive_score = final_recall_score + total_subtraction_score + final_time_perception_score + final_drawing_score
     )
 
 # 统计认知维度总分不同取值的数量，包括NA
@@ -648,7 +594,7 @@ my_data_cognitive <- my_data_wash %>%
 write.csv(my_data_cognitive, "cognitive_dimension_data.csv", row.names = FALSE)
 ```
 ### 心理维度计算
-```{r}
+```{r 心理维度计算}
 # 计算总睡眠时间（无误）
 my_data_wash <- my_data_wash %>%
     mutate(
@@ -684,11 +630,11 @@ my_data_wash <- my_data_wash %>%
 # 查看不良睡眠频率分数不同取值的数量，包括NA
 table(my_data_wash$final_poor_sleep_score, useNA = "always")
 
-# 计算抑郁总分（目前全部NA才算NA）
+# 计算抑郁总分（目前全部NA才算NA，应该一个NA就是NA）
 my_data_wash <- my_data_wash %>%
     mutate(
         total_depression_score = if_else(
-            rowSums(is.na(select(., starts_with("depression_scale_")))) == 9,
+            rowSums(is.na(select(., starts_with("depression_scale_")))) > 0,
             NA_real_,
             rowSums(
                 select(., starts_with("depression_scale_")) %>%
@@ -750,9 +696,8 @@ my_data_psychological <- my_data_wash %>%
 
 write.csv(my_data_psychological, "psychological_dimension_data.csv", row.names = FALSE)
 ```
-
 ### 感官维度计算(无误)
-```{r}
+```{r 感官维度计算}
 # 计算视力总分（无误）
 my_data_wash <- my_data_wash %>%
     mutate(
@@ -813,15 +758,14 @@ my_data_sensory <- my_data_wash %>%
 
 write.csv(my_data_sensory, "sensory_dimension_data.csv", row.names = FALSE)
 ```
-
 ### 活力维度计算（无误，性别没有的也都没法衡量，为NA）
-```{r}
+```{r 活力维度计算}
 # 计算左手握力分数（无误）
 my_data_wash <- my_data_wash %>%
     mutate(
         final_left_hand_grip = case_when(
-            left_hand_grip_1 == 993 ~ 0,
-            left_hand_grip_1 %in% c(999, NA) ~ case_when(
+            left_hand_grip_1 == 993 & left_hand_grip_2 == 993 ~ 0,
+            (is.na(left_hand_grip_1) & is.na(left_hand_grip_2)) | (left_hand_grip_1 == 999 & left_hand_grip_2 == 999) | (is.na(left_hand_grip_1) & left_hand_grip_2 == 999) | (left_hand_grip_1 == 999 & is.na(left_hand_grip_2)) ~ case_when(
                 rowSums(select(., starts_with("grip_test_reason_")) == 4, na.rm = TRUE) > 0 ~ 0,
                 rowSums(select(., starts_with("grip_test_reason_")) == 6, na.rm = TRUE) > 0 ~ 0,
                 TRUE ~ NA_real_
@@ -834,8 +778,8 @@ my_data_wash <- my_data_wash %>%
 my_data_wash <- my_data_wash %>%
     mutate(
         final_right_hand_grip = case_when(
-            right_hand_grip_1 == 993 ~ 0,
-            right_hand_grip_1 %in% c(999, NA) ~ case_when(
+            right_hand_grip_1 == 993 & right_hand_grip_2 == 993 ~ 0,
+            (is.na(right_hand_grip_1) & is.na(right_hand_grip_2)) | (right_hand_grip_1 == 999 & right_hand_grip_2 == 999) | (is.na(right_hand_grip_1) & right_hand_grip_2 == 999) | (right_hand_grip_1 == 999 & is.na(right_hand_grip_2)) ~ case_when(
                 rowSums(select(., starts_with("grip_test_reason_")) == 4, na.rm = TRUE) > 0 ~ 0,
                 rowSums(select(., starts_with("grip_test_reason_")) == 6, na.rm = TRUE) > 0 ~ 0,
                 TRUE ~ NA_real_
@@ -861,8 +805,8 @@ table(my_data_wash$final_grip_score, useNA = "always")
 my_data_wash <- my_data_wash %>%
     mutate(
         final_breath_test = case_when(
-            breath_test_1 == 993 ~ 0,
-            breath_test_1 %in% c(999, NA) ~ case_when(
+            rowSums(select(., starts_with("breath_test_")) == 993, na.rm = TRUE) == 3 ~ 0,
+            rowSums(is.na(select(., starts_with("breath_test_"))) | select(., starts_with("breath_test_")) == 999, na.rm = TRUE) == 3 ~ case_when(
                 rowSums(select(., starts_with("breath_test_reason_")) == 4, na.rm = TRUE) > 0 ~ 0,
                 rowSums(select(., starts_with("breath_test_reason_")) == 6, na.rm = TRUE) > 0 ~ 0,
                 TRUE ~ NA_real_
@@ -912,26 +856,46 @@ my_data_vitality <- my_data_wash %>%select(all_of(required_columns))
 write.csv(my_data_vitality, "vitality_dimension_data.csv", row.names = FALSE)
 
 ```
-
 ## 内在能力清洗
-```{R 内在能力清洗}
+```{r 内在能力清洗}
 # 挑出只包含ID和五个内在能力维度总分的变量
-my_data_final <- my_data_wash %>%
+final_ic_scores <- my_data_wash %>%
     select(ID, final_physical_score, cognitive_level, final_psychological_score, final_sensory_score, final_vitality_score)
 
+# 导出包含所有内在能力维度总分的数据
+write.csv(final_ic_scores, "final_ic_scores.csv", row.names = FALSE)
+
 # 计算覆盖百分之百内在能力变量的个体数量
-covered_individuals <- my_data_final %>%
+covered_individuals <- final_ic_scores %>%
     filter(!is.na(final_physical_score) & !is.na(cognitive_level) & !is.na(final_psychological_score) & !is.na(final_sensory_score) & !is.na(final_vitality_score))
+write.csv(covered_individuals, "covered_individuals.csv", row.names = FALSE)
 
 # 输出覆盖百分之百内在能力变量的个体数量
 covered_count <- nrow(covered_individuals)
 print(paste("覆盖百分之百内在能力变量的个体数量:", covered_count))
 
-# 导出成一个新的数据框
-write.csv(my_data_final, "final_data.csv", row.names = FALSE)
-covered_individuals
+# 导出覆盖100%的个体数据导出为csv
+my_data_filtered_100_ic <- my_data_wash %>%
+    filter(ID %in% covered_individuals$ID)
+write.csv(my_data_filtered_100_ic, "filtered_data_100_ic.csv", row.names = FALSE)
+
+# 统计覆盖80%内在能力变量的个体数量
+covered_80_percent_individuals <- my_data_final %>%
+    filter(rowSums(!is.na(select(., final_physical_score, cognitive_level, final_psychological_score, final_sensory_score, final_vitality_score))) >= 4)
+write.csv(covered_80_percent_individuals, "covered_80_percent_individuals.csv", row.names = FALSE)
+
+# 输出覆盖80%内在能力变量的个体数量
+covered_80_percent_count <- nrow(covered_80_percent_individuals)
+print(paste("覆盖80%内在能力变量的个体数量:", covered_80_percent_count))
+
+# 导出覆盖80%内在能力变量的个体数据
+my_data_filtered_80_percent_ic <- my_data_wash %>%
+    filter(ID %in% covered_80_percent_individuals$ID)
+
+write.csv(my_data_filtered_80_percent_ic, "filtered_data_80_percent_ic.csv", row.names = FALSE)
 ```
 ## 自变量筛选
+
 ## 数据分割
 ## 模型构建
 

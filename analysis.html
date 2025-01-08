@@ -129,121 +129,73 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h3 class="anchored" data-anchor-id="运动">1. 运动</h3>
 <ul>
 <li>2.5米步行速度≥ 1米/秒得1分；</li>
-<li>重复坐下5次≤12秒得1分；</li>
-<li>平衡：3个10秒完成2个及以上得1分。</li>
-<li>满分3分</li>
 </ul>
 <div class="cell" data-layout-align="default">
 <div class="cell-output-display">
 <div>
 <p></p><figure class="figure"><p></p>
 <div>
-<pre class="mermaid mermaid-js">graph TD
-    A["读取并合并数据"] --&gt; B["计算步行测试时间"]
-    B --&gt; B1["判断步行测试时间是否为993"]
-    B1 --&gt;|是| B2["步行测试时间得分为0"]
-    B1 --&gt;|否| B3["判断步行测试时间是否为999或NA"]
-    B3 --&gt;|是| B4["判断步行测试未完成原因"]
-    B4 --&gt;|原因是4或6| B5["步行测试时间得分为0"]
-    B4 --&gt;|其他原因| B6["步行测试时间得分为NA"]
-    B3 --&gt;|否| B7["判断步行测试使用辅具情况"]
-    B7 --&gt;|使用辅具| B8["步行速度 &gt;= 1米/秒得1分，否则得0分"]
-    B7 --&gt;|未使用辅具| B9["步行测试时间得分为NA"]
-    B8 --&gt; C["计算双脚半前后站立时间分数"]
-    C --&gt; C1["判断双脚半前后站立时间是否为993"]
-    C1 --&gt;|是| C2["双脚半前后站立时间得分为0"]
-    C1 --&gt;|否| C3["判断双脚半前后站立时间是否为999或NA"]
-    C3 --&gt;|是| C4["判断未完成原因"]
-    C4 --&gt;|原因是4或6| C5["双脚半前后站立时间得分为0"]
-    C4 --&gt;|其他原因| C6["双脚半前后站立时间得分为NA"]
-    C3 --&gt;|否| C7["判断是否完成双脚半前后站立测试"]
-    C7 --&gt;|完成| C8["双脚半前后站立时间得分为1"]
-    C7 --&gt;|未完成| C9["双脚半前后站立时间得分为0"]
-    C8 --&gt; D["计算双脚前后一条线站立时间分数"]
-    D --&gt; D1["判断双脚前后一条线站立时间是否为993"]
-    D1 --&gt;|是| D2["双脚前后一条线站立时间得分为0"]
-    D1 --&gt;|否| D3["判断双脚前后一条线站立时间是否为999或NA"]
-    D3 --&gt;|是| D4["判断未完成原因"]
-    D4 --&gt;|原因是4或6| D5["双脚前后一条线站立时间得分为0"]
-    D4 --&gt;|其他原因| D6["双脚前后一条线站立时间得分为NA"]
-    D3 --&gt;|否| D7["判断是否完成双脚前后一条线站立测试"]
-    D7 --&gt;|完成| D8["双脚前后一条线站立时间 &gt;= 10秒得1分，否则得0分"]
-    D7 --&gt;|未完成| D9["双脚前后一条线站立时间得分为0"]
-    D8 --&gt; E["计算双脚并拢站立时间分数"]
-    E --&gt; E1["判断双脚并拢站立时间是否为993"]
-    E1 --&gt;|是| E2["双脚并拢站立时间得分为0"]
-    E1 --&gt;|否| E3["判断双脚并拢站立时间是否为999或NA"]
-    E3 --&gt;|是| E4["判断未完成原因"]
-    E4 --&gt;|原因是4或6| E5["双脚并拢站立时间得分为0"]
-    E4 --&gt;|其他原因| E6["双脚并拢站立时间得分为NA"]
-    E3 --&gt;|否| E7["判断是否完成双脚并拢站立测试"]
-    E7 --&gt;|完成| E8["双脚并拢站立时间得分为1"]
-    E7 --&gt;|未完成| E9["双脚并拢站立时间得分为0"]
-    E8 --&gt; F["计算最终平衡得分"]
-    F --&gt; F1["判断平衡测试是否受影响"]
-    F1 --&gt;|受影响| F2["最终平衡得分为0"]
-    F1 --&gt;|未受影响| F3["根据各项平衡测试得分计算最终平衡得分"]
-    F2 --&gt; G["计算坐起测试时间"]
-    F3 --&gt; G
-    G --&gt; G1["判断坐起测试时间是否为993"]
-    G1 --&gt;|是| G2["坐起测试时间得分为0"]
-    G1 --&gt;|否| G3["判断坐起测试时间是否为999或NA"]
-    G3 --&gt;|是| G4["判断未完成原因"]
-    G4 --&gt;|原因是4或6| G5["坐起测试时间得分为0"]
-    G4 --&gt;|其他原因| G6["坐起测试时间得分为NA"]
-    G3 --&gt;|否| G7["判断是否完成坐起测试"]
-    G7 --&gt;|完成| G8["坐起测试时间 &lt;= 12秒且未使用手臂得1分，否则得0分"]
-    G7 --&gt;|未完成| G9["坐起测试时间得分为0"]
-    G8 --&gt; H["计算运动维度总分"]
-    H --&gt; I["导出运动维度所有变量和ID"]
+<pre class="mermaid mermaid-js">flowchart TD
+    subgraph s1["步行测试"]
+        A["计算步行测试时间"] --&gt; B["判断两次步行测试时间是否均为993"]
+        B --&gt;|是| C["步行测试时间得分为0"]
+        B --&gt;|否| D["判断两次步行测试时间是否都为999或NA"]
+        D --&gt;|是| E["判断步行测试未完成原因"]
+        E --&gt;|原因是4或6| F["步行测试时间得分为0"]
+        E --&gt;|其他原因或NA| G["步行测试时间得分为NA"]
+        D --&gt;|否| H["判断步行测试使用辅具情况"]
+        H --&gt;|未使用辅具| I["计算两次步行时间测试的最大值"]
+        I --&gt;|步行速度 &gt;= 1米/秒| J["步行测试时间得分为1"]
+        I --&gt;|步行速度 &lt; 1米/秒| K["步行测试时间得分为0"]
+        I --&gt;|NA| L["步行测试时间得分为NA"]
+        H --&gt;|使用辅具| M["步行测试时间得分为0"]
+        H --&gt;|NA| N["步行测试时间得分为NA（应该不会出现，怕有没想到的情况）"]
+    end
+
+    subgraph s2["坐起测试"]
+        A1["坐起测试评分"] --&gt; B1["坐起测试是否完成是否为993"]
+        B1 --&gt;|是| C1["得分=0"]
+        B1 --&gt;|否| D1["是否为999或NA"]
+        D1 --&gt;|是| E1["判断未完成原因"]
+        E1 --&gt;|含4或6| F1["得分=0"]
+        E1 --&gt;|其他或NA| G1["得分=NA"]
+        D1 --&gt;|否| H1["是否完成测试"]
+        H1 --&gt;|完成| I1["是否使用手臂？"]
+        I1 --&gt;|使用手臂| M1["得分=0"]
+        I1 --&gt;|未使用手臂| L1["判断完成时间"]
+        I1 --&gt;|NA| P1["得分=NA"]
+        L1 --&gt;|"≤12秒"| O1["得分=1"]
+        L1 --&gt;|"&gt;12秒"| N1["得分=0"]
+        L1 --&gt;|NA| Q1["得分=NA"]
+        H1 --&gt;|未完成| J1["得分=0"]
+        H1 --&gt;|NA| K1["得分=NA"]
+    end
+    s2 --&gt; n1["计算运动维度总分"]
+    s1 --&gt; n1
 </pre>
 </div>
 <p></p></figure><p></p>
 </div>
 </div>
 </div>
-</section>
-<section id="认知" class="level3">
-<h3 class="anchored" data-anchor-id="认知">2. 认知：</h3>
 <ul>
-<li>情景记忆（基于延迟回忆得分）：0-10分；</li>
-<li>减7测试：5分；</li>
-<li>日期、月份、年份和季节：5分；</li>
-<li>绘画：1分。</li>
-<li>满分21分</li>
-<li>进一步：范围18-20：得3分；范围14-17：得2分；范围7-13：得1分；范围0-6：得0分。</li>
-<li>满分3分</li>
+<li><p>重复坐下5次≤12秒得1分；</p></li>
+<li><p>平衡：3个10秒完成2个及以上得1分。</p></li>
+<li><p>满分3分 ### 2. 认知：</p></li>
+<li><p>情景记忆（基于延迟回忆得分）：0-10分；</p></li>
+<li><p>减7测试：5分；</p></li>
+<li><p>日期、月份、年份和季节：5分；</p></li>
+<li><p>绘画：1分。</p></li>
+<li><p>满分21分</p></li>
+<li><p>进一步：范围18-20：得3分；范围14-17：得2分；范围7-13：得1分；范围0-6：得0分。</p></li>
+<li><p>满分3分</p></li>
 </ul>
 <div class="cell" data-layout-align="default">
 <div class="cell-output-display">
 <div>
 <p></p><figure class="figure"><p></p>
 <div>
-<pre class="mermaid mermaid-js">graph TD
-    A["读取并合并数据"] --&gt; B["计算最终回忆分数"]
-    B --&gt; B1["判断是否拒绝回忆"]
-    B1 --&gt;|是| B2["最终回忆分数为NA"]
-    B1 --&gt;|否| B3["判断是否一个都没回忆起来"]
-    B3 --&gt;|是| B4["最终回忆分数为0"]
-    B3 --&gt;|否| B5["计算回忆词汇得分"]
-    B5 --&gt; C["计算减法测试总分"]
-    C --&gt; C1["判断是否使用工具计算"]
-    C1 --&gt;|是| C2["减法测试总分为0"]
-    C1 --&gt;|否| C3["计算减法测试得分"]
-    C3 --&gt; D["计算日期感知总分"]
-    D --&gt; D1["计算年份、月份、日期得分"]
-    D1 --&gt; E["计算星期和季节感知总分"]
-    E --&gt; E1["计算星期和季节得分"]
-    E1 --&gt; F["计算时间感知总分"]
-    F --&gt; G["计算最终绘画得分"]
-    G --&gt; G1["判断绘画测试结果"]
-    G1 --&gt;|通过| G2["最终绘画得分为1"]
-    G1 --&gt;|未通过| G3["最终绘画得分为0"]
-    G2 --&gt; H["计算认知维度总分"]
-    G3 --&gt; H
-    H --&gt; I["计算认知维度层次"]
-    I --&gt; J["导出认知维度所有变量和ID"]
-</pre>
+<pre class="mermaid mermaid-js"></pre>
 </div>
 <p></p></figure><p></p>
 </div>
@@ -565,8 +517,8 @@ Attaching package: 'dplyr'</code></pre>
 <span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>my_data_wash <span class="ot">&lt;-</span> my_data_wash <span class="sc">%&gt;%</span></span>
 <span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(</span>
 <span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>        <span class="at">final_walk_time =</span> <span class="fu">case_when</span>(</span>
-<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>            walk_time_first <span class="sc">%in%</span> <span class="fu">c</span>(<span class="dv">993</span>) <span class="sc">~</span> <span class="dv">0</span>,</span>
-<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>            walk_time_first <span class="sc">%in%</span> <span class="fu">c</span>(<span class="dv">999</span>, <span class="cn">NA</span>) <span class="sc">~</span> <span class="fu">case_when</span>(</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>            walk_time_first <span class="sc">==</span> <span class="dv">993</span> <span class="sc">&amp;</span> walk_time_second <span class="sc">==</span> <span class="dv">993</span> <span class="sc">~</span> <span class="dv">0</span>,</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>            (<span class="fu">is.na</span>(walk_time_first) <span class="sc">&amp;</span> <span class="fu">is.na</span>(walk_time_second)) <span class="sc">|</span> (walk_time_first <span class="sc">==</span> <span class="dv">999</span> <span class="sc">&amp;</span> walk_time_second <span class="sc">==</span> <span class="dv">999</span>) <span class="sc">|</span> (<span class="fu">is.na</span>(walk_time_first) <span class="sc">&amp;</span> walk_time_second <span class="sc">==</span> <span class="dv">999</span>) <span class="sc">|</span> (walk_time_first <span class="sc">==</span> <span class="dv">999</span> <span class="sc">&amp;</span> <span class="fu">is.na</span>(walk_time_second)) <span class="sc">~</span> <span class="fu">case_when</span>(</span>
 <span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>                <span class="fu">rowSums</span>(<span class="fu">select</span>(., <span class="fu">starts_with</span>(<span class="st">"walk_test_reason_"</span>)) <span class="sc">==</span> <span class="dv">4</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>) <span class="sc">&gt;</span> <span class="dv">0</span> <span class="sc">~</span> <span class="dv">0</span>,</span>
 <span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>                <span class="fu">rowSums</span>(<span class="fu">select</span>(., <span class="fu">starts_with</span>(<span class="st">"walk_test_reason_"</span>)) <span class="sc">==</span> <span class="dv">6</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>) <span class="sc">&gt;</span> <span class="dv">0</span> <span class="sc">~</span> <span class="dv">0</span>,</span>
 <span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>                <span class="cn">TRUE</span> <span class="sc">~</span> <span class="cn">NA_real_</span></span>
@@ -721,7 +673,7 @@ Attaching package: 'dplyr'</code></pre>
 <div class="cell-output cell-output-stdout">
 <pre><code>
    0    1    2    3 &lt;NA&gt; 
- 272 1603 3763 1399 2945 </code></pre>
+ 271 1604 3764 1399 2944 </code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 导出运动维度所有变量和ID，去除其他所有变量，导出一个csv</span></span>
 <span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>required_columns <span class="ot">&lt;-</span> <span class="fu">c</span>(</span>
@@ -1106,8 +1058,8 @@ Attaching package: 'dplyr'</code></pre>
 <span id="cb59-2"><a href="#cb59-2" aria-hidden="true" tabindex="-1"></a>my_data_wash <span class="ot">&lt;-</span> my_data_wash <span class="sc">%&gt;%</span></span>
 <span id="cb59-3"><a href="#cb59-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(</span>
 <span id="cb59-4"><a href="#cb59-4" aria-hidden="true" tabindex="-1"></a>        <span class="at">final_left_hand_grip =</span> <span class="fu">case_when</span>(</span>
-<span id="cb59-5"><a href="#cb59-5" aria-hidden="true" tabindex="-1"></a>            left_hand_grip_1 <span class="sc">==</span> <span class="dv">993</span> <span class="sc">~</span> <span class="dv">0</span>,</span>
-<span id="cb59-6"><a href="#cb59-6" aria-hidden="true" tabindex="-1"></a>            left_hand_grip_1 <span class="sc">%in%</span> <span class="fu">c</span>(<span class="dv">999</span>, <span class="cn">NA</span>) <span class="sc">~</span> <span class="fu">case_when</span>(</span>
+<span id="cb59-5"><a href="#cb59-5" aria-hidden="true" tabindex="-1"></a>            left_hand_grip_1 <span class="sc">==</span> <span class="dv">993</span> <span class="sc">&amp;</span> left_hand_grip_2 <span class="sc">==</span> <span class="dv">993</span> <span class="sc">~</span> <span class="dv">0</span>,</span>
+<span id="cb59-6"><a href="#cb59-6" aria-hidden="true" tabindex="-1"></a>            (<span class="fu">is.na</span>(left_hand_grip_1) <span class="sc">&amp;</span> <span class="fu">is.na</span>(left_hand_grip_2)) <span class="sc">|</span> (left_hand_grip_1 <span class="sc">==</span> <span class="dv">999</span> <span class="sc">&amp;</span> left_hand_grip_2 <span class="sc">==</span> <span class="dv">999</span>) <span class="sc">|</span> (<span class="fu">is.na</span>(left_hand_grip_1) <span class="sc">&amp;</span> left_hand_grip_2 <span class="sc">==</span> <span class="dv">999</span>) <span class="sc">|</span> (left_hand_grip_1 <span class="sc">==</span> <span class="dv">999</span> <span class="sc">&amp;</span> <span class="fu">is.na</span>(left_hand_grip_2)) <span class="sc">~</span> <span class="fu">case_when</span>(</span>
 <span id="cb59-7"><a href="#cb59-7" aria-hidden="true" tabindex="-1"></a>                <span class="fu">rowSums</span>(<span class="fu">select</span>(., <span class="fu">starts_with</span>(<span class="st">"grip_test_reason_"</span>)) <span class="sc">==</span> <span class="dv">4</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>) <span class="sc">&gt;</span> <span class="dv">0</span> <span class="sc">~</span> <span class="dv">0</span>,</span>
 <span id="cb59-8"><a href="#cb59-8" aria-hidden="true" tabindex="-1"></a>                <span class="fu">rowSums</span>(<span class="fu">select</span>(., <span class="fu">starts_with</span>(<span class="st">"grip_test_reason_"</span>)) <span class="sc">==</span> <span class="dv">6</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>) <span class="sc">&gt;</span> <span class="dv">0</span> <span class="sc">~</span> <span class="dv">0</span>,</span>
 <span id="cb59-9"><a href="#cb59-9" aria-hidden="true" tabindex="-1"></a>                <span class="cn">TRUE</span> <span class="sc">~</span> <span class="cn">NA_real_</span></span>
@@ -1120,8 +1072,8 @@ Attaching package: 'dplyr'</code></pre>
 <span id="cb59-16"><a href="#cb59-16" aria-hidden="true" tabindex="-1"></a>my_data_wash <span class="ot">&lt;-</span> my_data_wash <span class="sc">%&gt;%</span></span>
 <span id="cb59-17"><a href="#cb59-17" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(</span>
 <span id="cb59-18"><a href="#cb59-18" aria-hidden="true" tabindex="-1"></a>        <span class="at">final_right_hand_grip =</span> <span class="fu">case_when</span>(</span>
-<span id="cb59-19"><a href="#cb59-19" aria-hidden="true" tabindex="-1"></a>            right_hand_grip_1 <span class="sc">==</span> <span class="dv">993</span> <span class="sc">~</span> <span class="dv">0</span>,</span>
-<span id="cb59-20"><a href="#cb59-20" aria-hidden="true" tabindex="-1"></a>            right_hand_grip_1 <span class="sc">%in%</span> <span class="fu">c</span>(<span class="dv">999</span>, <span class="cn">NA</span>) <span class="sc">~</span> <span class="fu">case_when</span>(</span>
+<span id="cb59-19"><a href="#cb59-19" aria-hidden="true" tabindex="-1"></a>            right_hand_grip_1 <span class="sc">==</span> <span class="dv">993</span> <span class="sc">&amp;</span> right_hand_grip_2 <span class="sc">==</span> <span class="dv">993</span> <span class="sc">~</span> <span class="dv">0</span>,</span>
+<span id="cb59-20"><a href="#cb59-20" aria-hidden="true" tabindex="-1"></a>            (<span class="fu">is.na</span>(right_hand_grip_1) <span class="sc">&amp;</span> <span class="fu">is.na</span>(right_hand_grip_2)) <span class="sc">|</span> (right_hand_grip_1 <span class="sc">==</span> <span class="dv">999</span> <span class="sc">&amp;</span> right_hand_grip_2 <span class="sc">==</span> <span class="dv">999</span>) <span class="sc">|</span> (<span class="fu">is.na</span>(right_hand_grip_1) <span class="sc">&amp;</span> right_hand_grip_2 <span class="sc">==</span> <span class="dv">999</span>) <span class="sc">|</span> (right_hand_grip_1 <span class="sc">==</span> <span class="dv">999</span> <span class="sc">&amp;</span> <span class="fu">is.na</span>(right_hand_grip_2)) <span class="sc">~</span> <span class="fu">case_when</span>(</span>
 <span id="cb59-21"><a href="#cb59-21" aria-hidden="true" tabindex="-1"></a>                <span class="fu">rowSums</span>(<span class="fu">select</span>(., <span class="fu">starts_with</span>(<span class="st">"grip_test_reason_"</span>)) <span class="sc">==</span> <span class="dv">4</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>) <span class="sc">&gt;</span> <span class="dv">0</span> <span class="sc">~</span> <span class="dv">0</span>,</span>
 <span id="cb59-22"><a href="#cb59-22" aria-hidden="true" tabindex="-1"></a>                <span class="fu">rowSums</span>(<span class="fu">select</span>(., <span class="fu">starts_with</span>(<span class="st">"grip_test_reason_"</span>)) <span class="sc">==</span> <span class="dv">6</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>) <span class="sc">&gt;</span> <span class="dv">0</span> <span class="sc">~</span> <span class="dv">0</span>,</span>
 <span id="cb59-23"><a href="#cb59-23" aria-hidden="true" tabindex="-1"></a>                <span class="cn">TRUE</span> <span class="sc">~</span> <span class="cn">NA_real_</span></span>
@@ -1145,14 +1097,14 @@ Attaching package: 'dplyr'</code></pre>
 <div class="cell-output cell-output-stdout">
 <pre><code>
    0    1 &lt;NA&gt; 
-4682 3471 1829 </code></pre>
+4666 3487 1829 </code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb61"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb61-1"><a href="#cb61-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 计算呼吸功能总分（无误）</span></span>
 <span id="cb61-2"><a href="#cb61-2" aria-hidden="true" tabindex="-1"></a>my_data_wash <span class="ot">&lt;-</span> my_data_wash <span class="sc">%&gt;%</span></span>
 <span id="cb61-3"><a href="#cb61-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(</span>
 <span id="cb61-4"><a href="#cb61-4" aria-hidden="true" tabindex="-1"></a>        <span class="at">final_breath_test =</span> <span class="fu">case_when</span>(</span>
 <span id="cb61-5"><a href="#cb61-5" aria-hidden="true" tabindex="-1"></a>            breath_test_1 <span class="sc">==</span> <span class="dv">993</span> <span class="sc">~</span> <span class="dv">0</span>,</span>
-<span id="cb61-6"><a href="#cb61-6" aria-hidden="true" tabindex="-1"></a>            breath_test_1 <span class="sc">%in%</span> <span class="fu">c</span>(<span class="dv">999</span>, <span class="cn">NA</span>) <span class="sc">~</span> <span class="fu">case_when</span>(</span>
+<span id="cb61-6"><a href="#cb61-6" aria-hidden="true" tabindex="-1"></a>            <span class="fu">rowSums</span>(<span class="fu">is.na</span>(<span class="fu">select</span>(., <span class="fu">starts_with</span>(<span class="st">"breath_test_"</span>))) <span class="sc">|</span> <span class="fu">select</span>(., <span class="fu">starts_with</span>(<span class="st">"breath_test_"</span>)) <span class="sc">==</span> <span class="dv">999</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>) <span class="sc">==</span> <span class="dv">3</span> <span class="sc">~</span> <span class="fu">case_when</span>(</span>
 <span id="cb61-7"><a href="#cb61-7" aria-hidden="true" tabindex="-1"></a>                <span class="fu">rowSums</span>(<span class="fu">select</span>(., <span class="fu">starts_with</span>(<span class="st">"breath_test_reason_"</span>)) <span class="sc">==</span> <span class="dv">4</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>) <span class="sc">&gt;</span> <span class="dv">0</span> <span class="sc">~</span> <span class="dv">0</span>,</span>
 <span id="cb61-8"><a href="#cb61-8" aria-hidden="true" tabindex="-1"></a>                <span class="fu">rowSums</span>(<span class="fu">select</span>(., <span class="fu">starts_with</span>(<span class="st">"breath_test_reason_"</span>)) <span class="sc">==</span> <span class="dv">6</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>) <span class="sc">&gt;</span> <span class="dv">0</span> <span class="sc">~</span> <span class="dv">0</span>,</span>
 <span id="cb61-9"><a href="#cb61-9" aria-hidden="true" tabindex="-1"></a>                <span class="cn">TRUE</span> <span class="sc">~</span> <span class="cn">NA_real_</span></span>
@@ -1170,7 +1122,7 @@ Attaching package: 'dplyr'</code></pre>
 <div class="cell-output cell-output-stdout">
 <pre><code>
    0    1 &lt;NA&gt; 
-5630 2480 1872 </code></pre>
+5574 2495 1913 </code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb63"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb63-1"><a href="#cb63-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 计算血红蛋白分数（算法无误，但不知道上界和下界算不算正常值）</span></span>
 <span id="cb63-2"><a href="#cb63-2" aria-hidden="true" tabindex="-1"></a>my_data_wash <span class="ot">&lt;-</span> my_data_wash <span class="sc">%&gt;%</span></span>
@@ -1203,7 +1155,7 @@ Attaching package: 'dplyr'</code></pre>
 <div class="cell-output cell-output-stdout">
 <pre><code>
    0    1    2    3 &lt;NA&gt; 
- 519 2724 2275 1054 3410 </code></pre>
+ 511 2702 2281 1058 3430 </code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb67"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb67-1"><a href="#cb67-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 导出活力维度所有变量和ID，去除其他所有变量，导出一个csv</span></span>
 <span id="cb67-2"><a href="#cb67-2" aria-hidden="true" tabindex="-1"></a>required_columns <span class="ot">&lt;-</span> <span class="fu">c</span>(</span>
@@ -1229,13 +1181,13 @@ Attaching package: 'dplyr'</code></pre>
 <span id="cb68-10"><a href="#cb68-10" aria-hidden="true" tabindex="-1"></a>covered_count <span class="ot">&lt;-</span> <span class="fu">nrow</span>(covered_individuals)</span>
 <span id="cb68-11"><a href="#cb68-11" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">paste</span>(<span class="st">"覆盖百分之百内在能力变量的个体数量:"</span>, covered_count))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] "覆盖百分之百内在能力变量的个体数量: 3384"</code></pre>
+<pre><code>[1] "覆盖百分之百内在能力变量的个体数量: 3383"</code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb70"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb70-1"><a href="#cb70-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 导出成一个新的数据框</span></span>
 <span id="cb70-2"><a href="#cb70-2" aria-hidden="true" tabindex="-1"></a><span class="fu">write.csv</span>(my_data_final, <span class="st">"final_data.csv"</span>, <span class="at">row.names =</span> <span class="cn">FALSE</span>)</span>
 <span id="cb70-3"><a href="#cb70-3" aria-hidden="true" tabindex="-1"></a>covered_individuals</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code># A tibble: 3,384 × 6
+<pre><code># A tibble: 3,383 × 6
    ID           final_physical_score cognitive_level final_psychological_score
    &lt;chr&gt;                       &lt;dbl&gt;           &lt;dbl&gt;                     &lt;dbl&gt;
  1 094004103001                    2               0                         2
@@ -1248,7 +1200,7 @@ Attaching package: 'dplyr'</code></pre>
  8 194037213001                    2               2                         2
  9 194037223002                    1               3                         3
 10 194037219002                    3               1                         3
-# ℹ 3,374 more rows
+# ℹ 3,373 more rows
 # ℹ 2 more variables: final_sensory_score &lt;dbl&gt;, final_vitality_score &lt;dbl&gt;</code></pre>
 </div>
 </div>
