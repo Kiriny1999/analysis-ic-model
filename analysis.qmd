@@ -121,7 +121,7 @@ library(dplyr)
 library(ggplot2)
 
 # 读取并合并数据
-files <- list.files("data_raw/self",
+files <- list.files("data_raw/2015/self",
     pattern = "\\.dta$",
     full.names = TRUE
 )
@@ -522,7 +522,7 @@ my_data_wash <- my_data_wash %>%
 table(my_data_wash$final_date_perception_score, useNA = "always")
 
 
-# 计算星期和季节感知总分（NA处理成NA，这样确实值还挺多）
+# 计算星期和季节感知总分
 my_data_wash <- my_data_wash %>%
     mutate(
         final_week_season_perception_score = rowSums(
