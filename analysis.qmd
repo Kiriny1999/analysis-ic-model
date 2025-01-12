@@ -107,22 +107,24 @@ flowchart TD
 ## 模型验证
 
 # 代码
-## 读取并合并数据
-```{r 读取并合并数据}
-# 安装并加载所需要的包
-if (!requireNamespace("haven", quietly = TRUE)) {
-    install.packages("haven")
-}
-if (!requireNamespace("dplyr", quietly = TRUE)) {
-    install.packages("dplyr")
-}
-if (!requireNamespace("ggplot2", quietly = TRUE)) {
-    install.packages("ggplot2")
-}
+## 加载所需要的包
+```{r 安装并加载加载所需要的包}
+# 检查需要的包是否安装，如果未安装就安装
+if (!require("haven")) install.packages("haven")
+if (!require("dplyr")) install.packages("dplyr")
+if (!require("ggplot2")) install.packages("ggplot2")
+if (!require("Boruta")) install.packages("Boruta")
+if (!require("mice")) install.packages("mice")
+
+# 加载所需要的包
 library(haven)
 library(dplyr)
 library(ggplot2)
-
+library(Boruta)
+library(mice)
+```
+## 读取并合并数据
+```{r 读取并合并数据}
 # 读取并合并数据
 files <- list.files("data_raw/2015/self",
     pattern = "\\.dta$",
@@ -899,7 +901,6 @@ missing_counts <- covered_80_percent_individuals %>%
 
 print(missing_counts)
 
-
 # 输出覆盖80%内在能力变量的个体数量
 covered_80_percent_count <- nrow(covered_80_percent_individuals)
 print(paste("覆盖80%内在能力变量的个体数量:", covered_80_percent_count))
@@ -911,6 +912,7 @@ my_data_filtered_80_percent_ic <- my_data_wash %>%
 write.csv(my_data_filtered_80_percent_ic, "filtered_data_80_percent_ic.csv", row.names = FALSE)
 ```
 ## 自变量筛选
+## 缺失值插补
 
 ## 数据分割
 ## 模型构建
