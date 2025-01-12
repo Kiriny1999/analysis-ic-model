@@ -1,0 +1,57 @@
+```{mermaid}
+sequenceDiagram
+  participant Alice
+  participant Bob
+  Alice->>John: Hello John, how are you?
+  loop Healthcheck
+    John->>John: Fight against hypochondria
+  end
+  Note right of John: Rational thoughts <br/>prevail!
+  John-->>Alice: Great!
+  John->>Bob: How about you?
+  Bob-->>John: Jolly good!
+```
+
+```{dot}
+graph G {
+  layout=neato
+  run -- intr;
+  intr -- runbl;
+  runbl -- run;
+  run -- kernel;
+  kernel -- zombie;
+  kernel -- sleep;
+  kernel -- runmem;
+  sleep -- swap;
+  swap -- runswap;
+  runswap -- new;
+  runswap -- runmem;
+  new -- runmem;
+  sleep -- runmem;
+}
+```
+
+```{R}
+# 安装并加载所需要的包
+if (!requireNamespace("haven", quietly = TRUE)) {
+    install.packages("haven")
+}
+if (!requireNamespace("dplyr", quietly = TRUE)) {
+    install.packages("dplyr")
+}
+if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    install.packages("ggplot2")
+}
+library(haven)
+library(dplyr)
+library(ggplot2)
+
+# 读取并合并数据
+files <- list.files("data_raw/self",
+    pattern = "\\.dta$",
+    full.names = TRUE
+)
+data_list <- lapply(files, read_dta)
+my_data_raw <- Reduce(function(x, y) full_join(x, y, by = "ID"), data_list)
+print(my_data_raw)
+```
