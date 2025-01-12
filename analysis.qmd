@@ -291,13 +291,13 @@ my_data_rename <- my_data_raw %>%
 
         hemoglobin = bl_hgb          # 血红蛋白含量
     )
-    # 导出包含所有重命名列的数据
-    renamed_columns <- names(my_data_rename)
-    original_columns <- names(my_data_raw)
-    renamed_only_columns <- setdiff(renamed_columns, original_columns)
-    my_data_renamed_only <- my_data_rename %>%
-        select(all_of(renamed_only_columns))
-    write.csv(my_data_renamed_only, "renamed_data.csv", row.names = FALSE)
+# 导出包含所有重命名列的数据
+renamed_columns <- names(my_data_rename)
+original_columns <- names(my_data_raw)
+renamed_only_columns <- setdiff(renamed_columns, original_columns)
+my_data_renamed_only <- my_data_rename %>%
+    select(all_of(renamed_only_columns))
+write.csv(my_data_renamed_only, "renamed_data.csv", row.names = FALSE)
 
 ```
 ## 年龄数据清洗
