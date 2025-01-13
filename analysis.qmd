@@ -121,11 +121,15 @@ if (!requireNamespace("ggplot2", quietly = TRUE)) {
 if (!requireNamespace("openxlsx", quietly = TRUE)) {
     install.packages("openxlsx")
 }
+if (!requireNamespace("arrow", quietly = TRUE)) {
+    install.packages("arrow")
+}
 
 library(haven)
 library(dplyr)
 library(ggplot2)
 library(openxlsx)
+library(arrow)
 
 # 读取并合并数据
 files <- list.files("data_raw/2015/self",
@@ -134,6 +138,12 @@ files <- list.files("data_raw/2015/self",
 )
 data_list <- lapply(files, read_dta)
 my_data_raw <- Reduce(function(x, y) full_join(x, y, by = "ID"), data_list)
+
+write.csv(my_data_raw, "my_data_raw.csv", row.names = FALSE)
+
+
+write_parquet(my_data_raw, "my_data_raw.parquet")
+
 ```
 ## 变量重命名
 ```{r 变量重命名}
