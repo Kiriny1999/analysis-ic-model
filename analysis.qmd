@@ -98,7 +98,6 @@ flowchart TD
 ## 自变量筛选与清洗
 ### 经验筛选
 ### 算法筛选
-- boruta算法筛选
 - 
 ## 数据拆分
 - 
@@ -107,24 +106,27 @@ flowchart TD
 ## 模型验证
 
 # 代码
-## 加载所需要的包
-```{r 安装并加载加载所需要的包}
-# 检查需要的包是否安装，如果未安装就安装
-if (!require("haven")) install.packages("haven")
-if (!require("dplyr")) install.packages("dplyr")
-if (!require("ggplot2")) install.packages("ggplot2")
-if (!require("Boruta")) install.packages("Boruta")
-if (!require("mice")) install.packages("mice")
+## 读取并合并数据
+```{r 读取并合并数据}
+# 安装并加载所需要的包
+if (!requireNamespace("haven", quietly = TRUE)) {
+    install.packages("haven")
+}
+if (!requireNamespace("dplyr", quietly = TRUE)) {
+    install.packages("dplyr")
+}
+if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    install.packages("ggplot2")
+}
+if (!requireNamespace("openxlsx", quietly = TRUE)) {
+    install.packages("openxlsx")
+}
 
-# 加载所需要的包
 library(haven)
 library(dplyr)
 library(ggplot2)
-library(Boruta)
-library(mice)
-```
-## 读取并合并数据
-```{r 读取并合并数据}
+library(openxlsx)
+
 # 读取并合并数据
 files <- list.files("data_raw/2015/self",
     pattern = "\\.dta$",
@@ -132,7 +134,6 @@ files <- list.files("data_raw/2015/self",
 )
 data_list <- lapply(files, read_dta)
 my_data_raw <- Reduce(function(x, y) full_join(x, y, by = "ID"), data_list)
-print(my_data_raw)
 ```
 ## 变量重命名
 ```{r 变量重命名}
@@ -901,6 +902,7 @@ missing_counts <- covered_80_percent_individuals %>%
 
 print(missing_counts)
 
+
 # 输出覆盖80%内在能力变量的个体数量
 covered_80_percent_count <- nrow(covered_80_percent_individuals)
 print(paste("覆盖80%内在能力变量的个体数量:", covered_80_percent_count))
@@ -912,7 +914,31 @@ my_data_filtered_80_percent_ic <- my_data_wash %>%
 write.csv(my_data_filtered_80_percent_ic, "filtered_data_80_percent_ic.csv", row.names = FALSE)
 ```
 ## 自变量筛选
-## 缺失值插补
+### 自变量及其标签导出
+```{r 自变量及其标签导出}
+# 提取出原始数据中所有变量标签
+variable_labels <- sapply(my_data_raw, function(x) attr(x, "label"))
+# 将 NULL 元素替换为空字符串
+variable_labels[sapply(variable_labels, is.null)] <- ""
+# 将变量标签转换为字符向量
+variable_labels_values <- unlist(variable_labels)
+# 导出一个csv，一个变量是原始数据中所有的原始变量名，另一个变量是所有变量对应的变量标签，第三个标签是是否纳入该变量，默认值为“是”
+variable_labels <- data.frame(
+    variable = names(my_data_raw),
+    label = variable_labels_values,
+    include = "是",
+    stringsAsFactors = FALSE
+)
+# 创建一个新的Excel工作簿
+wb <- createWorkbook()
+
+# 添加一个工作表并写入数据
+addWorksheet(wb, "Variable Labels")
+writeData(wb, "Variable Labels", variable_labels)
+
+# 保存Excel文件
+saveWorkbook(wb, "variable_labels.xlsx", overwrite = TRUE)
+```
 
 ## 数据分割
 ## 模型构建
