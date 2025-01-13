@@ -926,7 +926,8 @@ variable_labels_values <- unlist(variable_labels)
 variable_labels <- data.frame(
     variable = names(my_data_raw),
     label = variable_labels_values,
-    include = "是",
+    include = "none",
+    comments = "",
     stringsAsFactors = FALSE
 )
 # 创建一个新的Excel工作簿
@@ -939,7 +940,6 @@ writeData(wb, "Variable Labels", variable_labels)
 # 保存Excel文件
 saveWorkbook(wb, "variable_labels.xlsx", overwrite = TRUE)
 ```
-
 ## 数据分割
 ## 模型构建
 
