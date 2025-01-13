@@ -326,7 +326,7 @@ my_data_wash <- my_data_elder
 
 ```
 ## 内在能力分数计算
-### 运动维度计算（无误）
+### 运动维度计算
 ```{r 运动维度计算}
 # 计算步行测试时间（无误）
 my_data_wash <- my_data_wash %>%
@@ -469,7 +469,7 @@ my_data_physical <- my_data_wash %>%
 
 write.csv(my_data_physical, "physical_dimension_data.csv", row.names = FALSE)
 ```
-### 认知维度计算（无误）
+### 认知维度计算
 ```{r 认知维度计算}
 # 计算最终回忆分数（无误）
 my_data_wash <- my_data_wash %>%
@@ -702,7 +702,7 @@ my_data_psychological <- my_data_wash %>%
 
 write.csv(my_data_psychological, "psychological_dimension_data.csv", row.names = FALSE)
 ```
-### 感官维度计算(无误)
+### 感官维度计算
 ```{r 感官维度计算}
 # 计算视力总分（无误）
 my_data_wash <- my_data_wash %>%
@@ -764,7 +764,7 @@ my_data_sensory <- my_data_wash %>%
 
 write.csv(my_data_sensory, "sensory_dimension_data.csv", row.names = FALSE)
 ```
-### 活力维度计算（无误，性别没有的也都没法衡量，为NA）
+### 活力维度计算
 ```{r 活力维度计算}
 # 计算左手握力分数（无误）
 my_data_wash <- my_data_wash %>%
@@ -939,8 +939,13 @@ writeData(wb, "Variable Labels", variable_labels)
 
 # 保存Excel文件
 saveWorkbook(wb, "variable_labels.xlsx", overwrite = TRUE)
+
 ```
+### 临床经验筛选
+
+### 缺失值处理
 ## 数据分割
+
 ## 模型构建
 
 ## 模型验证
