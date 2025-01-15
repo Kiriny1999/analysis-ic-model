@@ -890,28 +890,15 @@ write.csv(covered_individuals, "covered_individuals.csv", row.names = FALSE)
 covered_count <- nrow(covered_individuals)
 print(paste("覆盖百分之百内在能力变量的个体数量:", covered_count))
 
-# 导出覆盖100%的个体数据导出为csv
+# 导出覆盖100%的个体数据导出为parquet
 my_data_filtered_100_ic <- my_data_wash %>%
     filter(ID %in% covered_individuals$ID)
-write.csv(my_data_filtered_100_ic, "filtered_data_100_ic.csv", row.names = FALSE)
+write_parquet(my_data_filtered_100_ic, "filtered_data_100_ic.parquet")
 
-# 统计覆盖80%内在能力变量的个体数量
+# 统计并导出覆盖80%内在能力变量的个体数量
 covered_80_percent_individuals <- final_ic_scores %>%
     filter(rowSums(!is.na(select(., final_physical_score, cognitive_level, final_psychological_score, final_sensory_score, final_vitality_score))) >= 4)
 write.csv(covered_80_percent_individuals, "covered_80_percent_individuals.csv", row.names = FALSE)
-
-# 统计下这些个体中每个内在能力维度到底缺多少
-missing_counts <- covered_80_percent_individuals %>%
-    summarise(
-        missing_physical = sum(is.na(final_physical_score)),
-        missing_cognitive = sum(is.na(cognitive_level)),
-        missing_psychological = sum(is.na(final_psychological_score)),
-        missing_sensory = sum(is.na(final_sensory_score)),
-        missing_vitality = sum(is.na(final_vitality_score))
-    )
-
-print(missing_counts)
-
 
 # 输出覆盖80%内在能力变量的个体数量
 covered_80_percent_count <- nrow(covered_80_percent_individuals)
@@ -921,7 +908,7 @@ print(paste("覆盖80%内在能力变量的个体数量:", covered_80_percent_co
 my_data_filtered_80_percent_ic <- my_data_wash %>%
     filter(ID %in% covered_80_percent_individuals$ID)
 
-write.csv(my_data_filtered_80_percent_ic, "filtered_data_80_percent_ic.csv", row.names = FALSE)
+write_parquet(my_data_filtered_80_percent_ic, "filtered_data_80_percent_ic.parquet")
 ```
 ## 自变量筛选
 ### 自变量及其标签导出
