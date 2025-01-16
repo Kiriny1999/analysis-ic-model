@@ -62,6 +62,7 @@ flowchart TD
 
 
 - 满分3分
+
 ### 2.  认知：
 - 情景记忆（基于延迟回忆得分）：0-10分；
 - 减7测试：5分；
@@ -97,39 +98,40 @@ flowchart TD
 
 ## 自变量筛选与清洗
 ### 经验筛选
+1. 导出原始数据
+2. 提取原始数据中的变量名和变量标签，作为两个变量，再加上是否纳入和备注导出为csv
+3. 进行手动筛选，筛选出需要的变量
+4. 将筛选后的数据导出为csv
+5. 按照手动筛选出的变量名对原始数据进行清洗，去除不需要的变量
+
 ### 算法筛选
 - 
-## 数据拆分
+### 自变量计算
+### 自变量清洗
+
+## 数据拆分(自变量选择在这一步之前还是之后)
 - 
 ## 模型构建
-
+- 
 ## 模型验证
-
+- 
 # 代码
 ## 读取并合并数据
 ```{r 读取并合并数据}
 # 安装并加载所需要的包
-if (!requireNamespace("haven", quietly = TRUE)) {
-    install.packages("haven")
-}
-if (!requireNamespace("dplyr", quietly = TRUE)) {
-    install.packages("dplyr")
-}
-if (!requireNamespace("ggplot2", quietly = TRUE)) {
-    install.packages("ggplot2")
-}
-if (!requireNamespace("openxlsx", quietly = TRUE)) {
-    install.packages("openxlsx")
-}
-if (!requireNamespace("arrow", quietly = TRUE)) {
-    install.packages("arrow")
-}
+if (!requireNamespace("haven", quietly = TRUE)) install.packages("haven")
+if (!requireNamespace("dplyr", quietly = TRUE)) install.packages("dplyr") 
+if (!requireNamespace("ggplot2", quietly = TRUE)) install.packages("ggplot2")
+if (!requireNamespace("openxlsx", quietly = TRUE)) install.packages("openxlsx")
+if (!requireNamespace("arrow", quietly = TRUE)) install.packages("arrow")
+if (!requireNamespace("Boruta", quietly = TRUE)) install.packages("Boruta")
 
 library(haven)
 library(dplyr)
 library(ggplot2)
 library(openxlsx)
 library(arrow)
+library(Boruta)
 
 # 读取并合并数据
 files <- list.files("data_raw/2015/self",
@@ -138,11 +140,10 @@ files <- list.files("data_raw/2015/self",
 )
 data_list <- lapply(files, read_dta)
 my_data_raw <- Reduce(function(x, y) full_join(x, y, by = "ID"), data_list)
-
-write.csv(my_data_raw, "my_data_raw.csv", row.names = FALSE)
-
-
+# 导出成parquet格式
 write_parquet(my_data_raw, "my_data_raw.parquet")
+# 导出成orc格式
+write_orc(my_data_raw, "my_data_raw.orc")
 
 ```
 ## 变量重命名
@@ -870,7 +871,6 @@ required_columns <- c(
 )
 my_data_vitality <- my_data_wash %>%select(all_of(required_columns))
 write.csv(my_data_vitality, "vitality_dimension_data.csv", row.names = FALSE)
-
 ```
 ## 内在能力清洗
 ```{r 内在能力清洗}
