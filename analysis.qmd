@@ -125,6 +125,8 @@ if (!requireNamespace("ggplot2", quietly = TRUE)) install.packages("ggplot2")
 if (!requireNamespace("openxlsx", quietly = TRUE)) install.packages("openxlsx")
 if (!requireNamespace("arrow", quietly = TRUE)) install.packages("arrow")
 if (!requireNamespace("Boruta", quietly = TRUE)) install.packages("Boruta")
+if (!requireNamespace("mice", quietly = TRUE)) install.packages("mice")
+
 
 library(haven)
 library(dplyr)
@@ -132,6 +134,7 @@ library(ggplot2)
 library(openxlsx)
 library(arrow)
 library(Boruta)
+library(mice)
 
 # 读取并合并数据
 files <- list.files("data_raw/2015/self",
@@ -142,8 +145,7 @@ data_list <- lapply(files, read_dta)
 my_data_raw <- Reduce(function(x, y) full_join(x, y, by = "ID"), data_list)
 # 导出成parquet格式
 write_parquet(my_data_raw, "my_data_raw.parquet")
-# 导出成orc格式
-write_orc(my_data_raw, "my_data_raw.orc")
+
 
 ```
 ## 变量重命名
@@ -877,13 +879,19 @@ write.csv(my_data_vitality, "vitality_dimension_data.csv", row.names = FALSE)
 # 挑出只包含ID和五个内在能力维度总分的变量
 final_ic_scores <- my_data_wash %>%
     select(ID, final_physical_score, cognitive_level, final_psychological_score, final_sensory_score, final_vitality_score)
-
+final_ic_scores <- final_ic_scores %>%
+    mutate(
+        ic_total_score = final_physical_score + cognitive_level + 
+            final_psychological_score + final_sensory_score + final_vitality_score
+    )
 # 导出包含所有内在能力维度总分的数据
 write.csv(final_ic_scores, "final_ic_scores.csv", row.names = FALSE)
 
 # 计算覆盖百分之百内在能力变量的个体数量
 covered_individuals <- final_ic_scores %>%
     filter(!is.na(final_physical_score) & !is.na(cognitive_level) & !is.na(final_psychological_score) & !is.na(final_sensory_score) & !is.na(final_vitality_score))
+
+# 导出覆盖百分之百内在能力个体的内在能力数据
 write.csv(covered_individuals, "covered_individuals.csv", row.names = FALSE)
 
 # 输出覆盖百分之百内在能力变量的个体数量
@@ -895,9 +903,11 @@ my_data_filtered_100_ic <- my_data_wash %>%
     filter(ID %in% covered_individuals$ID)
 write_parquet(my_data_filtered_100_ic, "filtered_data_100_ic.parquet")
 
-# 统计并导出覆盖80%内在能力变量的个体数量
+# 统计覆盖80%内在能力变量的个体
 covered_80_percent_individuals <- final_ic_scores %>%
     filter(rowSums(!is.na(select(., final_physical_score, cognitive_level, final_psychological_score, final_sensory_score, final_vitality_score))) >= 4)
+
+# 导出覆盖80%内在能力变量个体的内在能力数据
 write.csv(covered_80_percent_individuals, "covered_80_percent_individuals.csv", row.names = FALSE)
 
 # 输出覆盖80%内在能力变量的个体数量
@@ -908,6 +918,7 @@ print(paste("覆盖80%内在能力变量的个体数量:", covered_80_percent_co
 my_data_filtered_80_percent_ic <- my_data_wash %>%
     filter(ID %in% covered_80_percent_individuals$ID)
 
+# 将覆盖80%的个体数据导出为parquet
 write_parquet(my_data_filtered_80_percent_ic, "filtered_data_80_percent_ic.parquet")
 ```
 ## 自变量筛选
@@ -939,9 +950,65 @@ saveWorkbook(wb, "variable_labels.xlsx", overwrite = TRUE)
 
 ```
 ### 临床经验筛选
+```{r 临床经验筛选}
+# 读取变量列表
+variable_list <- read.csv("variable_labels_filtered.csv")
 
-### 缺失值处理
+# 筛选出include为"yes"的变量
+selected_vars <- variable_list$variable[variable_list$include == "yes"]
+
+# 内在能力相关变量
+ic_vars <- c(
+    "final_physical_score",  # 运动维度分数
+    "cognitive_level",       # 认知维度分数
+    "final_psychological_score", # 心理维度分数
+    "final_sensory_score",   # 感官维度分数
+    "final_vitality_score",  # 活力维度分数
+    "ic_total_score"         # 内在能力总分
+)
+
+# 合并需要保留的变量
+vars_to_keep <- c(ic_vars, selected_vars)
+
+# 筛选数据
+my_data_manual_filtered <- my_data_filtered_100_ic %>%
+    select(any_of(vars_to_keep))
+
+# 导出自变量手动筛选后的数据
+write_parquet(my_data_manual_filtered, "my_data_manual_filtered.parquet")
+
+```
+### 自变量计算
+```{r 自变量计算}
+
+```
+
 ## 数据分割
+## 数据分割
+```{r 数据分割}
+# 安装并加载所需要的包
+if (!requireNamespace("caret", quietly = TRUE)) {
+    install.packages("caret")
+}
+library(caret)
+
+# 加载数据集
+data(iris)
+
+# 设置随机种子以确保结果可重复
+set.seed(123)
+
+# 创建数据分割
+trainIndex <- createDataPartition(iris$Species, p = 0.8, list = FALSE)
+
+# 创建训练集和测试集
+trainData <- iris[trainIndex, ]
+testData <- iris[-trainIndex, ]
+
+# 查看训练集和测试集的大小
+cat("训练集大小:", nrow(trainData), "\n")
+cat("测试集大小:", nrow(testData), "\n")
+```
 
 ## 模型构建
 
