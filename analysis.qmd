@@ -976,7 +976,6 @@ my_data_manual_filtered <- my_data_filtered_100_ic %>%
 
 # 导出自变量手动筛选后的数据
 write_parquet(my_data_manual_filtered, "my_data_manual_filtered.parquet")
-
 ```
 ### 自变量计算
 ```{r 自变量计算}
