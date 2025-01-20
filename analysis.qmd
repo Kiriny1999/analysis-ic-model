@@ -144,7 +144,7 @@ files <- list.files("data_raw/2015/self",
 data_list <- lapply(files, read_dta)
 my_data_raw <- Reduce(function(x, y) full_join(x, y, by = "ID"), data_list)
 # 导出成parquet格式
-write_parquet(my_data_raw, "my_data_raw.parquet")
+write_parquet(my_data_raw, "data_export/my_data_raw.parquet")
 
 
 ```
