@@ -11,59 +11,15 @@ format: "pptx"
 1. 读取并合并数据
 2. 变量重命名：内在能力及其相关变量，包括出生年份、性别等都重命名
 3. 年龄数据清洗：去掉非老年人的个体之后9982人
-
 ## 内在能力赋值
 
-### 1.  运动
+### 1. 运动
 - 2.5米步行速度≥ 1米/秒得1分；
-```{mermaid}
-flowchart TD
-    subgraph s1["步行测试"]
-        A["计算步行测试时间"] --> B["判断两次步行测试时间是否均为993"]
-        B -->|是| C["步行测试时间得分为0"]
-        B -->|否| D["判断两次步行测试时间是否都为999或NA"]
-        D -->|是| E["判断步行测试未完成原因"]
-        E -->|原因是4或6| F["步行测试时间得分为0"]
-        E -->|其他原因或NA| G["步行测试时间得分为NA"]
-        D -->|否| H["判断步行测试使用辅具情况"]
-        H -->|未使用辅具| I["计算两次步行时间测试的最大值"]
-        I -->|步行速度 >= 1米/秒| J["步行测试时间得分为1"]
-        I -->|步行速度 < 1米/秒| K["步行测试时间得分为0"]
-        I -->|NA| L["步行测试时间得分为NA"]
-        H -->|使用辅具| M["步行测试时间得分为0"]
-        H -->|NA| N["步行测试时间得分为NA（应该不会出现，怕有没想到的情况）"]
-    end
-
-    subgraph s2["坐起测试"]
-        A1["坐起测试评分"] --> B1["坐起测试是否完成是否为993"]
-        B1 -->|是| C1["得分=0"]
-        B1 -->|否| D1["是否为999或NA"]
-        D1 -->|是| E1["判断未完成原因"]
-        E1 -->|含4或6| F1["得分=0"]
-        E1 -->|其他或NA| G1["得分=NA"]
-        D1 -->|否| H1["是否完成测试"]
-        H1 -->|完成| I1["是否使用手臂？"]
-        I1 -->|使用手臂| M1["得分=0"]
-        I1 -->|未使用手臂| L1["判断完成时间"]
-        I1 -->|NA| P1["得分=NA"]
-        L1 -->|"≤12秒"| O1["得分=1"]
-        L1 -->|">12秒"| N1["得分=0"]
-        L1 -->|NA| Q1["得分=NA"]
-        H1 -->|未完成| J1["得分=0"]
-        H1 -->|NA| K1["得分=NA"]
-    end
-    
-    s2 --> n1["计算运动维度总分"]
-    s1 --> n1
-```
 - 重复坐下5次≤12秒得1分；
-
 - 平衡：3个10秒完成2个及以上得1分。
-
-
 - 满分3分
 
-### 2.  认知：
+### 2. 认知
 - 情景记忆（基于延迟回忆得分）：0-10分；
 - 减7测试：5分；
 - 日期、月份、年份和季节：5分；
@@ -71,9 +27,6 @@ flowchart TD
 - 满分21分 
 - 进一步：范围18-20：得3分；范围14-17：得2分；范围7-13：得1分；范围0-6：得0分。
 - 满分3分
-```{mermaid}
-
-```
 
 ### 3. 心理
 - CES-D评分为0到9分：得1分；
@@ -93,21 +46,30 @@ flowchart TD
 - 满分3分
 
 ## 内在能力筛选
-- 根据内在能力计算情况筛选出覆盖内在能力指标范围大于100%的个体
+- 根据内在能力计算情况筛选出覆盖内在能力指标100%的个体
 - 保存筛选后的数据到一个新的数据框中  
 
 ## 自变量筛选与清洗
 ### 经验筛选
 1. 导出原始数据
 2. 提取原始数据中的变量名和变量标签，作为两个变量，再加上是否纳入和备注导出为csv
-3. 进行手动筛选，筛选出需要的变量
+3. 进行手动筛选，筛选出需要的变量（主要根据其临床意义和是否可测算进行筛选）
 4. 将筛选后的数据导出为csv
 5. 按照手动筛选出的变量名对原始数据进行清洗，去除不需要的变量
+   
+### 自变量计算
+1. 按照纳入的每个指标附属条目计算出每个指标的最终分数（其中仔细考虑NA和非空0值的意义）
+2. 将计算的自变量重新命名
+
+### 缺失值变量筛选
+1. 如果某个变量缺失值大于20%，则删除该变量
+2. 如果某个变量缺失值小于20%，则插值
+
+### 缺失值处理
 
 ### 算法筛选
 - 
-### 自变量计算
-### 自变量清洗
+
 
 ## 数据拆分(自变量选择在这一步之前还是之后)
 - 
@@ -127,7 +89,6 @@ if (!requireNamespace("arrow", quietly = TRUE)) install.packages("arrow")
 if (!requireNamespace("Boruta", quietly = TRUE)) install.packages("Boruta")
 if (!requireNamespace("mice", quietly = TRUE)) install.packages("mice")
 
-
 library(haven)
 library(dplyr)
 library(ggplot2)
@@ -145,8 +106,6 @@ data_list <- lapply(files, read_dta)
 my_data_raw <- Reduce(function(x, y) full_join(x, y, by = "ID"), data_list)
 # 导出成parquet格式
 write_parquet(my_data_raw, "data_export/my_data_raw.parquet")
-
-
 ```
 ## 变量重命名
 ```{r 变量重命名}
@@ -316,7 +275,7 @@ original_columns <- names(my_data_raw)
 renamed_only_columns <- setdiff(renamed_columns, original_columns)
 my_data_renamed_only <- my_data_rename %>%
     select(all_of(renamed_only_columns))
-write.csv(my_data_renamed_only, "renamed_data.csv", row.names = FALSE)
+write.csv(my_data_renamed_only, "data_export/renamed_data.csv", row.names = FALSE)
 
 ```
 ## 年龄数据清洗
@@ -332,7 +291,8 @@ my_data_age <- my_data_year_na %>%
 # 年龄清洗
 my_data_elder <- my_data_age %>%
     filter(age >= 60)
-    # 输出现在总共多少人
+
+# 输出现在总共多少人
 total_individuals <- nrow(my_data_elder)
 print(paste("总共人数:", total_individuals))
 my_data_wash <- my_data_elder
@@ -480,7 +440,7 @@ required_columns <- c(
 my_data_physical <- my_data_wash %>%
     select(all_of(required_columns))
 
-write.csv(my_data_physical, "physical_dimension_data.csv", row.names = FALSE)
+write.csv(my_data_physical, "data_export/physical_dimension_data.csv", row.names = FALSE)
 ```
 ### 认知维度计算
 ```{r 认知维度计算}
@@ -610,7 +570,7 @@ required_columns <- c(
 my_data_cognitive <- my_data_wash %>%
     select(all_of(required_columns))
 
-write.csv(my_data_cognitive, "cognitive_dimension_data.csv", row.names = FALSE)
+write.csv(my_data_cognitive, "data_export/cognitive_dimension_data.csv", row.names = FALSE)
 ```
 ### 心理维度计算
 ```{r 心理维度计算}
@@ -713,7 +673,7 @@ required_columns <- c(
 my_data_psychological <- my_data_wash %>%
     select(all_of(required_columns))
 
-write.csv(my_data_psychological, "psychological_dimension_data.csv", row.names = FALSE)
+write.csv(my_data_psychological, "data_export/psychological_dimension_data.csv", row.names = FALSE)
 ```
 ### 感官维度计算
 ```{r 感官维度计算}
@@ -775,7 +735,7 @@ required_columns <- c(
 my_data_sensory <- my_data_wash %>%
     select(all_of(required_columns))
 
-write.csv(my_data_sensory, "sensory_dimension_data.csv", row.names = FALSE)
+write.csv(my_data_sensory, "data_export/sensory_dimension_data.csv", row.names = FALSE)
 ```
 ### 活力维度计算
 ```{r 活力维度计算}
@@ -885,14 +845,14 @@ final_ic_scores <- final_ic_scores %>%
             final_psychological_score + final_sensory_score + final_vitality_score
     )
 # 导出包含所有内在能力维度总分的数据
-write.csv(final_ic_scores, "final_ic_scores.csv", row.names = FALSE)
+write.csv(final_ic_scores, "data_export/final_ic_scores.csv", row.names = FALSE)
 
-# 计算覆盖百分之百内在能力变量的个体数量
+# 计算覆盖百分之百内在能力变量的个体
 covered_individuals <- final_ic_scores %>%
     filter(!is.na(final_physical_score) & !is.na(cognitive_level) & !is.na(final_psychological_score) & !is.na(final_sensory_score) & !is.na(final_vitality_score))
 
 # 导出覆盖百分之百内在能力个体的内在能力数据
-write.csv(covered_individuals, "covered_individuals.csv", row.names = FALSE)
+write.csv(covered_individuals, "data_export/covered_individuals.csv", row.names = FALSE)
 
 # 输出覆盖百分之百内在能力变量的个体数量
 covered_count <- nrow(covered_individuals)
@@ -901,14 +861,14 @@ print(paste("覆盖百分之百内在能力变量的个体数量:", covered_coun
 # 导出覆盖100%的个体数据导出为parquet
 my_data_filtered_100_ic <- my_data_wash %>%
     filter(ID %in% covered_individuals$ID)
-write_parquet(my_data_filtered_100_ic, "filtered_data_100_ic.parquet")
+write_parquet(my_data_filtered_100_ic, "data_export/filtered_data_100_ic.parquet")
 
 # 统计覆盖80%内在能力变量的个体
 covered_80_percent_individuals <- final_ic_scores %>%
     filter(rowSums(!is.na(select(., final_physical_score, cognitive_level, final_psychological_score, final_sensory_score, final_vitality_score))) >= 4)
 
 # 导出覆盖80%内在能力变量个体的内在能力数据
-write.csv(covered_80_percent_individuals, "covered_80_percent_individuals.csv", row.names = FALSE)
+write.csv(covered_80_percent_individuals, "data_export/covered_80_percent_individuals.csv", row.names = FALSE)
 
 # 输出覆盖80%内在能力变量的个体数量
 covered_80_percent_count <- nrow(covered_80_percent_individuals)
@@ -919,7 +879,7 @@ my_data_filtered_80_percent_ic <- my_data_wash %>%
     filter(ID %in% covered_80_percent_individuals$ID)
 
 # 将覆盖80%的个体数据导出为parquet
-write_parquet(my_data_filtered_80_percent_ic, "filtered_data_80_percent_ic.parquet")
+write_parquet(my_data_filtered_80_percent_ic, "data_export/filtered_data_80_percent_ic.parquet")
 ```
 ## 自变量筛选
 ### 自变量及其标签导出
@@ -946,13 +906,13 @@ addWorksheet(wb, "Variable Labels")
 writeData(wb, "Variable Labels", variable_labels)
 
 # 保存Excel文件
-saveWorkbook(wb, "variable_labels.xlsx", overwrite = TRUE)
+saveWorkbook(wb, "data_export/variable_labels.xlsx", overwrite = TRUE)
 
 ```
 ### 临床经验筛选
 ```{r 临床经验筛选}
 # 读取变量列表
-variable_list <- read.csv("variable_labels_filtered.csv")
+variable_list <- read.csv("data_export/variable_labels_manual_filtered.csv")
 
 # 筛选出include为"yes"的变量
 selected_vars <- variable_list$variable[variable_list$include == "yes"]
@@ -975,14 +935,18 @@ my_data_manual_filtered <- my_data_filtered_100_ic %>%
     select(any_of(vars_to_keep))
 
 # 导出自变量手动筛选后的数据
-write_parquet(my_data_manual_filtered, "my_data_manual_filtered.parquet")
+write_parquet(my_data_manual_filtered, "data_export/my_data_manual_filtered.parquet")
 ```
 ### 自变量计算
 ```{r 自变量计算}
 
 ```
 
-## 数据分割
+### 缺失值筛选
+```{r 缺失值筛选}
+
+```
+
 ## 数据分割
 ```{r 数据分割}
 # 安装并加载所需要的包
@@ -1008,7 +972,7 @@ testData <- iris[-trainIndex, ]
 cat("训练集大小:", nrow(trainData), "\n")
 cat("测试集大小:", nrow(testData), "\n")
 ```
-
+## 变量纳入
 ## 模型构建
 
 ## 模型验证
