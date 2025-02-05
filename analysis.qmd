@@ -25,7 +25,7 @@ format: "pptx"
 - 日期、月份、年份和季节：5分；
 - 绘画：1分。
 - 满分21分 
-- 进一步：范围18-20：得3分；范围14-17：得2分；范围7-13：得1分；范围0-6：得0分。
+- 按四分位数分为0、1、2、3四个分数（还是用线性变换）
 - 满分3分
 
 ### 3. 心理
@@ -50,31 +50,57 @@ format: "pptx"
 - 保存筛选后的数据到一个新的数据框中  
 
 ## 自变量筛选与清洗
-### 经验筛选
+### 经验手动筛选
 1. 导出原始数据
 2. 提取原始数据中的变量名和变量标签，作为两个变量，再加上是否纳入和备注导出为csv
-3. 进行手动筛选，筛选出需要的变量（主要根据其临床意义和是否可测算进行筛选）
-4. 将筛选后的数据导出为csv
-5. 按照手动筛选出的变量名对原始数据进行清洗，去除不需要的变量
-   
+3. 每个类型的数据表单独导出一个工作表
+4. 进行手动筛选，筛选出需要的变量（主要根据其临床意义和是否可测算进行筛选）
+    - 收入算个人，财产算家庭
+    - 再去思考一下bracket的意义
+    - 所有的yes再核对
+    - 给变量列表加上备注，标出这部分变量的类别
+5. 将筛选后的数据导出为csv
+6. 按照手动筛选出的变量名对原始数据进行清洗，去除不需要的变量
+
 ### 自变量计算
 1. 按照纳入的每个指标附属条目计算出每个指标的最终分数（其中仔细考虑NA和非空0值的意义）
 2. 将计算的自变量重新命名
+
+## 数据拆分(自变量选择在这一步之前还是之后)
+- 用rsample包进行拆分
+## feature engineering
 
 ### 缺失值变量筛选
 1. 如果某个变量缺失值大于20%，则删除该变量
 2. 如果某个变量缺失值小于20%，则插值
 
-### 缺失值处理
+### near zero variance variables filter
+
+### 连续自变量处理
+- 标准化
+- 缩放和中心化
+
+### 分类变量处理
+- 转化为连续变量
+- 转化为哑变量
+- 标签编码（适合于等级变量）
+
+### 缺失值处理（不确定在这里还是在再采样阶段）
 
 ### 算法筛选
-- 
 
 
-## 数据拆分(自变量选择在这一步之前还是之后)
-- 
+## 模型选择
+1. 多元线性回归
+2. 决策树
+3. 随机森林
+4. 神经网络
+5. 支持向量机
+
 ## 模型构建
-- 
+- 范德萨
+- 数据再采样（resample）
+
 ## 模型验证
 - 
 # 代码
@@ -97,13 +123,14 @@ library(arrow)
 library(Boruta)
 library(mice)
 
-# 读取并合并数据
-files <- list.files("data_raw/2015/self",
-    pattern = "\\.dta$",
-    full.names = TRUE
-)
+files <- list.files("data_raw/2015/self", pattern = "\\.dta$", full.names = TRUE)
 data_list <- lapply(files, read_dta)
-my_data_raw <- Reduce(function(x, y) full_join(x, y, by = "ID"), data_list)
+my_data_raw <- Reduce(function(x, y) {
+    merged <- full_join(x, y, by = "ID", suffix = c("", ".dup"))
+    dups <- grep("\\.dup$", names(merged), value = TRUE)
+    merged <- merged %>% select(-all_of(dups))
+    merged
+}, data_list)
 # 导出成parquet格式
 write_parquet(my_data_raw, "data_export/my_data_raw.parquet")
 ```
@@ -908,6 +935,37 @@ writeData(wb, "Variable Labels", variable_labels)
 # 保存Excel文件
 saveWorkbook(wb, "data_export/variable_labels.xlsx", overwrite = TRUE)
 
+# 以下代码会读取指定文件夹下的所有 Stata 文件，为每个文件提取变量名与标签，
+# 然后将其写入同一个 Excel 工作簿的不同工作表中
+if (!requireNamespace("haven", quietly = TRUE)) install.packages("haven")
+if (!requireNamespace("openxlsx", quietly = TRUE)) install.packages("openxlsx")
+
+library(haven)
+library(openxlsx)
+
+files_stata <- list.files("data_raw/2015/self", pattern = "\\.dta$", full.names = TRUE)
+wb <- createWorkbook()
+
+for (fn in files_stata) {
+    data_name <- sub("\\.dta$", "", basename(fn))
+    tmp_data <- read_dta(fn)
+    v_names <- names(tmp_data)
+    v_labels <- sapply(tmp_data, function(x) {
+        lbl <- attr(x, "label")
+        if (is.null(lbl)) "" else lbl
+    })
+    df_out <- data.frame(
+        variable = v_names,
+        label = v_labels,
+        include = "none",
+        comments = "",
+        stringsAsFactors = FALSE
+    )
+    addWorksheet(wb, data_name)
+    writeData(wb, data_name, df_out)
+}
+
+saveWorkbook(wb, "data_export/all_data_labels.xlsx", overwrite = TRUE)
 ```
 ### 临床经验筛选
 ```{r 临床经验筛选}
@@ -943,34 +1001,75 @@ write_parquet(my_data_manual_filtered, "data_export/my_data_manual_filtered.parq
 ```
 
 ### 缺失值筛选
-```{r 缺失值筛选}
+```{r 缺失值筛选及处理}
+# 安装并加载所需的包
+if (!requireNamespace("visdat", quietly = TRUE)) install.packages("visdat")
+library(visdat)
+
+# 查看缺失值情况
+vis_miss(AmesHousing::ames_raw, cluster = TRUE)
+
+# 去除缺失值超过80%的变量
 
 ```
 
-## 数据分割
+### 算法筛选
+```{r 算法筛选}
+
+
+
+```
+
+## 建模
 ```{r 数据分割}
-# 安装并加载所需要的包
-if (!requireNamespace("caret", quietly = TRUE)) {
-    install.packages("caret")
-}
+# 安装所需的包
+if (!requireNamespace("recipes", quietly = TRUE)) install.packages("recipes")
+if (!requireNamespace("rsample", quietly = TRUE)) install.packages("rsample")
+if (!requireNamespace("ggplot2", quietly = TRUE)) install.packages("ggplot2")
+if (!requireNamespace("caret", quietly = TRUE)) install.packages("caret")
+
+# 加载所需的包
+library(recipes)
+library(rsample)
+library(ggplot2)
 library(caret)
 
-# 加载数据集
-data(iris)
-
-# 设置随机种子以确保结果可重复
+# 数据拆分
 set.seed(123)
+split <- initial_split(ames, prop = 0.7) # 是否需要分层抽样？
+ic_train  <- training(split)
+ic_test   <- testing(split)
 
-# 创建数据分割
-trainIndex <- createDataPartition(iris$Species, p = 0.8, list = FALSE)
+# 特征工程
+blueprint <- recipe(ic_total ~ ., data = ic_train) %>%
+  step_nzv(all_nominal()) %>%
+  step_integer(matches("Qual|Cond|QC|Qu")) %>%
+  step_center(all_numeric(), -all_outcomes()) %>%
+  step_scale(all_numeric(), -all_outcomes()) %>%
+  step_dummy(all_nominal(), -all_outcomes(), one_hot = TRUE) %>%
+  step_impute_knn(all_predictors(), neighbors = 6)
 
-# 创建训练集和测试集
-trainData <- iris[trainIndex, ]
-testData <- iris[-trainIndex, ]
+# 确定再采样验证方法
+cv <- trainControl(
+  method = "repeatedcv", 
+  number = 10, 
+  repeats = 5
+)
 
-# 查看训练集和测试集的大小
-cat("训练集大小:", nrow(trainData), "\n")
-cat("测试集大小:", nrow(testData), "\n")
+# 构建超参数网格
+hyper_grid <- expand.grid(
+  neighbors = c(1, 3, 5, 7, 9)
+)
+
+# 多元线性回归
+lm_fit <- train(
+  blueprint, 
+  data = ames_train, 
+  method = "lm", 
+  trControl = cv, 
+  tuneGrid = hyper_grid,
+  metric = "RMSE"
+)
 ```
 ## 变量纳入
 ## 模型构建
