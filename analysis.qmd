@@ -59,22 +59,22 @@ format: "pptx"
     - 再去思考一下bracket的意义
     - 所有的yes再核对
     - 给变量列表加上备注，标出这部分变量的类别
-5. 将筛选后的数据导出为csv
-6. 按照手动筛选出的变量名对原始数据进行清洗，去除不需要的变量
+    - 没有观察值的直接排除
+5. 将筛选后的数据导出
+6. 按照手动筛选出的变量名对原始数据进行清洗，去除不需要的变量，保留内在能力相关变量
 
 ### 自变量计算
 1. 按照纳入的每个指标附属条目计算出每个指标的最终分数（其中仔细考虑NA和非空0值的意义）
 2. 将计算的自变量重新命名
 
-## 数据拆分(自变量选择在这一步之前还是之后)
-- 用rsample包进行拆分
-## feature engineering
 
 ### 缺失值变量筛选
 1. 如果某个变量缺失值大于20%，则删除该变量
-2. 如果某个变量缺失值小于20%，则插值
+   
+### 算法筛选
 
-### near zero variance variables filter
+1. 采用boruta方法进行算法筛选（可boruta方法需要进行筛选，）
+
 
 ### 连续自变量处理
 - 标准化
@@ -85,11 +85,6 @@ format: "pptx"
 - 转化为哑变量
 - 标签编码（适合于等级变量）
 
-### 缺失值处理（不确定在这里还是在再采样阶段）
-
-### 算法筛选
-
-
 ## 模型选择
 1. 多元线性回归
 2. 决策树
@@ -98,7 +93,6 @@ format: "pptx"
 5. 支持向量机
 
 ## 模型构建
-- 范德萨
 - 数据再采样（resample）
 
 ## 模型验证
@@ -917,7 +911,7 @@ variable_labels <- sapply(my_data_raw, function(x) attr(x, "label"))
 variable_labels[sapply(variable_labels, is.null)] <- ""
 # 将变量标签转换为字符向量
 variable_labels_values <- unlist(variable_labels)
-# 导出一个csv，一个变量是原始数据中所有的原始变量名，另一个变量是所有变量对应的变量标签，第三个标签是是否纳入该变量，默认值为“是”
+# 导出变量标签
 variable_labels <- data.frame(
     variable = names(my_data_raw),
     label = variable_labels_values,
@@ -998,6 +992,7 @@ write_parquet(my_data_manual_filtered, "data_export/my_data_manual_filtered.parq
 ### 自变量计算
 ```{r 自变量计算}
 
+my_data_calculated # 最后计算出的数据
 ```
 
 ### 缺失值筛选
@@ -1007,20 +1002,35 @@ if (!requireNamespace("visdat", quietly = TRUE)) install.packages("visdat")
 library(visdat)
 
 # 查看缺失值情况
-vis_miss(AmesHousing::ames_raw, cluster = TRUE)
+vis_miss(my_data_calculated, cluster = TRUE)
 
 # 去除缺失值超过80%的变量
+my_data_na_filtered <- my_data_calculated %>%
+    select(which(colMeans(is.na(.)) <= 0.8))
 
+# 导出筛选后的数据
+write_parquet(my_data_na_filtered, "data_export/my_data_na_filtered.parquet")
 ```
 
 ### 算法筛选
-```{r 算法筛选}
+```{r Boruta算法筛选}
+# 使用Boruta算法进行变量筛选（Boruta方法应该用在缺失值处理之后还是之前）
+set.seed(123)
+boruta_output <- Boruta(ic_total_score ~ ., data = my_data_na_filtered, doTrace = 2)
 
+# 获取重要变量
+important_vars <- getSelectedAttributes(boruta_output, withTentative = TRUE)
 
+# 创建包含重要变量的新数据框
+my_data_boruta_filtered <- my_data_na_filtered %>%
+  select(ic_total_score, any_of(important_vars))
+
+# 导出筛选后的数据
+write_parquet(my_data_boruta_filtered, "data_export/my_data_boruta_filtered.parquet")
 
 ```
 
-## 建模
+## 建模及验证
 ```{r 数据分割}
 # 安装所需的包
 if (!requireNamespace("recipes", quietly = TRUE)) install.packages("recipes")
@@ -1036,7 +1046,7 @@ library(caret)
 
 # 数据拆分
 set.seed(123)
-split <- initial_split(ames, prop = 0.7) # 是否需要分层抽样？
+split <- initial_split(my_data_boruta_filtered, prop = 0.7) # 是否需要分层抽样？
 ic_train  <- training(split)
 ic_test   <- testing(split)
 
@@ -1064,14 +1074,10 @@ hyper_grid <- expand.grid(
 # 多元线性回归
 lm_fit <- train(
   blueprint, 
-  data = ames_train, 
+  data = ic_train, 
   method = "lm", 
   trControl = cv, 
   tuneGrid = hyper_grid,
   metric = "RMSE"
 )
 ```
-## 变量纳入
-## 模型构建
-
-## 模型验证
