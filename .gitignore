@@ -1,4 +1,5 @@
 .DS_Store
 # 省略csv文件
 *.csv
+# 省略xlsx文件
 *.xlsx
