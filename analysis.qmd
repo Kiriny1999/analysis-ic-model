@@ -855,16 +855,23 @@ required_columns <- c(
 my_data_vitality <- my_data_wash %>%select(all_of(required_columns))
 write.csv(my_data_vitality, "vitality_dimension_data.csv", row.names = FALSE)
 ```
+
+### 内在能力总分计算
+```{r 内在能力总分计算}
+# 计算内在能力总分
+my_data_wash <- my_data_wash %>%
+    mutate(
+        ic_total_score = final_physical_score + cognitive_level + final_psychological_score + final_sensory_score + final_vitality_score
+    )
+
+```
+
 ## 内在能力清洗
 ```{r 内在能力清洗}
 # 挑出只包含ID和五个内在能力维度总分的变量
 final_ic_scores <- my_data_wash %>%
-    select(ID, final_physical_score, cognitive_level, final_psychological_score, final_sensory_score, final_vitality_score)
-final_ic_scores <- final_ic_scores %>%
-    mutate(
-        ic_total_score = final_physical_score + cognitive_level + 
-            final_psychological_score + final_sensory_score + final_vitality_score
-    )
+    select(ID, final_physical_score, cognitive_level, final_psychological_score, final_sensory_score, final_vitality_score, ic_total_score)
+
 # 导出包含所有内在能力维度总分的数据
 write.csv(final_ic_scores, "data_export/final_ic_scores.csv", row.names = FALSE)
 
@@ -991,8 +998,25 @@ write_parquet(my_data_manual_filtered, "data_export/my_data_manual_filtered.parq
 ```
 ### 自变量计算
 ```{r 自变量计算}
+# 初始化计算后的数据框
+my_data_calculated <- my_data_manual_filtered %>%
+    select(ID, final_physical_score, cognitive_level, final_psychological_score, final_sensory_score, final_vitality_score, ic_total_score)
 
-my_data_calculated # 最后计算出的数据
+# 计算收缩压的最终值并添加标签
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        bp_sbp = rowMeans(select(my_data_manual_filtered, qa003, qa007, qa011), na.rm = TRUE)
+    )
+attr(my_data_calculated$bp_sbp, "label") <- "收缩压"
+
+# 计算舒张压的最终值并添加标签
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        bp_dbp = rowMeans(select(my_data_manual_filtered, qa004, qa008, qa012), na.rm = TRUE)
+    )
+attr(my_data_calculated$bp_dbp, "label") <- "舒张压"
+
+
 ```
 
 ### 缺失值筛选
