@@ -1016,6 +1016,186 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$bp_dbp, "label") <- "舒张压"
 
+# 计算是否为高血压
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        hypertension = case_when(
+            bp_sbp > 140 | bp_dbp > 90 ~ 1,
+            !is.na(bp_sbp) & !is.na(bp_dbp) ~ 0,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$hypertension, "label") <- "是否为高血压"
+# 计算是否为低血压并添加标签
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        hypotension = case_when(
+            bp_dbp < 60 | bp_sbp < 90 ~ 1,
+            !is.na(bp_sbp) & !is.na(bp_dbp) ~ 0,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$hypotension, "label") <- "是否为低血压"
+# 计算脉搏的最终值并添加标签
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        pulse = round(rowMeans(select(my_data_manual_filtered, qa005, qa009, qa013), na.rm = TRUE))
+    )
+attr(my_data_calculated$pulse, "label") <- "脉搏"
+# 计算是否为心动过速并添加标签
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        tachycardia = case_when(
+            pulse > 100 ~ 1,
+            !is.na(pulse) ~ 0,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$tachycardia, "label") <- "是否为心动过速"
+# 计算是否为心动过缓并添加标签
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        bradycardia = case_when(
+            pulse < 60 ~ 1,
+            !is.na(pulse) ~ 0,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$bradycardia, "label") <- "是否为心动过缓"
+# 计算身高并保留两位小数
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        height = round(select(my_data_manual_filtered, qi002), 2)
+    )
+attr(my_data_calculated$height, "label") <- "身高"
+
+# 计算体重并保留两位小数
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        weight = round(select(my_data_manual_filtered, ql002), 2)
+    )
+attr(my_data_calculated$weight, "label") <- "体重"
+
+# 计算BMI并添加标签
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        bmi = round(weight / (height / 100)^2, 2)
+    )
+attr(my_data_calculated$bmi, "label") <- "体质指数 (BMI)"
+
+# 计算腰围并保留两位小数
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        waist_circumference = round(select(my_data_manual_filtered, qm002), 2)
+    )
+attr(my_data_calculated$waist_circumference, "label") <- "腰围"
+
+# 计算白细胞计数并保留两位小数
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        white_blood_cell = round(select(my_data_manual_filtered, bl_wbc), 2)
+    )
+attr(my_data_calculated$white_blood_cell, "label") <- "白细胞计数"
+
+# 计算红细胞压积并保留两位小数
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        hematocrit = round(select(my_data_manual_filtered, bl_hct), 2)
+    )
+attr(my_data_calculated$hematocrit, "label") <- "红细胞压积"
+
+# 计算平均红细胞体积并保留两位小数
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        mean_corpuscular_volume = round(select(my_data_manual_filtered, bl_mcv), 2)
+    )
+attr(my_data_calculated$mean_corpuscular_volume, "label") <- "平均红细胞体积 (MCV)"
+
+# 计算血小板计数并保留两位小数
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        platelets = round(select(my_data_manual_filtered, bl_plt), 2)
+    )
+attr(my_data_calculated$platelets, "label") <- "血小板计数"
+
+# 计算甘油三酯并保留两位小数
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        triglycerides = round(select(my_data_manual_filtered, bl_tg), 2)
+    )
+attr(my_data_calculated$triglycerides, "label") <- "甘油三酯 (Triglycerides)"
+
+# 计算肌酐并保留两位小数
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        creatinine = round(select(my_data_manual_filtered, bl_crea), 2)
+    )
+attr(my_data_calculated$creatinine, "label") <- "肌酐"
+
+# 计算血尿素氮并保留两位小数
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        blood_urea_nitrogen = round(select(my_data_manual_filtered, bl_bun), 2)
+    )
+attr(my_data_calculated$blood_urea_nitrogen, "label") <- "血尿素氮 (Blood Urea Nitrogen)"
+
+# 计算高密度脂蛋白胆固醇并保留两位小数
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        hdl_cholesterol = round(select(my_data_manual_filtered, bl_hdl), 2)
+    )
+attr(my_data_calculated$hdl_cholesterol, "label") <- "高密度脂蛋白胆固醇 (HDL Cholesterol)"
+
+# 计算低密度脂蛋白胆固醇并保留两位小数
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        ldl_cholesterol = round(select(my_data_manual_filtered, bl_ldl), 2)
+    )
+attr(my_data_calculated$ldl_cholesterol, "label") <- "低密度脂蛋白胆固醇 (LDL Cholesterol)"
+
+# 计算总胆固醇并保留两位小数
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        total_cholesterol = round(select(my_data_manual_filtered, bl_cho), 2)
+    )
+attr(my_data_calculated$total_cholesterol, "label") <- "总胆固醇 (Total Cholesterol)"
+
+# 计算血糖并保留两位小数
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        glucose = round(select(my_data_manual_filtered, bl_glu), 2)
+    )
+attr(my_data_calculated$glucose, "label") <- "血糖"
+
+# 计算尿酸并保留两位小数
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        uric_acid = round(select(my_data_manual_filtered, bl_ua), 2)
+    )
+attr(my_data_calculated$uric_acid, "label") <- "尿酸"
+
+# 计算胱抑素C并保留两位小数
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        cystatin_c = round(select(my_data_manual_filtered, bl_cysc), 2)
+    )
+attr(my_data_calculated$cystatin_c, "label") <- "胱抑素C (Cystatin C)"
+
+# 计算C反应蛋白并保留两位小数
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        c_reactive_protein = round(select(my_data_manual_filtered, bl_crp), 2)
+    )
+attr(my_data_calculated$c_reactive_protein, "label") <- "C反应蛋白 (C-Reactive Protein)"
+
+# 计算糖化血红蛋白并保留两位小数
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        glycated_hemoglobin = round(select(my_data_manual_filtered, bl_hbalc), 2)
+    )
+attr(my_data_calculated$glycated_hemoglobin, "label") <- "糖化血红蛋白 (Glycated Hemoglobin)"
+
+# 多分类变量在此处按照字符因子计算，还是按照数字计算，哑变量又是在哪里进行
 
 ```
 
