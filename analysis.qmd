@@ -1002,21 +1002,22 @@ write_parquet(my_data_manual_filtered, "data_export/my_data_manual_filtered.parq
 my_data_calculated <- my_data_manual_filtered %>%
     select(ID, final_physical_score, cognitive_level, final_psychological_score, final_sensory_score, final_vitality_score, ic_total_score)
 
-# 计算收缩压的最终值并添加标签
+# 计算生理指标
+## 计算收缩压的最终值并添加标签
 my_data_calculated <- my_data_calculated %>%
     mutate(
         bp_sbp = rowMeans(select(my_data_manual_filtered, qa003, qa007, qa011), na.rm = TRUE)
     )
 attr(my_data_calculated$bp_sbp, "label") <- "收缩压"
 
-# 计算舒张压的最终值并添加标签
+## 计算舒张压的最终值并添加标签
 my_data_calculated <- my_data_calculated %>%
     mutate(
         bp_dbp = rowMeans(select(my_data_manual_filtered, qa004, qa008, qa012), na.rm = TRUE)
     )
 attr(my_data_calculated$bp_dbp, "label") <- "舒张压"
 
-# 计算是否为高血压
+## 计算是否为高血压
 my_data_calculated <- my_data_calculated %>%
     mutate(
         hypertension = case_when(
@@ -1026,7 +1027,7 @@ my_data_calculated <- my_data_calculated %>%
         )
     )
 attr(my_data_calculated$hypertension, "label") <- "是否为高血压"
-# 计算是否为低血压并添加标签
+## 计算是否为低血压并添加标签
 my_data_calculated <- my_data_calculated %>%
     mutate(
         hypotension = case_when(
@@ -1036,13 +1037,13 @@ my_data_calculated <- my_data_calculated %>%
         )
     )
 attr(my_data_calculated$hypotension, "label") <- "是否为低血压"
-# 计算脉搏的最终值并添加标签
+## 计算脉搏的最终值并添加标签
 my_data_calculated <- my_data_calculated %>%
     mutate(
         pulse = round(rowMeans(select(my_data_manual_filtered, qa005, qa009, qa013), na.rm = TRUE))
     )
 attr(my_data_calculated$pulse, "label") <- "脉搏"
-# 计算是否为心动过速并添加标签
+## 计算是否为心动过速并添加标签
 my_data_calculated <- my_data_calculated %>%
     mutate(
         tachycardia = case_when(
@@ -1052,7 +1053,8 @@ my_data_calculated <- my_data_calculated %>%
         )
     )
 attr(my_data_calculated$tachycardia, "label") <- "是否为心动过速"
-# 计算是否为心动过缓并添加标签
+
+## 计算是否为心动过缓并添加标签
 my_data_calculated <- my_data_calculated %>%
     mutate(
         bradycardia = case_when(
@@ -1062,138 +1064,403 @@ my_data_calculated <- my_data_calculated %>%
         )
     )
 attr(my_data_calculated$bradycardia, "label") <- "是否为心动过缓"
-# 计算身高并保留两位小数
+
+## 计算身高并保留两位小数
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        height = round(select(my_data_manual_filtered, qi002), 2)
-    )
+        height = round((my_data_manual_filtered$qi002), 2))
 attr(my_data_calculated$height, "label") <- "身高"
 
-# 计算体重并保留两位小数
+## 计算体重并保留两位小数
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        weight = round(select(my_data_manual_filtered, ql002), 2)
+        weight = round((my_data_manual_filtered$ql002), 2)
     )
 attr(my_data_calculated$weight, "label") <- "体重"
 
-# 计算BMI并添加标签
+## 计算BMI并添加标签
 my_data_calculated <- my_data_calculated %>%
     mutate(
         bmi = round(weight / (height / 100)^2, 2)
     )
 attr(my_data_calculated$bmi, "label") <- "体质指数 (BMI)"
 
-# 计算腰围并保留两位小数
+## 计算腰围并保留两位小数
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        waist_circumference = round(select(my_data_manual_filtered, qm002), 2)
+        waist_circumference = round((my_data_manual_filtered$qm002), 2)
     )
 attr(my_data_calculated$waist_circumference, "label") <- "腰围"
 
-# 计算白细胞计数并保留两位小数
+## 计算白细胞计数并保留两位小数
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        white_blood_cell = round(select(my_data_manual_filtered, bl_wbc), 2)
+        white_blood_cell = round((my_data_manual_filtered$bl_wbc), 2)
     )
 attr(my_data_calculated$white_blood_cell, "label") <- "白细胞计数"
 
-# 计算红细胞压积并保留两位小数
+## 计算红细胞压积并保留两位小数
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        hematocrit = round(select(my_data_manual_filtered, bl_hct), 2)
+        hematocrit = round((my_data_manual_filtered$bl_hct), 2)
     )
 attr(my_data_calculated$hematocrit, "label") <- "红细胞压积"
 
-# 计算平均红细胞体积并保留两位小数
+## 计算平均红细胞体积并保留两位小数
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        mean_corpuscular_volume = round(select(my_data_manual_filtered, bl_mcv), 2)
+        mean_corpuscular_volume = round((my_data_manual_filtered$bl_mcv), 2)
     )
 attr(my_data_calculated$mean_corpuscular_volume, "label") <- "平均红细胞体积 (MCV)"
 
-# 计算血小板计数并保留两位小数
+## 计算血小板计数并保留两位小数
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        platelets = round(select(my_data_manual_filtered, bl_plt), 2)
+        platelets = round((my_data_manual_filtered$bl_plt), 2)
     )
 attr(my_data_calculated$platelets, "label") <- "血小板计数"
 
-# 计算甘油三酯并保留两位小数
+## 计算甘油三酯并保留两位小数
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        triglycerides = round(select(my_data_manual_filtered, bl_tg), 2)
+        triglycerides = round((my_data_manual_filtered$bl_tg), 2)
     )
 attr(my_data_calculated$triglycerides, "label") <- "甘油三酯 (Triglycerides)"
 
-# 计算肌酐并保留两位小数
+## 计算肌酐并保留两位小数
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        creatinine = round(select(my_data_manual_filtered, bl_crea), 2)
+        creatinine = round((my_data_manual_filtered$bl_crea), 2)
     )
 attr(my_data_calculated$creatinine, "label") <- "肌酐"
 
-# 计算血尿素氮并保留两位小数
+## 计算血尿素氮并保留两位小数
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        blood_urea_nitrogen = round(select(my_data_manual_filtered, bl_bun), 2)
+        blood_urea_nitrogen = round((my_data_manual_filtered$bl_bun), 2)
     )
 attr(my_data_calculated$blood_urea_nitrogen, "label") <- "血尿素氮 (Blood Urea Nitrogen)"
 
-# 计算高密度脂蛋白胆固醇并保留两位小数
+## 计算高密度脂蛋白胆固醇并保留两位小数
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        hdl_cholesterol = round(select(my_data_manual_filtered, bl_hdl), 2)
+        hdl_cholesterol = round((my_data_manual_filtered$bl_hdl), 2)
     )
 attr(my_data_calculated$hdl_cholesterol, "label") <- "高密度脂蛋白胆固醇 (HDL Cholesterol)"
 
-# 计算低密度脂蛋白胆固醇并保留两位小数
+## 计算低密度脂蛋白胆固醇并保留两位小数
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        ldl_cholesterol = round(select(my_data_manual_filtered, bl_ldl), 2)
+        ldl_cholesterol = round((my_data_manual_filtered$bl_ldl), 2)
     )
 attr(my_data_calculated$ldl_cholesterol, "label") <- "低密度脂蛋白胆固醇 (LDL Cholesterol)"
 
-# 计算总胆固醇并保留两位小数
+## 计算总胆固醇并保留两位小数
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        total_cholesterol = round(select(my_data_manual_filtered, bl_cho), 2)
+        total_cholesterol = round((my_data_manual_filtered$bl_cho), 2)
     )
 attr(my_data_calculated$total_cholesterol, "label") <- "总胆固醇 (Total Cholesterol)"
 
-# 计算血糖并保留两位小数
+## 计算血糖并保留两位小数
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        glucose = round(select(my_data_manual_filtered, bl_glu), 2)
+        glucose = round((my_data_manual_filtered$bl_glu), 2)
     )
 attr(my_data_calculated$glucose, "label") <- "血糖"
 
-# 计算尿酸并保留两位小数
+## 计算尿酸并保留两位小数
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        uric_acid = round(select(my_data_manual_filtered, bl_ua), 2)
+        uric_acid = round((my_data_manual_filtered$bl_ua), 2)
     )
 attr(my_data_calculated$uric_acid, "label") <- "尿酸"
 
-# 计算胱抑素C并保留两位小数
+## 计算胱抑素C并保留两位小数
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        cystatin_c = round(select(my_data_manual_filtered, bl_cysc), 2)
+        cystatin_c = round((my_data_manual_filtered$bl_cysc), 2)
     )
 attr(my_data_calculated$cystatin_c, "label") <- "胱抑素C (Cystatin C)"
 
-# 计算C反应蛋白并保留两位小数
+## 计算C反应蛋白并保留两位小数
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        c_reactive_protein = round(select(my_data_manual_filtered, bl_crp), 2)
+        c_reactive_protein = round((my_data_manual_filtered$bl_crp), 2)
     )
 attr(my_data_calculated$c_reactive_protein, "label") <- "C反应蛋白 (C-Reactive Protein)"
 
-# 计算糖化血红蛋白并保留两位小数
+## 计算糖化血红蛋白并保留两位小数
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        glycated_hemoglobin = round(select(my_data_manual_filtered, bl_hbalc), 2)
+        glycated_hemoglobin = round((my_data_manual_filtered$bl_hbalc), 2)
     )
 attr(my_data_calculated$glycated_hemoglobin, "label") <- "糖化血红蛋白 (Glycated Hemoglobin)"
+
+# 家庭结构
+## 计算父母是否健在
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        has_parents_alive = case_when(
+            rowSums(select(my_data_manual_filtered, starts_with("ca")) == 1, na.rm = TRUE) > 0 ~ 1,
+            rowSums(!is.na(select(my_data_manual_filtered, starts_with("ca")))) == 0 ~ NA_real_,
+            TRUE ~ 0
+        )
+    )
+attr(my_data_calculated$has_parents_alive, "label") <- "父母是否健在"
+
+## 计算健在父母数量（貌似原始变量的取值定义错了，不是yes和no，而是 1和2，我在代码层面改了）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        num_parents_alive = case_when(
+            # 检查是否所有值都是NA
+            all(is.na(select(my_data_manual_filtered, 
+                   ca000_w3_2_1_, ca000_w3_2_2_,
+                   ca001_w3_2_1_, ca001_w3_2_2_,
+                   ca002_w3_1_1_, ca002_w3_1_2_,
+                   ca004_w3_1_1_, ca004_w3_1_2_,
+                   ca004_w3_2_1_, ca004_w3_2_2_,
+                   ca005_w3_1_1_, ca005_w3_1_2_,
+                   ca005_w3_2_1_, ca005_w3_2_2_,
+                   ca006_w3_1_1_, ca006_w3_1_2_,
+                   ca006_w3_2_1_, ca006_w3_2_2_,
+                   ca007_w3_1_1_, ca007_w3_1_2_,
+                   ca007_w3_2_1_, ca007_w3_2_2_
+            ))) ~ NA_real_,
+            # 否则计算非NA值的总和
+            TRUE ~ rowSums(
+                select(my_data_manual_filtered, 
+                   ca000_w3_2_1_, ca000_w3_2_2_,
+                   ca001_w3_2_1_, ca001_w3_2_2_,
+                   ca002_w3_1_1_, ca002_w3_1_2_,
+                   ca004_w3_1_1_, ca004_w3_1_2_,
+                   ca004_w3_2_1_, ca004_w3_2_2_,
+                   ca005_w3_1_1_, ca005_w3_1_2_,
+                   ca005_w3_2_1_, ca005_w3_2_2_,
+                   ca006_w3_1_1_, ca006_w3_1_2_,
+                   ca006_w3_2_1_, ca006_w3_2_2_,
+                   ca007_w3_1_1_, ca007_w3_1_2_,
+                   ca007_w3_2_1_, ca007_w3_2_2_
+                ) %>% 
+                mutate_all(~case_when(
+                    . == 1 ~ 1,
+                    . == 2 ~ 0,
+                    TRUE ~ NA_real_
+                )),
+                na.rm = TRUE  # 忽略部分NA值
+            )
+        )
+    )
+attr(my_data_calculated$num_parents_alive, "label") <- "健在父母数量"
+
+## 计算子女数量
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        num_children = my_data_manual_filtered$xchildnum
+    )
+attr(my_data_calculated$num_children, "label") <- "子女数量"
+
+## 计算健在子女数量
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        totalnum_children_alive = case_when(
+            is.na(my_data_manual_filtered$xchildnum_alive) & is.na(my_data_manual_filtered$cb051_w3_1) ~ NA_real_,
+            TRUE ~ coalesce(my_data_manual_filtered$xchildnum_alive, 0) + coalesce(my_data_manual_filtered$cb051_w3_1, 0)
+        )
+    )
+attr(my_data_calculated$totalnum_children_alive, "label") <- "健在子女数量"
+
+## 计算已婚子女比例
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        num_children_married = case_when(
+            # 检查是否所有值都是NA
+            all(is.na(select(my_data_manual_filtered, starts_with("cb063_")))) ~ NA_real_,
+            # 否则计算非NA值的总和
+            TRUE ~ rowSums(
+                select(my_data_manual_filtered, starts_with("cb063_")) %>%
+                mutate_all(~case_when(
+                    . == 1 ~ 1,  # 已婚记为1
+                    !is.na(.) ~ 0,  # 其他非NA值记为0
+                    TRUE ~ NA_real_  # NA保持为NA
+                )),
+                na.rm = TRUE  # 忽略部分NA值
+            )
+        ),
+        married_children_ratio = case_when(
+            is.na(num_children_married) | is.na(totalnum_children_alive) ~ NA_real_,
+            totalnum_children_alive == 0 ~ 0,
+            TRUE ~ num_children_married / totalnum_children_alive
+        )
+    )
+attr(my_data_calculated$married_children_ratio, "label") <- "已婚子女比例"
+
+## 计算孙子女数量
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        total_number_grandchildren = case_when(
+            # 检查是否所有值都是NA
+            all(is.na(select(my_data_manual_filtered, starts_with("cb065_")))) ~ NA_real_,
+            # 否则计算非NA值的总和
+            TRUE ~ rowSums(
+                select(my_data_manual_filtered, starts_with("cb065_")) %>%
+                mutate_all(as.numeric),
+                na.rm = TRUE  # 忽略部分NA值
+            )
+        )
+    )
+attr(my_data_calculated$total_number_grandchildren, "label") <- "孙子女总数"
+
+## 计算重孙子女数量
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        total_number_great_grandchildren = case_when(
+            # 检查是否所有值都是NA
+            all(is.na(select(my_data_manual_filtered, starts_with("cb067_")))) ~ NA_real_,
+            # 否则计算非NA值的总和
+            TRUE ~ rowSums(
+                select(my_data_manual_filtered, starts_with("cb067_")) %>%
+                mutate_all(as.numeric),
+                na.rm = TRUE  # 忽略部分NA值
+            )
+        )
+    )
+attr(my_data_calculated$total_number_great_grandchildren, "label") <- "重孙子女总数"
+
+# 照顾负担
+## 计算照顾父母数量
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        number_care_parents = case_when(
+            # 检查是否所有值都是NA
+            all(is.na(select(my_data_manual_filtered, starts_with("ca026_w3_")))) ~ NA_real_,
+            # 否则计算非NA值的总和
+            TRUE ~ rowSums(
+                select(my_data_manual_filtered, starts_with("ca026_w3_")) %>%
+                mutate_all(~case_when(
+                    . == 1 ~ 0,  # yes记为0
+                    . == 2 ~ 1,   # no记为1
+                    TRUE ~ NA_real_  # 其他值记为NA
+                )),
+                na.rm = TRUE  # 忽略部分NA值
+            )
+        )
+    )
+attr(my_data_calculated$number_care_parents, "label") <- "照顾父母数量"
+
+## 计算照顾子女数量
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        number_takecare_children = case_when(
+            # 检查是否所有值都是NA
+            all(is.na(select(my_data_manual_filtered, starts_with("cb063_w3_6_")))) ~ NA_real_,
+            # 否则计算非NA值的总和
+            TRUE ~ rowSums(
+                select(my_data_manual_filtered, starts_with("cb063_w3_6_")) %>%
+                mutate_all(~case_when(
+                    . == 1 ~ 0,  # yes记为0
+                    . == 2 ~ 1,  # no记为1
+                    TRUE ~ NA_real_  # 其他值记为NA
+                )),
+                na.rm = TRUE  # 忽略部分NA值
+            )
+        )
+    )
+attr(my_data_calculated$number_takecare_children, "label") <- "照顾子女数量"
+
+## 计算照顾孙子女数量
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        takecare_grandchildren = case_when(
+            is.na(my_data_manual_filtered$cf001) ~ NA_real_,
+            my_data_manual_filtered$cf001 == 1 ~ 1,  # yes记为1
+            my_data_manual_filtered$cf001 == 2 ~ 0,  # no记为0
+            TRUE ~ NA_real_  # 其他值记为NA
+        )
+    )
+attr(my_data_calculated$takecare_grandchildren, "label") <- "是否照顾孙子女"
+
+## 计算照顾孙子女周数
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        takecare_grandchildren_week = case_when(
+            # 检查是否所有值都是NA
+            all(is.na(select(my_data_manual_filtered, starts_with("cf003_1_")))) ~ NA_real_,
+            # 否则计算非NA值的总和
+            TRUE ~ rowSums(
+                select(my_data_manual_filtered, starts_with("cf003_1_")),
+                na.rm = TRUE  # 忽略部分NA值
+            )
+        )
+    )
+attr(my_data_calculated$takecare_grandchildren_week, "label") <- "每周照顾孙子女时间"
+
+## 计算照顾孙子女小时数，这个是每周小时乘周数吗？
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        takecare_grandchildren_hours = case_when(
+            # 检查是否所有相关变量都是NA
+            all(is.na(select(my_data_manual_filtered, 
+                starts_with("cf003_2_"), starts_with("cf003_1_")))) ~ NA_real_,
+            # 否则计算每个孙子女的照顾时间并求和
+            TRUE ~ rowSums(
+                cbind(
+                    my_data_manual_filtered$cf003_2_1_ * my_data_manual_filtered$cf003_1_1_,
+                    my_data_manual_filtered$cf003_2_2_ * my_data_manual_filtered$cf003_1_2_,
+                    my_data_manual_filtered$cf003_2_3_ * my_data_manual_filtered$cf003_1_3_,
+                    my_data_manual_filtered$cf003_2_4_ * my_data_manual_filtered$cf003_1_4_,
+                    my_data_manual_filtered$cf003_2_5_ * my_data_manual_filtered$cf003_1_5_,
+                    my_data_manual_filtered$cf003_2_6_ * my_data_manual_filtered$cf003_1_6_,
+                    my_data_manual_filtered$cf003_2_7_ * my_data_manual_filtered$cf003_1_7_,
+                    my_data_manual_filtered$cf003_2_8_ * my_data_manual_filtered$cf003_1_8_,
+                    my_data_manual_filtered$cf003_2_9_ * my_data_manual_filtered$cf003_1_9_,
+                    my_data_manual_filtered$cf003_2_10_ * my_data_manual_filtered$cf003_1_10_,
+                    my_data_manual_filtered$cf003_2_11_ * my_data_manual_filtered$cf003_1_11_,
+                    my_data_manual_filtered$cf003_2_13_ * my_data_manual_filtered$cf003_1_13_
+                ),
+                na.rm = FALSE  # 如果有NA值，整行结果为NA
+            )
+        )
+    )
+attr(my_data_calculated$takecare_grandchildren_hours, "label") <- "每周照顾孙子女小时数"
+
+## 计算是否照顾父母
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        takecare_parents = case_when(
+            is.na(my_data_manual_filtered$cf004) ~ NA_real_,
+            my_data_manual_filtered$cf004 == 1 ~ 1,  # yes记为1
+            my_data_manual_filtered$cf004 == 2 ~ 0,  # no记为0
+            TRUE ~ NA_real_  # 其他值记为NA
+        )
+    )
+attr(my_data_calculated$takecare_parents, "label") <- "是否照顾父母"
+
+## 计算照顾父母小时数
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        takecare_parents_hours = case_when(
+            # 检查是否所有相关变量都是NA
+            all(is.na(select(my_data_manual_filtered, 
+                starts_with("cf005_")))) ~ NA_real_,
+            # 否则计算照顾父母的总时间
+            TRUE ~ rowSums(
+                cbind(
+                    my_data_manual_filtered$cf005_1 * my_data_manual_filtered$cf005_2,
+                    my_data_manual_filtered$cf005_3 * my_data_manual_filtered$cf005_4,
+                    my_data_manual_filtered$cf005_5 * my_data_manual_filtered$cf005_6,
+                    my_data_manual_filtered$cf005_7 * my_data_manual_filtered$cf005_8
+                ),
+                na.rm = TRUE  # 忽略部分NA值
+            )
+        )
+    )
+attr(my_data_calculated$takecare_parents_hours, "label") <- "每周照顾父母小时数"
+
+# 导出计算后的数据框
+write_parquet(my_data_calculated, "data_export/my_data_calculated.parquet")
+
+
 
 # 多分类变量在此处按照字符因子计算，还是按照数字计算，哑变量又是在哪里进行
 
