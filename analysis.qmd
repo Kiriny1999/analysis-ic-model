@@ -1027,6 +1027,7 @@ my_data_calculated <- my_data_calculated %>%
         )
     )
 attr(my_data_calculated$hypertension, "label") <- "是否为高血压"
+
 ## 计算是否为低血压并添加标签
 my_data_calculated <- my_data_calculated %>%
     mutate(
@@ -1037,6 +1038,7 @@ my_data_calculated <- my_data_calculated %>%
         )
     )
 attr(my_data_calculated$hypotension, "label") <- "是否为低血压"
+
 ## 计算脉搏的最终值并添加标签
 my_data_calculated <- my_data_calculated %>%
     mutate(
@@ -1202,12 +1204,66 @@ attr(my_data_calculated$glycated_hemoglobin, "label") <- "糖化血红蛋白 (Gl
 my_data_calculated <- my_data_calculated %>%
     mutate(
         has_parents_alive = case_when(
-            rowSums(select(my_data_manual_filtered, starts_with("ca")) == 1, na.rm = TRUE) > 0 ~ 1,
-            rowSums(!is.na(select(my_data_manual_filtered, starts_with("ca")))) == 0 ~ NA_real_,
+            # 检查生物学父母
+            rowSums(select(my_data_manual_filtered, 
+                ca000_w3_2_1_, ca000_w3_2_2_,
+                ca001_w3_2_1_, ca001_w3_2_2_) == 1, na.rm = TRUE) > 0 ~ 1,
+            
+            # 检查本人的继父继母
+            my_data_manual_filtered$ca002_w3_1_1_ == 1 & 
+            my_data_manual_filtered$ca004_w3_1_1_ == 1 & 
+            my_data_manual_filtered$ca004_w3_2_1_ == 1 ~ 1,
+            
+            my_data_manual_filtered$ca002_w3_1_1_ == 1 & 
+            my_data_manual_filtered$ca005_w3_1_1_ == 1 & 
+            my_data_manual_filtered$ca005_w3_2_1_ == 1 ~ 1,
+            
+            # 检查配偶的继父继母
+            my_data_manual_filtered$ca002_w3_1_2_ == 1 & 
+            my_data_manual_filtered$ca004_w3_1_2_ == 1 & 
+            my_data_manual_filtered$ca004_w3_2_2_ == 1 ~ 1,
+            
+            my_data_manual_filtered$ca002_w3_1_2_ == 1 & 
+            my_data_manual_filtered$ca005_w3_1_2_ == 1 & 
+            my_data_manual_filtered$ca005_w3_2_2_ == 1 ~ 1,
+            
+            # 检查本人的养父母
+            my_data_manual_filtered$ca006_w3_1_1_ == 1 & 
+            my_data_manual_filtered$ca006_w3_2_1_ == 1 ~ 1,
+            
+            my_data_manual_filtered$ca007_w3_1_1_ == 1 & 
+            my_data_manual_filtered$ca007_w3_2_1_ == 1 ~ 1,
+            
+            # 检查配偶的养父母
+            my_data_manual_filtered$ca006_w3_1_2_ == 1 & 
+            my_data_manual_filtered$ca006_w3_2_2_ == 1 ~ 1,
+            
+            my_data_manual_filtered$ca007_w3_1_2_ == 1 & 
+            my_data_manual_filtered$ca007_w3_2_2_ == 1 ~ 1,
+            
+            # 如果以上条件都不满足且所有相关变量都是NA，则返回NA
+            all(is.na(select(my_data_manual_filtered,
+                ca000_w3_2_1_, ca000_w3_2_2_,
+                ca001_w3_2_1_, ca001_w3_2_2_,
+                ca002_w3_1_1_, ca002_w3_1_2_,
+                ca004_w3_1_1_, ca004_w3_1_2_,
+                ca004_w3_2_1_, ca004_w3_2_2_,
+                ca005_w3_1_1_, ca005_w3_1_2_,
+                ca005_w3_2_1_, ca005_w3_2_2_,
+                ca006_w3_1_1_, ca006_w3_1_2_,
+                ca006_w3_2_1_, ca006_w3_2_2_,
+                ca007_w3_1_1_, ca007_w3_1_2_,
+                ca007_w3_2_1_, ca007_w3_2_2_
+            ))) ~ NA_real_,
+            
+            # 其他情况返回0
             TRUE ~ 0
         )
     )
+
 attr(my_data_calculated$has_parents_alive, "label") <- "父母是否健在"
+# 查看父母是否健在的数据分布
+table(my_data_calculated$has_parents_alive, useNA = "always")
 
 ## 计算健在父母数量（貌似原始变量的取值定义错了，不是yes和no，而是 1和2，我在代码层面改了）
 my_data_calculated <- my_data_calculated %>%
@@ -1270,7 +1326,7 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$totalnum_children_alive, "label") <- "健在子女数量"
 
-## 计算已婚子女比例
+## 计算已婚子女比例（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         num_children_married = case_when(
@@ -1460,6 +1516,7 @@ attr(my_data_calculated$takecare_parents_hours, "label") <- "每周照顾父母�
 # 导出计算后的数据框
 write_parquet(my_data_calculated, "data_export/my_data_calculated.parquet")
 
+# 医疗保健
 
 
 # 多分类变量在此处按照字符因子计算，还是按照数字计算，哑变量又是在哪里进行
