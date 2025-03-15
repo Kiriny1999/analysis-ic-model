@@ -1,5 +1,5 @@
-.DS_Store
+*.DS_Store
 # 省略csv文件
-.csv
+*.csv
 # 省略xlsx文件
 *.xlsx
