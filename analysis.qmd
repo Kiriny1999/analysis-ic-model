@@ -998,7 +998,7 @@ write_parquet(my_data_manual_filtered, "data_export/my_data_manual_filtered.parq
 ```
 ### 自变量计算
 ```{r 自变量计算}
-# 初始化计算后的数据框
+# 初始化计算后的数据
 my_data_calculated <- my_data_manual_filtered %>%
     select(ID, final_physical_score, cognitive_level, final_psychological_score, final_sensory_score, final_vitality_score, ic_total_score)
 
@@ -1309,14 +1309,14 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$num_parents_alive, "label") <- "健在父母数量"
 
-## 计算子女数量
+## 计算子女数量（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         num_children = my_data_manual_filtered$xchildnum
     )
 attr(my_data_calculated$num_children, "label") <- "子女数量"
 
-## 计算健在子女数量
+## 计算健在子女数量（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         totalnum_children_alive = case_when(
@@ -1351,7 +1351,7 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$married_children_ratio, "label") <- "已婚子女比例"
 
-## 计算孙子女数量
+## 计算孙子女数量（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         total_number_grandchildren = case_when(
@@ -1367,7 +1367,7 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$total_number_grandchildren, "label") <- "孙子女总数"
 
-## 计算重孙子女数量
+## 计算重孙子女数量（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         total_number_great_grandchildren = case_when(
@@ -1384,7 +1384,7 @@ my_data_calculated <- my_data_calculated %>%
 attr(my_data_calculated$total_number_great_grandchildren, "label") <- "重孙子女总数"
 
 # 照顾负担
-## 计算照顾父母数量
+## 计算照顾父母数量（没问题，但这个是个反面变量，数字越大可能内在能力越不行，这个在后续建模中要注意一下）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         number_care_parents = case_when(
@@ -1404,7 +1404,7 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$number_care_parents, "label") <- "照顾父母数量"
 
-## 计算照顾子女数量
+## 计算照顾子女数量（没问题，但和上面一个变量一样的问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         number_takecare_children = case_when(
@@ -1424,7 +1424,7 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$number_takecare_children, "label") <- "照顾子女数量"
 
-## 计算照顾孙子女数量
+## 计算是否带孙子女（没问题，这个取值和之前照顾父母孩子是相反的）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         takecare_grandchildren = case_when(
@@ -1436,51 +1436,53 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$takecare_grandchildren, "label") <- "是否照顾孙子女"
 
-## 计算照顾孙子女周数
-my_data_calculated <- my_data_calculated %>%
-    mutate(
-        takecare_grandchildren_week = case_when(
-            # 检查是否所有值都是NA
-            all(is.na(select(my_data_manual_filtered, starts_with("cf003_1_")))) ~ NA_real_,
-            # 否则计算非NA值的总和
-            TRUE ~ rowSums(
-                select(my_data_manual_filtered, starts_with("cf003_1_")),
-                na.rm = TRUE  # 忽略部分NA值
-            )
-        )
-    )
-attr(my_data_calculated$takecare_grandchildren_week, "label") <- "每周照顾孙子女时间"
-
-## 计算照顾孙子女小时数，这个是每周小时乘周数吗？
+a = sapply(1:13, function(i) {
+        col1 <- paste0("cf003_2_", i, "_")
+        col2 <- paste0("cf003_1_", i, "_")
+        as.numeric(my_data_manual_filtered[[col1]] * my_data_manual_filtered[[col2]])
+    })
+print(a)
+## 计算照顾孙子女总时间（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         takecare_grandchildren_hours = case_when(
-            # 检查是否所有相关变量都是NA
-            all(is.na(select(my_data_manual_filtered, 
-                starts_with("cf003_2_"), starts_with("cf003_1_")))) ~ NA_real_,
-            # 否则计算每个孙子女的照顾时间并求和
-            TRUE ~ rowSums(
-                cbind(
-                    my_data_manual_filtered$cf003_2_1_ * my_data_manual_filtered$cf003_1_1_,
-                    my_data_manual_filtered$cf003_2_2_ * my_data_manual_filtered$cf003_1_2_,
-                    my_data_manual_filtered$cf003_2_3_ * my_data_manual_filtered$cf003_1_3_,
-                    my_data_manual_filtered$cf003_2_4_ * my_data_manual_filtered$cf003_1_4_,
-                    my_data_manual_filtered$cf003_2_5_ * my_data_manual_filtered$cf003_1_5_,
-                    my_data_manual_filtered$cf003_2_6_ * my_data_manual_filtered$cf003_1_6_,
-                    my_data_manual_filtered$cf003_2_7_ * my_data_manual_filtered$cf003_1_7_,
-                    my_data_manual_filtered$cf003_2_8_ * my_data_manual_filtered$cf003_1_8_,
-                    my_data_manual_filtered$cf003_2_9_ * my_data_manual_filtered$cf003_1_9_,
-                    my_data_manual_filtered$cf003_2_10_ * my_data_manual_filtered$cf003_1_10_,
-                    my_data_manual_filtered$cf003_2_11_ * my_data_manual_filtered$cf003_1_11_,
-                    my_data_manual_filtered$cf003_2_13_ * my_data_manual_filtered$cf003_1_13_
-                ),
-                na.rm = FALSE  # 如果有NA值，整行结果为NA
+                    # 如果两个数值相乘的结果都是NA，则返回NA
+                    all(
+                        (is.na(my_data_manual_filtered$cf003_1_1_) | is.na(my_data_manual_filtered$cf003_2_1_)) &
+                        (is.na(my_data_manual_filtered$cf003_1_2_) | is.na(my_data_manual_filtered$cf003_2_2_)) &
+                        (is.na(my_data_manual_filtered$cf003_1_3_) | is.na(my_data_manual_filtered$cf003_2_3_)) &
+                        (is.na(my_data_manual_filtered$cf003_1_4_) | is.na(my_data_manual_filtered$cf003_2_4_)) &
+                        (is.na(my_data_manual_filtered$cf003_1_5_) | is.na(my_data_manual_filtered$cf003_2_5_)) &
+                        (is.na(my_data_manual_filtered$cf003_1_6_) | is.na(my_data_manual_filtered$cf003_2_6_)) &
+                        (is.na(my_data_manual_filtered$cf003_1_7_) | is.na(my_data_manual_filtered$cf003_2_7_)) &
+                        (is.na(my_data_manual_filtered$cf003_1_8_) | is.na(my_data_manual_filtered$cf003_2_8_)) &
+                        (is.na(my_data_manual_filtered$cf003_1_9_) | is.na(my_data_manual_filtered$cf003_2_9_)) &
+                        (is.na(my_data_manual_filtered$cf003_1_10_) | is.na(my_data_manual_filtered$cf003_2_10_)) &
+                        (is.na(my_data_manual_filtered$cf003_1_11_) | is.na(my_data_manual_filtered$cf003_2_11_)) &
+                        (is.na(my_data_manual_filtered$cf003_1_13_) | is.na(my_data_manual_filtered$cf003_2_13_))
+                    ) ~ NA_real_,
+                    # 否则计算乘积
+                    TRUE ~ rowSums(
+                            cbind(
+                                my_data_manual_filtered$cf003_2_1_ * my_data_manual_filtered$cf003_1_1_,
+                                my_data_manual_filtered$cf003_2_2_ * my_data_manual_filtered$cf003_1_2_,
+                                my_data_manual_filtered$cf003_2_3_ * my_data_manual_filtered$cf003_1_3_,
+                                my_data_manual_filtered$cf003_2_4_ * my_data_manual_filtered$cf003_1_4_,
+                                my_data_manual_filtered$cf003_2_5_ * my_data_manual_filtered$cf003_1_5_,
+                                my_data_manual_filtered$cf003_2_6_ * my_data_manual_filtered$cf003_1_6_,
+                                my_data_manual_filtered$cf003_2_7_ * my_data_manual_filtered$cf003_1_7_,
+                                my_data_manual_filtered$cf003_2_8_ * my_data_manual_filtered$cf003_1_8_,
+                                my_data_manual_filtered$cf003_2_9_ * my_data_manual_filtered$cf003_1_9_,
+                                my_data_manual_filtered$cf003_2_10_ * my_data_manual_filtered$cf003_1_10_,
+                                my_data_manual_filtered$cf003_2_11_ * my_data_manual_filtered$cf003_1_11_,
+                                my_data_manual_filtered$cf003_2_13_ * my_data_manual_filtered$cf003_1_13_),
+                na.rm = TRUE
             )
         )
     )
-attr(my_data_calculated$takecare_grandchildren_hours, "label") <- "每周照顾孙子女小时数"
+attr(my_data_calculated$takecare_grandchildren_hours, "label") <- "照顾孙子女总小时数"
 
-## 计算是否照顾父母
+## 计算是否照顾岳父母（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         takecare_parents = case_when(
@@ -1490,15 +1492,19 @@ my_data_calculated <- my_data_calculated %>%
             TRUE ~ NA_real_  # 其他值记为NA
         )
     )
-attr(my_data_calculated$takecare_parents, "label") <- "是否照顾父母"
+attr(my_data_calculated$takecare_parents, "label") <- "是否照顾岳父母"
 
-## 计算照顾父母小时数
+## 计算照顾父母总小时数（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         takecare_parents_hours = case_when(
             # 检查是否所有相关变量都是NA
-            all(is.na(select(my_data_manual_filtered, 
-                starts_with("cf005_")))) ~ NA_real_,
+            all(
+                (is.na(my_data_manual_filtered$cf005_1) | is.na(my_data_manual_filtered$cf005_2)) &
+                (is.na(my_data_manual_filtered$cf005_3) | is.na(my_data_manual_filtered$cf005_4)) &
+                (is.na(my_data_manual_filtered$cf005_5) | is.na(my_data_manual_filtered$cf005_6)) &
+                (is.na(my_data_manual_filtered$cf005_7) | is.na(my_data_manual_filtered$cf005_8))
+            ) ~ NA_real_,
             # 否则计算照顾父母的总时间
             TRUE ~ rowSums(
                 cbind(
@@ -1511,7 +1517,7 @@ my_data_calculated <- my_data_calculated %>%
             )
         )
     )
-attr(my_data_calculated$takecare_parents_hours, "label") <- "每周照顾父母小时数"
+attr(my_data_calculated$takecare_parents_hours, "label") <- "照顾父母及岳父岳母总小时数"
 
 # 导出计算后的数据框
 write_parquet(my_data_calculated, "data_export/my_data_calculated.parquet")
