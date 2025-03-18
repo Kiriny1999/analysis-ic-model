@@ -2044,6 +2044,7 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$see_dentalcare, "label") <- "是否看牙医"
 
+
 ## 计算看牙医次数
 my_data_calculated <- my_data_calculated %>%
     mutate(
@@ -2053,6 +2054,19 @@ my_data_calculated <- my_data_calculated %>%
         )
     )
 attr(my_data_calculated$times_dentalcare, "label") <- "看牙医次数"
+
+## 计算是否付费看牙医
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        payfor_dentalcare = case_when(
+            is.na(my_data_manual_filtered$eh003) ~ NA_real_,
+            my_data_manual_filtered$eh003 == 1 ~ 1,
+            my_data_manual_filtered$eh003 == 2 ~ 0,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$payfor_dentalcare, "label") <- "是否付费看牙医"
+
 
 ## 计算牙科费用
 my_data_calculated <- my_data_calculated %>%
@@ -2078,6 +2092,10 @@ attr(my_data_calculated$satisfaction_healthcare, "label") <- "就医满意度"
 
 # 导出计算后的数据框
 write_parquet(my_data_calculated, "data_export/my_data_calculated.parquet")
+
+# 导出计算后的数据框为csv
+write.csv(my_data_calculated, "data_export/my_data_calculated.csv", row.names = FALSE)
+
 # 多分类变量在此处按照字符因子计算，还是按照数字计算，哑变量又是在哪里进行
 
 
