@@ -1,5 +1,7 @@
 *.DS_Store
 # 省略csv文件
 *.csv
+!my_data_calculated.csv
 # 省略xlsx文件
 *.xlsx
+
