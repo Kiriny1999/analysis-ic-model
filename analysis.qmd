@@ -1436,12 +1436,6 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$takecare_grandchildren, "label") <- "是否照顾孙子女"
 
-a = sapply(1:13, function(i) {
-        col1 <- paste0("cf003_2_", i, "_")
-        col2 <- paste0("cf003_1_", i, "_")
-        as.numeric(my_data_manual_filtered[[col1]] * my_data_manual_filtered[[col2]])
-    })
-print(a)
 ## 计算照顾孙子女总时间（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
@@ -1519,13 +1513,84 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$takecare_parents_hours, "label") <- "照顾父母及岳父岳母总小时数"
 
+# 医疗保健
+## 计算无医疗保险原因
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        reason_no_health_insurance = case_when(
+            is.na(my_data_manual_filtered$ea009) ~ NA_real_,
+            my_data_manual_filtered$ea009 == 1 ~ 1,
+            my_data_manual_filtered$ea009 == 2 ~ 2,
+            my_data_manual_filtered$ea009 == 3 ~ 3,
+            my_data_manual_filtered$ea009 == 4 ~ 4,
+            my_data_manual_filtered$ea009 == 5 ~ 5,
+            my_data_manual_filtered$ea009 == 6 ~ 6,
+            my_data_manual_filtered$ea009 == 7 ~ 7,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$reason_no_health_insurance, "label") <- "无医疗保险原因"
+
+## 计算城镇职工医疗保险
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        urban_employee_medical_insurance = case_when(
+            my_data_manual_filtered$ea001_w3_2_1_ == 1 ~ 1,  # yes记为1
+            my_data_manual_filtered$ea001_w3_2_1_ == 2 ~ 0,  # no记为0
+            is.na(my_data_manual_filtered$ea001_w3_2_1_) ~ 0, # NA记为0
+            TRUE ~ 0  # 其他情况记为0
+        )
+    )
+attr(my_data_calculated$urban_employee_medical_insurance, "label") <- "城镇职工医疗保险"
+
+## 计算城镇职工医疗保险（存在问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        urban_employee_medical_insurance = case_when(
+            my_data_manual_filtered$ea001_w3_2_1_ == 1 ~ 1,  # yes记为1
+            my_data_manual_filtered$ea001_w3_2_1_ == 2 ~ 0,  # no记为0
+            is.na(my_data_manual_filtered$ea001_w3_2_1_) ~ 0, # NA记为0
+            TRUE ~ 0  # 其他情况记为0
+        )
+    )
+attr(my_data_calculated$urban_employee_medical_insurance, "label") <- "城镇职工医疗保险"
+
+## 计算过去两年是否体检
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        undergone_physicalexamination_past_two_years = case_when(
+            is.na(my_data_manual_filtered$ec001) ~ NA_real_,
+            my_data_manual_filtered$ec001 == 1 ~ 1,
+            TRUE ~ 0
+        )
+    )
+attr(my_data_calculated$undergone_physicalexamination_past_two_years, "label") <- "过去两年是否体检"
+
+## 计算过去一个月是否住院
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        visithospital_lastmonth = case_when(
+            is.na(my_data_manual_filtered$ec004) ~ NA_real_,
+            my_data_manual_filtered$ec004 == 1 ~ 1,  # yes记为1
+            my_data_manual_filtered$ec004 == 2 ~ 0,  # no记为0
+            TRUE ~ NA_real_  # 其他值记为NA
+        )
+    )
+attr(my_data_calculated$visithospital_lastmonth, "label") <- "过去一个月是否住院"
+
+
+
+
+
+
+
+
 # 导出计算后的数据框
 write_parquet(my_data_calculated, "data_export/my_data_calculated.parquet")
 
-# 医疗保健
-
 
 # 多分类变量在此处按照字符因子计算，还是按照数字计算，哑变量又是在哪里进行
+
 
 ```
 
