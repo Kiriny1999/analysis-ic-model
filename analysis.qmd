@@ -2179,8 +2179,7 @@ my_data_calculated <- my_data_calculated %>%
     mutate(
         physical_disability = case_when(
             my_data_manual_filtered$zda005_1_ == 1 ~ 1,  # yes记为1
-            my_data_manual_filtered$zda005_1_ == 2 ~ 0,  # no记为0
-            TRUE ~ NA_real_  # 其他值记为NA
+            TRUE ~ 0  # 其他值记为0
         )
     )
 attr(my_data_calculated$physical_disability, "label") <- "是否有身体残疾"
@@ -2190,8 +2189,7 @@ my_data_calculated <- my_data_calculated %>%
     mutate(
         intellectual_disability = case_when(
             my_data_manual_filtered$zda005_2_ == 1 ~ 1,  # yes记为1
-            my_data_manual_filtered$zda005_2_ == 2 ~ 0,  # no记为0
-            TRUE ~ NA_real_  # 其他值记为NA
+            TRUE ~ 0  # 其他值记为0
         )
     )
 attr(my_data_calculated$intellectual_disability, "label") <- "是否有智力残疾"
@@ -2201,8 +2199,7 @@ my_data_calculated <- my_data_calculated %>%
     mutate(
         blind_partially_blind = case_when(
             my_data_manual_filtered$zda005_3_ == 1 ~ 1,  # yes记为1
-            my_data_manual_filtered$zda005_3_ == 2 ~ 0,  # no记为0
-            TRUE ~ NA_real_  # 其他值记为NA
+            TRUE ~ 0  # 其他值记为0
         )
     )
 attr(my_data_calculated$blind_partially_blind, "label") <- "是否有视力残疾"
@@ -2212,8 +2209,7 @@ my_data_calculated <- my_data_calculated %>%
     mutate(
         deaf_partially_deaf = case_when(
             my_data_manual_filtered$zda005_4_ == 1 ~ 1,  # yes记为1
-            my_data_manual_filtered$zda005_4_ == 2 ~ 0,  # no记为0
-            TRUE ~ NA_real_  # 其他值记为NA
+            TRUE ~ 0  # 其他值记为0
         )
     )
 attr(my_data_calculated$deaf_partially_deaf, "label") <- "是否有听力残疾"
@@ -2223,8 +2219,7 @@ my_data_calculated <- my_data_calculated %>%
     mutate(
         dumb_severe_stuttering = case_when(
             my_data_manual_filtered$zda005_5_ == 1 ~ 1,  # yes记为1
-            my_data_manual_filtered$zda005_5_ == 2 ~ 0,  # no记为0
-            TRUE ~ NA_real_  # 其他值记为NA
+            TRUE ~ 0  # 其他值记为0
         )
     )
 attr(my_data_calculated$dumb_severe_stuttering, "label") <- "是否有语言残疾"
@@ -2251,17 +2246,52 @@ my_data_calculated <- my_data_calculated %>%
         )
     )
 attr(my_data_calculated$number_disability, "label") <- "残疾总数"
-table(my_data_calculated$number_disability)
 
+# 计算各类残疾年限
+disability_vars <- c("intellectual", "blind_partially_blind", "deaf_partially_deaf", "dumb_severe_stuttering")
+
+for (i in 1:5) {
+    # 构建变量名
+    disability_005 <- paste0("zda005_", i, "_")
+    disability_006 <- paste0("zda006_", i, "_")
+    
+    if (i == 1) {
+        year_var <- "year_physical_disability"
+    } else {
+        year_var <- paste0("year_", disability_vars[i-1])
+    }
+    
+    # 计算残疾年限
+    my_data_calculated <- my_data_calculated %>%
+        mutate(
+            !!year_var := case_when(
+                get(disability_005, my_data_manual_filtered) == 1 ~ 
+                    if_else(!is.na(get(disability_006, my_data_manual_filtered)),
+                           2015 - get(disability_006, my_data_manual_filtered),
+                           NA_real_),
+                get(disability_005, my_data_manual_filtered) == 0 ~ 0,
+                TRUE ~ NA_real_
+            )
+        )
+    
+    # 添加变量标签
+    attr(my_data_calculated[[year_var]], "label") <- paste0(sub("year_", "", year_var), "年限")
+}
 # 导出疾病情况数据
-disease_data <- my_data_calculated %>%
+disability_data <- my_data_calculated %>%
     select(
         ID, physical_disability, intellectual_disability,
         blind_partially_blind, deaf_partially_deaf,
-        dumb_severe_stuttering, number_disability
+        dumb_severe_stuttering, number_disability,
+        year_physical_disability, year_intellectual,
+        year_blind_partially_blind, year_deaf_partially_deaf,
+        year_dumb_severe_stuttering
     )
 
-write_parquet(disease_data, "data_export/data_calculated/data_calculated_disease.parquet")
+write_parquet(disability_data, "data_export/data_calculated/data_calculated_disability.parquet")
+
+
+
 
 
 ```
