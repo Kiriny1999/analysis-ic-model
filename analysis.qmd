@@ -1251,8 +1251,6 @@ write_parquet(physiological_data, "data_export/physiological_data.parquet")
 ```
 ### 家庭结构计算
 ```{r 家庭结构计算}
-
-
 # 计算健在父母数量（貌似原始变量的取值定义错了，不是yes和no，而是 1和2，我在代码层面改了）
 my_data_calculated <- my_data_calculated %>%
     mutate(
@@ -1370,6 +1368,16 @@ my_data_calculated <- my_data_calculated %>%
         )
     )
 attr(my_data_calculated$total_number_great_grandchildren, "label") <- "重孙子女总数"
+
+# 导出家庭结构数据
+family_structure_data <- my_data_calculated %>%
+    select(
+        ID, num_parents_alive, num_children, totalnum_children_alive,
+        married_children_ratio, total_number_grandchildren,
+        total_number_great_grandchildren
+    )
+
+write_parquet(family_structure_data, "data_export/family_structure_data.parquet")
 ```
 
 ### 照顾负担计算
@@ -1508,6 +1516,10 @@ my_data_calculated <- my_data_calculated %>%
         )
     )
 attr(my_data_calculated$takecare_parents_hours, "label") <- "照顾父母及岳父岳母总小时数"
+
+# 导出家庭结构数据
+
+
 ```
 
 ### 医疗保险计算
@@ -2085,6 +2097,54 @@ my_data_calculated <- my_data_calculated %>%
         )
     )
 attr(my_data_calculated$satisfaction_healthcare, "label") <- "就医满意度"
+
+# 导出医疗保险相关数据
+medical_insurance_data <- my_data_calculated %>%
+    select(
+        ID, reason_no_health_insurance,
+        urban_employee_medical_insurance,
+        urban_resident_medical_insurance,
+        hezuoyiliao_medical_insurance,
+        urbanandruralresident_medical_insurance,
+        gongfei_medical_insurance,
+        privatemedical_insurance_workunit,
+        privatemedical_insurance_individual,
+        urban_nonemployed_persons_healthinsuran,
+        others_medical_insurance,
+        undergone_physicalexamination_past_two_years,
+        visithospital_lastmonth,
+        ill_lastmonth,
+        reason_not_seeking_medical_attention,
+        times_visited_outpatient,
+        payfor_outpatient,
+        amountpayfor_outpatient,
+        self_payfor_outpatient,
+        amountself_payfor_outpatient,
+        self_outpatient_payment_percent,
+        travel_time_outpatient,
+        travel_cost_outpatient,
+        emergency_outpatient,
+        inpatientcare_pastyear,
+        times_inpatientcare_pastyear,
+        payfor_inpatientcare_pastyear,
+        amountpayfor_inpatientcare_pastyear,
+        self_payfor_inpatientcare,
+        amountself_payfor_inpatientcare,
+        self_inpatientcare_payment_percent,
+        travel_time_inpatientcare,
+        travel_cost_inpatientcare,
+        nights_inpatientcare,
+        reasons_inpatientcare,
+        cost_self_treatment,
+        see_dentalcare,
+        times_dentalcare,
+        payfor_dentalcare,
+        cost_dentalcare,
+        satisfaction_healthcare
+    )
+
+write_parquet(medical_insurance_data, "data_export/medical_insurance_data.parquet")
+
 ```
 
 ### 疾病情况计算
