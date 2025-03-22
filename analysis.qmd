@@ -863,7 +863,6 @@ my_data_wash <- my_data_wash %>%
     mutate(
         ic_total_score = final_physical_score + cognitive_level + final_psychological_score + final_sensory_score + final_vitality_score
     )
-
 ```
 
 ## 内在能力清洗
@@ -909,7 +908,7 @@ my_data_filtered_80_percent_ic <- my_data_wash %>%
 # 将覆盖80%的个体数据导出为parquet
 write_parquet(my_data_filtered_80_percent_ic, "data_export/filtered_data_80_percent_ic.parquet")
 ```
-## 自变量筛选
+## 自变量手动筛选
 ### 自变量及其标签导出
 ```{r 自变量及其标签导出}
 # 提取出原始数据中所有变量标签
@@ -935,40 +934,8 @@ writeData(wb, "Variable Labels", variable_labels)
 
 # 保存Excel文件
 saveWorkbook(wb, "data_export/variable_labels.xlsx", overwrite = TRUE)
-
-# 以下代码会读取指定文件夹下的所有 Stata 文件，为每个文件提取变量名与标签，
-# 然后将其写入同一个 Excel 工作簿的不同工作表中
-if (!requireNamespace("haven", quietly = TRUE)) install.packages("haven")
-if (!requireNamespace("openxlsx", quietly = TRUE)) install.packages("openxlsx")
-
-library(haven)
-library(openxlsx)
-
-files_stata <- list.files("data_raw/2015/self", pattern = "\\.dta$", full.names = TRUE)
-wb <- createWorkbook()
-
-for (fn in files_stata) {
-    data_name <- sub("\\.dta$", "", basename(fn))
-    tmp_data <- read_dta(fn)
-    v_names <- names(tmp_data)
-    v_labels <- sapply(tmp_data, function(x) {
-        lbl <- attr(x, "label")
-        if (is.null(lbl)) "" else lbl
-    })
-    df_out <- data.frame(
-        variable = v_names,
-        label = v_labels,
-        include = "none",
-        comments = "",
-        stringsAsFactors = FALSE
-    )
-    addWorksheet(wb, data_name)
-    writeData(wb, data_name, df_out)
-}
-
-saveWorkbook(wb, "data_export/all_data_labels.xlsx", overwrite = TRUE)
 ```
-### 临床经验筛选
+### 临床经验筛选数据准备
 ```{r 临床经验筛选}
 # 读取变量列表
 variable_list <- read.csv("data_export/variable_labels_manual_filtered.csv")
@@ -996,28 +963,95 @@ my_data_manual_filtered <- my_data_filtered_100_ic %>%
 # 导出自变量手动筛选后的数据
 write_parquet(my_data_manual_filtered, "data_export/my_data_manual_filtered.parquet")
 ```
-### 自变量计算
-```{r 自变量计算}
+## 自变量计算
+### 计算初始化
+```{r 初始化}
 # 初始化计算后的数据
 my_data_calculated <- my_data_manual_filtered %>%
     select(ID, final_physical_score, cognitive_level, final_psychological_score, final_sensory_score, final_vitality_score, ic_total_score)
+```
+### 人口学数据计算
+```{r 人口学数据计算}
+# 人口统计学数据计算（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        householdID = my_data_manual_filtered$householdID,
+        communityID = my_data_manual_filtered$communityID,
+        gender = my_data_manual_filtered$xrgender,
+        residence_type = case_when(
+            is.na(my_data_manual_filtered$bb001_w3_1) ~ NA_real_,
+            my_data_manual_filtered$bb001_w3_1 == 1 ~ 1,  # 城市住宅
+            my_data_manual_filtered$bb001_w3_1 == 2 ~ 2,  # 农村住宅
+            my_data_manual_filtered$bb001_w3_1 == 3 ~ 3,  # 养老院/疗养院
+            my_data_manual_filtered$bb001_w3_1 == 4 ~ 4,  # 其他
+            TRUE ~ NA_real_
+        ),
+        address_urban_or_rural = case_when(
+            is.na(my_data_manual_filtered$bb001_w3_2) ~ NA_real_,
+            my_data_manual_filtered$bb001_w3_2 == 1 ~ 1,  # main city zone
+            my_data_manual_filtered$bb001_w3_2 == 2 ~ 2,  # combination zone between urban and rural areas
+            my_data_manual_filtered$bb001_w3_2 == 3 ~ 3,  # the town center
+            my_data_manual_filtered$bb001_w3_2 == 4 ~ 4,  # zhenxiang area
+            my_data_manual_filtered$bb001_w3_2 == 5 ~ 5,  # special area
+            my_data_manual_filtered$bb001_w3_2 == 6 ~ 6,  # township central
+            my_data_manual_filtered$bb001_w3_2 == 7 ~ 7,  # village
+            TRUE ~ NA_real_
+        ),
+        address_province = case_when(
+            is.na(my_data_manual_filtered$bb001_w3) ~ NA_real_,
+            TRUE ~ my_data_manual_filtered$bb001_w3
+        ),
+        literate = case_when(
+            is.na(my_data_manual_filtered$bd001_w3_1) ~ NA_real_,
+            my_data_manual_filtered$bd001_w3_1 == 1 ~ 1,  # 能读写
+            my_data_manual_filtered$bd001_w3_1 == 2 ~ 2,  # 不能读写
+            TRUE ~ NA_real_
+        ),
+        martial_status = case_when(
+            is.na(my_data_manual_filtered$be001) ~ NA_real_,
+            my_data_manual_filtered$be001 == 1 ~ 1,  # 已婚与配偶一同居住
+            my_data_manual_filtered$be001 == 2 ~ 2,  # 已婚但配偶暂时不在一起居住
+            my_data_manual_filtered$be001 == 3 ~ 3,  # 已婚但配偶在外地工作
+            my_data_manual_filtered$be001 == 4 ~ 4,  # 离异
+            my_data_manual_filtered$be001 == 5 ~ 5,  # 丧偶
+            my_data_manual_filtered$be001 == 6 ~ 6,  # 从未结婚
+            my_data_manual_filtered$be001 == 7 ~ 7,  # 同居
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$householdID, "label") <- "户口ID"
+attr(my_data_calculated$communityID, "label") <- "社区ID" 
+attr(my_data_calculated$gender, "label") <- "性别"
+attr(my_data_calculated$residence_type, "label") <- "居住类型"
+attr(my_data_calculated$address_urban_or_rural, "label") <- "城乡地址"
+attr(my_data_calculated$address_province, "label") <- "省份"
+attr(my_data_calculated$literate, "label") <- "是否识字"
+attr(my_data_calculated$martial_status, "label") <- "婚姻状况"
 
-# 计算生理指标
-## 计算收缩压的最终值并添加标签
+# 导出人口学数据
+demographic_data <- my_data_calculated %>%
+    select(ID, householdID, communityID, gender, residence_type, address_urban_or_rural, address_province, literate, martial_status)
+
+write_parquet(demographic_data, "data_export/demographic_data.parquet")
+
+```
+### 生理指标计算
+```{r 自变量计算}
+# 计算收缩压的最终值并添加标签
 my_data_calculated <- my_data_calculated %>%
     mutate(
         bp_sbp = rowMeans(select(my_data_manual_filtered, qa003, qa007, qa011), na.rm = TRUE)
     )
 attr(my_data_calculated$bp_sbp, "label") <- "收缩压"
 
-## 计算舒张压的最终值并添加标签
+# 计算舒张压的最终值并添加标签
 my_data_calculated <- my_data_calculated %>%
     mutate(
         bp_dbp = rowMeans(select(my_data_manual_filtered, qa004, qa008, qa012), na.rm = TRUE)
     )
 attr(my_data_calculated$bp_dbp, "label") <- "舒张压"
 
-## 计算是否为高血压
+# 计算是否为高血压
 my_data_calculated <- my_data_calculated %>%
     mutate(
         hypertension = case_when(
@@ -1028,7 +1062,7 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$hypertension, "label") <- "是否为高血压"
 
-## 计算是否为低血压并添加标签
+# 计算是否为低血压并添加标签
 my_data_calculated <- my_data_calculated %>%
     mutate(
         hypotension = case_when(
@@ -1039,13 +1073,13 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$hypotension, "label") <- "是否为低血压"
 
-## 计算脉搏的最终值并添加标签
+# 计算脉搏的最终值并添加标签
 my_data_calculated <- my_data_calculated %>%
     mutate(
         pulse = round(rowMeans(select(my_data_manual_filtered, qa005, qa009, qa013), na.rm = TRUE))
     )
 attr(my_data_calculated$pulse, "label") <- "脉搏"
-## 计算是否为心动过速并添加标签
+# 计算是否为心动过速并添加标签
 my_data_calculated <- my_data_calculated %>%
     mutate(
         tachycardia = case_when(
@@ -1056,7 +1090,7 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$tachycardia, "label") <- "是否为心动过速"
 
-## 计算是否为心动过缓并添加标签
+# 计算是否为心动过缓并添加标签
 my_data_calculated <- my_data_calculated %>%
     mutate(
         bradycardia = case_when(
@@ -1067,48 +1101,48 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$bradycardia, "label") <- "是否为心动过缓"
 
-## 计算身高并保留两位小数
+# 计算身高并保留两位小数
 my_data_calculated <- my_data_calculated %>%
     mutate(
         height = round((my_data_manual_filtered$qi002), 2))
 attr(my_data_calculated$height, "label") <- "身高"
 
-## 计算体重并保留两位小数
+# 计算体重并保留两位小数
 my_data_calculated <- my_data_calculated %>%
     mutate(
         weight = round((my_data_manual_filtered$ql002), 2)
     )
 attr(my_data_calculated$weight, "label") <- "体重"
 
-## 计算BMI并添加标签
+# 计算BMI并添加标签
 my_data_calculated <- my_data_calculated %>%
     mutate(
         bmi = round(weight / (height / 100)^2, 2)
     )
 attr(my_data_calculated$bmi, "label") <- "体质指数 (BMI)"
 
-## 计算腰围并保留两位小数
+# 计算腰围并保留两位小数
 my_data_calculated <- my_data_calculated %>%
     mutate(
         waist_circumference = round((my_data_manual_filtered$qm002), 2)
     )
 attr(my_data_calculated$waist_circumference, "label") <- "腰围"
 
-## 计算白细胞计数并保留两位小数
+# 计算白细胞计数并保留两位小数
 my_data_calculated <- my_data_calculated %>%
     mutate(
         white_blood_cell = round((my_data_manual_filtered$bl_wbc), 2)
     )
 attr(my_data_calculated$white_blood_cell, "label") <- "白细胞计数"
 
-## 计算红细胞压积并保留两位小数
+# 计算红细胞压积并保留两位小数
 my_data_calculated <- my_data_calculated %>%
     mutate(
         hematocrit = round((my_data_manual_filtered$bl_hct), 2)
     )
 attr(my_data_calculated$hematocrit, "label") <- "红细胞压积"
 
-## 计算平均红细胞体积并保留两位小数
+# 计算平均红细胞体积并保留两位小数
 my_data_calculated <- my_data_calculated %>%
     mutate(
         mean_corpuscular_volume = round((my_data_manual_filtered$bl_mcv), 2)
@@ -1129,143 +1163,97 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$triglycerides, "label") <- "甘油三酯 (Triglycerides)"
 
-## 计算肌酐并保留两位小数
+# 计算肌酐并保留两位小数
 my_data_calculated <- my_data_calculated %>%
     mutate(
         creatinine = round((my_data_manual_filtered$bl_crea), 2)
     )
 attr(my_data_calculated$creatinine, "label") <- "肌酐"
 
-## 计算血尿素氮并保留两位小数
+# 计算血尿素氮并保留两位小数
 my_data_calculated <- my_data_calculated %>%
     mutate(
         blood_urea_nitrogen = round((my_data_manual_filtered$bl_bun), 2)
     )
 attr(my_data_calculated$blood_urea_nitrogen, "label") <- "血尿素氮 (Blood Urea Nitrogen)"
 
-## 计算高密度脂蛋白胆固醇并保留两位小数
+# 计算高密度脂蛋白胆固醇并保留两位小数
 my_data_calculated <- my_data_calculated %>%
     mutate(
         hdl_cholesterol = round((my_data_manual_filtered$bl_hdl), 2)
     )
 attr(my_data_calculated$hdl_cholesterol, "label") <- "高密度脂蛋白胆固醇 (HDL Cholesterol)"
 
-## 计算低密度脂蛋白胆固醇并保留两位小数
+# 计算低密度脂蛋白胆固醇并保留两位小数
 my_data_calculated <- my_data_calculated %>%
     mutate(
         ldl_cholesterol = round((my_data_manual_filtered$bl_ldl), 2)
     )
 attr(my_data_calculated$ldl_cholesterol, "label") <- "低密度脂蛋白胆固醇 (LDL Cholesterol)"
 
-## 计算总胆固醇并保留两位小数
+# 计算总胆固醇并保留两位小数
 my_data_calculated <- my_data_calculated %>%
     mutate(
         total_cholesterol = round((my_data_manual_filtered$bl_cho), 2)
     )
 attr(my_data_calculated$total_cholesterol, "label") <- "总胆固醇 (Total Cholesterol)"
 
-## 计算血糖并保留两位小数
+# 计算血糖并保留两位小数
 my_data_calculated <- my_data_calculated %>%
     mutate(
         glucose = round((my_data_manual_filtered$bl_glu), 2)
     )
 attr(my_data_calculated$glucose, "label") <- "血糖"
 
-## 计算尿酸并保留两位小数
+# 计算尿酸并保留两位小数
 my_data_calculated <- my_data_calculated %>%
     mutate(
         uric_acid = round((my_data_manual_filtered$bl_ua), 2)
     )
 attr(my_data_calculated$uric_acid, "label") <- "尿酸"
 
-## 计算胱抑素C并保留两位小数
+# 计算胱抑素C并保留两位小数
 my_data_calculated <- my_data_calculated %>%
     mutate(
         cystatin_c = round((my_data_manual_filtered$bl_cysc), 2)
     )
 attr(my_data_calculated$cystatin_c, "label") <- "胱抑素C (Cystatin C)"
 
-## 计算C反应蛋白并保留两位小数
+# 计算C反应蛋白并保留两位小数
 my_data_calculated <- my_data_calculated %>%
     mutate(
         c_reactive_protein = round((my_data_manual_filtered$bl_crp), 2)
     )
 attr(my_data_calculated$c_reactive_protein, "label") <- "C反应蛋白 (C-Reactive Protein)"
 
-## 计算糖化血红蛋白并保留两位小数
+# 计算糖化血红蛋白并保留两位小数
 my_data_calculated <- my_data_calculated %>%
     mutate(
         glycated_hemoglobin = round((my_data_manual_filtered$bl_hbalc), 2)
     )
 attr(my_data_calculated$glycated_hemoglobin, "label") <- "糖化血红蛋白 (Glycated Hemoglobin)"
 
-# 家庭结构
-## 计算父母是否健在
-my_data_calculated <- my_data_calculated %>%
-    mutate(
-        has_parents_alive = case_when(
-            # 检查生物学父母
-            rowSums(select(my_data_manual_filtered, 
-                ca000_w3_2_1_, ca000_w3_2_2_,
-                ca001_w3_2_1_, ca001_w3_2_2_) == 1, na.rm = TRUE) > 0 ~ 1,
-            
-            # 检查本人的继父继母
-            my_data_manual_filtered$ca002_w3_1_1_ == 1 & 
-            my_data_manual_filtered$ca004_w3_1_1_ == 1 & 
-            my_data_manual_filtered$ca004_w3_2_1_ == 1 ~ 1,
-            
-            my_data_manual_filtered$ca002_w3_1_1_ == 1 & 
-            my_data_manual_filtered$ca005_w3_1_1_ == 1 & 
-            my_data_manual_filtered$ca005_w3_2_1_ == 1 ~ 1,
-            
-            # 检查配偶的继父继母
-            my_data_manual_filtered$ca002_w3_1_2_ == 1 & 
-            my_data_manual_filtered$ca004_w3_1_2_ == 1 & 
-            my_data_manual_filtered$ca004_w3_2_2_ == 1 ~ 1,
-            
-            my_data_manual_filtered$ca002_w3_1_2_ == 1 & 
-            my_data_manual_filtered$ca005_w3_1_2_ == 1 & 
-            my_data_manual_filtered$ca005_w3_2_2_ == 1 ~ 1,
-            
-            # 检查本人的养父母
-            my_data_manual_filtered$ca006_w3_1_1_ == 1 & 
-            my_data_manual_filtered$ca006_w3_2_1_ == 1 ~ 1,
-            
-            my_data_manual_filtered$ca007_w3_1_1_ == 1 & 
-            my_data_manual_filtered$ca007_w3_2_1_ == 1 ~ 1,
-            
-            # 检查配偶的养父母
-            my_data_manual_filtered$ca006_w3_1_2_ == 1 & 
-            my_data_manual_filtered$ca006_w3_2_2_ == 1 ~ 1,
-            
-            my_data_manual_filtered$ca007_w3_1_2_ == 1 & 
-            my_data_manual_filtered$ca007_w3_2_2_ == 1 ~ 1,
-            
-            # 如果以上条件都不满足且所有相关变量都是NA，则返回NA
-            all(is.na(select(my_data_manual_filtered,
-                ca000_w3_2_1_, ca000_w3_2_2_,
-                ca001_w3_2_1_, ca001_w3_2_2_,
-                ca002_w3_1_1_, ca002_w3_1_2_,
-                ca004_w3_1_1_, ca004_w3_1_2_,
-                ca004_w3_2_1_, ca004_w3_2_2_,
-                ca005_w3_1_1_, ca005_w3_1_2_,
-                ca005_w3_2_1_, ca005_w3_2_2_,
-                ca006_w3_1_1_, ca006_w3_1_2_,
-                ca006_w3_2_1_, ca006_w3_2_2_,
-                ca007_w3_1_1_, ca007_w3_1_2_,
-                ca007_w3_2_1_, ca007_w3_2_2_
-            ))) ~ NA_real_,
-            
-            # 其他情况返回0
-            TRUE ~ 0
-        )
+# 导出生理学指标数据
+physiological_data <- my_data_calculated %>%
+    select(
+        ID, bp_sbp, bp_dbp, hypertension, hypotension,
+        pulse, tachycardia, bradycardia,
+        height, weight, bmi, waist_circumference,
+        white_blood_cell, hematocrit, mean_corpuscular_volume,
+        platelets, triglycerides, creatinine,
+        blood_urea_nitrogen, hdl_cholesterol, ldl_cholesterol,
+        total_cholesterol, glucose, uric_acid,
+        cystatin_c, c_reactive_protein, glycated_hemoglobin
     )
 
-attr(my_data_calculated$has_parents_alive, "label") <- "父母是否健在"
-# 查看父母是否健在的数据分布
-table(my_data_calculated$has_parents_alive, useNA = "always")
+write_parquet(physiological_data, "data_export/physiological_data.parquet")
 
-## 计算健在父母数量（貌似原始变量的取值定义错了，不是yes和no，而是 1和2，我在代码层面改了）
+```
+### 家庭结构计算
+```{r 家庭结构计算}
+
+
+# 计算健在父母数量（貌似原始变量的取值定义错了，不是yes和no，而是 1和2，我在代码层面改了）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         num_parents_alive = case_when(
@@ -1309,14 +1297,14 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$num_parents_alive, "label") <- "健在父母数量"
 
-## 计算子女数量（没问题）
+# 计算子女数量（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         num_children = my_data_manual_filtered$xchildnum
     )
 attr(my_data_calculated$num_children, "label") <- "子女数量"
 
-## 计算健在子女数量（没问题）
+# 计算健在子女数量（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         totalnum_children_alive = case_when(
@@ -1326,7 +1314,7 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$totalnum_children_alive, "label") <- "健在子女数量"
 
-## 计算已婚子女比例（没问题）
+# 计算已婚子女比例（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         num_children_married = case_when(
@@ -1351,7 +1339,7 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$married_children_ratio, "label") <- "已婚子女比例"
 
-## 计算孙子女数量（没问题）
+# 计算孙子女数量（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         total_number_grandchildren = case_when(
@@ -1367,7 +1355,7 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$total_number_grandchildren, "label") <- "孙子女总数"
 
-## 计算重孙子女数量（没问题）
+# 计算重孙子女数量（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         total_number_great_grandchildren = case_when(
@@ -1382,9 +1370,11 @@ my_data_calculated <- my_data_calculated %>%
         )
     )
 attr(my_data_calculated$total_number_great_grandchildren, "label") <- "重孙子女总数"
+```
 
-# 照顾负担
-## 计算照顾父母数量（没问题，但这个是个反面变量，数字越大可能内在能力越不行，这个在后续建模中要注意一下）
+### 照顾负担计算
+```{r 照顾负担计算}
+# 计算照顾父母数量（没问题，但这个是个反面变量，数字越大可能内在能力越不行，这个在后续建模中要注意一下）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         number_care_parents = case_when(
@@ -1404,7 +1394,7 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$number_care_parents, "label") <- "照顾父母数量"
 
-## 计算照顾子女数量（没问题，但和上面一个变量一样的问题）
+# 计算照顾子女数量（没问题，但和上面一个变量一样的问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         number_takecare_children = case_when(
@@ -1424,7 +1414,7 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$number_takecare_children, "label") <- "照顾子女数量"
 
-## 计算是否带孙子女（没问题，这个取值和之前照顾父母孩子是相反的）
+# 计算是否带孙子女（没问题，这个取值和之前照顾父母孩子是相反的）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         takecare_grandchildren = case_when(
@@ -1436,47 +1426,53 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$takecare_grandchildren, "label") <- "是否照顾孙子女"
 
-## 计算照顾孙子女总时间（没问题）
+# 计算照顾孙子女总时间（还得根据是否照顾确定取值吧）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         takecare_grandchildren_hours = case_when(
-                    # 如果两个数值相乘的结果都是NA，则返回NA
-                    all(
-                        (is.na(my_data_manual_filtered$cf003_1_1_) | is.na(my_data_manual_filtered$cf003_2_1_)) &
-                        (is.na(my_data_manual_filtered$cf003_1_2_) | is.na(my_data_manual_filtered$cf003_2_2_)) &
-                        (is.na(my_data_manual_filtered$cf003_1_3_) | is.na(my_data_manual_filtered$cf003_2_3_)) &
-                        (is.na(my_data_manual_filtered$cf003_1_4_) | is.na(my_data_manual_filtered$cf003_2_4_)) &
-                        (is.na(my_data_manual_filtered$cf003_1_5_) | is.na(my_data_manual_filtered$cf003_2_5_)) &
-                        (is.na(my_data_manual_filtered$cf003_1_6_) | is.na(my_data_manual_filtered$cf003_2_6_)) &
-                        (is.na(my_data_manual_filtered$cf003_1_7_) | is.na(my_data_manual_filtered$cf003_2_7_)) &
-                        (is.na(my_data_manual_filtered$cf003_1_8_) | is.na(my_data_manual_filtered$cf003_2_8_)) &
-                        (is.na(my_data_manual_filtered$cf003_1_9_) | is.na(my_data_manual_filtered$cf003_2_9_)) &
-                        (is.na(my_data_manual_filtered$cf003_1_10_) | is.na(my_data_manual_filtered$cf003_2_10_)) &
-                        (is.na(my_data_manual_filtered$cf003_1_11_) | is.na(my_data_manual_filtered$cf003_2_11_)) &
-                        (is.na(my_data_manual_filtered$cf003_1_13_) | is.na(my_data_manual_filtered$cf003_2_13_))
-                    ) ~ NA_real_,
-                    # 否则计算乘积
-                    TRUE ~ rowSums(
-                            cbind(
-                                my_data_manual_filtered$cf003_2_1_ * my_data_manual_filtered$cf003_1_1_,
-                                my_data_manual_filtered$cf003_2_2_ * my_data_manual_filtered$cf003_1_2_,
-                                my_data_manual_filtered$cf003_2_3_ * my_data_manual_filtered$cf003_1_3_,
-                                my_data_manual_filtered$cf003_2_4_ * my_data_manual_filtered$cf003_1_4_,
-                                my_data_manual_filtered$cf003_2_5_ * my_data_manual_filtered$cf003_1_5_,
-                                my_data_manual_filtered$cf003_2_6_ * my_data_manual_filtered$cf003_1_6_,
-                                my_data_manual_filtered$cf003_2_7_ * my_data_manual_filtered$cf003_1_7_,
-                                my_data_manual_filtered$cf003_2_8_ * my_data_manual_filtered$cf003_1_8_,
-                                my_data_manual_filtered$cf003_2_9_ * my_data_manual_filtered$cf003_1_9_,
-                                my_data_manual_filtered$cf003_2_10_ * my_data_manual_filtered$cf003_1_10_,
-                                my_data_manual_filtered$cf003_2_11_ * my_data_manual_filtered$cf003_1_11_,
-                                my_data_manual_filtered$cf003_2_13_ * my_data_manual_filtered$cf003_1_13_),
-                na.rm = TRUE
-            )
+            # 首先判断是否照顾孙子女
+            takecare_grandchildren == 0 ~ 0,
+            takecare_grandchildren == 1 ~ case_when(
+                # 如果两个数值相乘的结果都是NA，则返回NA
+                all(
+                    (is.na(my_data_manual_filtered$cf003_1_1_) | is.na(my_data_manual_filtered$cf003_2_1_)) &
+                    (is.na(my_data_manual_filtered$cf003_1_2_) | is.na(my_data_manual_filtered$cf003_2_2_)) &
+                    (is.na(my_data_manual_filtered$cf003_1_3_) | is.na(my_data_manual_filtered$cf003_2_3_)) &
+                    (is.na(my_data_manual_filtered$cf003_1_4_) | is.na(my_data_manual_filtered$cf003_2_4_)) &
+                    (is.na(my_data_manual_filtered$cf003_1_5_) | is.na(my_data_manual_filtered$cf003_2_5_)) &
+                    (is.na(my_data_manual_filtered$cf003_1_6_) | is.na(my_data_manual_filtered$cf003_2_6_)) &
+                    (is.na(my_data_manual_filtered$cf003_1_7_) | is.na(my_data_manual_filtered$cf003_2_7_)) &
+                    (is.na(my_data_manual_filtered$cf003_1_8_) | is.na(my_data_manual_filtered$cf003_2_8_)) &
+                    (is.na(my_data_manual_filtered$cf003_1_9_) | is.na(my_data_manual_filtered$cf003_2_9_)) &
+                    (is.na(my_data_manual_filtered$cf003_1_10_) | is.na(my_data_manual_filtered$cf003_2_10_)) &
+                    (is.na(my_data_manual_filtered$cf003_1_11_) | is.na(my_data_manual_filtered$cf003_2_11_)) &
+                    (is.na(my_data_manual_filtered$cf003_1_13_) | is.na(my_data_manual_filtered$cf003_2_13_))
+                ) ~ NA_real_,
+                # 否则计算乘积
+                TRUE ~ rowSums(
+                    cbind(
+                        my_data_manual_filtered$cf003_2_1_ * my_data_manual_filtered$cf003_1_1_,
+                        my_data_manual_filtered$cf003_2_2_ * my_data_manual_filtered$cf003_1_2_,
+                        my_data_manual_filtered$cf003_2_3_ * my_data_manual_filtered$cf003_1_3_,
+                        my_data_manual_filtered$cf003_2_4_ * my_data_manual_filtered$cf003_1_4_,
+                        my_data_manual_filtered$cf003_2_5_ * my_data_manual_filtered$cf003_1_5_,
+                        my_data_manual_filtered$cf003_2_6_ * my_data_manual_filtered$cf003_1_6_,
+                        my_data_manual_filtered$cf003_2_7_ * my_data_manual_filtered$cf003_1_7_,
+                        my_data_manual_filtered$cf003_2_8_ * my_data_manual_filtered$cf003_1_8_,
+                        my_data_manual_filtered$cf003_2_9_ * my_data_manual_filtered$cf003_1_9_,
+                        my_data_manual_filtered$cf003_2_10_ * my_data_manual_filtered$cf003_1_10_,
+                        my_data_manual_filtered$cf003_2_11_ * my_data_manual_filtered$cf003_1_11_,
+                        my_data_manual_filtered$cf003_2_13_ * my_data_manual_filtered$cf003_1_13_),
+                    na.rm = TRUE
+                )
+            ),
+            # 如果takecare_grandchildren是NA，返回NA
+            is.na(takecare_grandchildren) ~ NA_real_
         )
     )
 attr(my_data_calculated$takecare_grandchildren_hours, "label") <- "照顾孙子女总小时数"
 
-## 计算是否照顾岳父母（没问题）
+# 计算是否照顾岳父母（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         takecare_parents = case_when(
@@ -1512,9 +1508,12 @@ my_data_calculated <- my_data_calculated %>%
         )
     )
 attr(my_data_calculated$takecare_parents_hours, "label") <- "照顾父母及岳父岳母总小时数"
+```
 
+### 医疗保险计算
+```{r 医疗保险计算}
 # 医疗保健
-## 计算无医疗保险原因
+## 计算无医疗保险原因（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         reason_no_health_insurance = case_when(
@@ -1664,8 +1663,6 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$privatemedical_insurance_workunit, "label") <- "商业医疗保险公司"
 
-# ... 其他医疗保险计算代码 ...
-
 ## 计算私人医疗保险（个人）
 my_data_calculated <- my_data_calculated %>%
     mutate(
@@ -1687,7 +1684,6 @@ my_data_calculated <- my_data_calculated %>%
         )
     )
 attr(my_data_calculated$privatemedical_insurance_individual, "label") <- "商业医疗保险个人"
-
 
 ## 计算城镇非从业居民医疗保险
 my_data_calculated <- my_data_calculated %>%
@@ -2089,7 +2085,14 @@ my_data_calculated <- my_data_calculated %>%
         )
     )
 attr(my_data_calculated$satisfaction_healthcare, "label") <- "就医满意度"
+```
 
+### 疾病情况计算
+```{r 疾病情况计算}
+
+```
+### 数据导出
+```{r 数据导出}
 # 导出计算后的数据框
 write_parquet(my_data_calculated, "data_export/my_data_calculated.parquet")
 
