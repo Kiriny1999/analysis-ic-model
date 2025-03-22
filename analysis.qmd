@@ -1034,7 +1034,7 @@ attr(my_data_calculated$martial_status, "label") <- "婚姻状况"
 demographic_data <- my_data_calculated %>%
     select(ID, householdID, communityID, gender, residence_type, address_urban_or_rural, address_province, literate, martial_status)
 
-write_parquet(demographic_data, "data_export/demographic_data.parquet")
+write_parquet(demographic_data, "data_export/data_calculated/data_calculated_demographic.parquet")
 
 ```
 ### 生理指标计算
@@ -1248,7 +1248,7 @@ physiological_data <- my_data_calculated %>%
         cystatin_c, c_reactive_protein, glycated_hemoglobin
     )
 
-write_parquet(physiological_data, "data_export/physiological_data.parquet")
+write_parquet(physiological_data, "data_export/data_calculated/data_calculated_physiological.parquet")
 
 ```
 ### 家庭结构计算
@@ -1399,7 +1399,7 @@ family_structure_data <- my_data_calculated %>%
         married_children_ratio, total_number_grandchildren,
         total_number_great_grandchildren
     )
-write_parquet(family_structure_data, "data_export/family_structure_data.parquet")
+write_parquet(family_structure_data, "data_export/data_calculated/data_calculated_family_structure.parquet")
 ```
 
 ### 照顾负担计算
@@ -1547,7 +1547,7 @@ caregiving_burden_data <- my_data_calculated %>%
         takecare_parents, takecare_parents_hours
     )
 
-write_parquet(caregiving_burden_data, "data_export/caregiving_burden_data.parquet")
+write_parquet(caregiving_burden_data, "data_export/data_calculated/data_calculated_caregiving_burden.parquet")
 ```
 
 ### 医疗保险计算
@@ -1841,7 +1841,7 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$times_visited_outpatient, "label") <- "过去一个月去门诊次数"
 
-## 计算门诊费用支付方式
+## 计算门诊是否付费
 my_data_calculated <- my_data_calculated %>%
     mutate(
         payfor_outpatient = case_when(
@@ -1942,8 +1942,6 @@ my_data_calculated <- my_data_calculated %>%
         )
     )
 attr(my_data_calculated$times_inpatientcare_pastyear, "label") <- "过去一年住院次数"
-
-# ... existing code ...
 
 ## 计算过去一年住院次数
 my_data_calculated <- my_data_calculated %>%
@@ -2171,12 +2169,100 @@ medical_insurance_data <- my_data_calculated %>%
         satisfaction_healthcare
     )
 
-write_parquet(medical_insurance_data, "data_export/medical_insurance_data.parquet")
-
+write_parquet(medical_insurance_data, "data_export/data_calculated/data_calculated_medical_insurance.parquet")
 ```
 
 ### 疾病情况计算
 ```{r 疾病情况计算}
+# 计算身体残疾情况
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        physical_disability = case_when(
+            my_data_manual_filtered$zda005_1_ == 1 ~ 1,  # yes记为1
+            my_data_manual_filtered$zda005_1_ == 2 ~ 0,  # no记为0
+            TRUE ~ NA_real_  # 其他值记为NA
+        )
+    )
+attr(my_data_calculated$physical_disability, "label") <- "是否有身体残疾"
+
+# 计算智力残疾情况
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        intellectual_disability = case_when(
+            my_data_manual_filtered$zda005_2_ == 1 ~ 1,  # yes记为1
+            my_data_manual_filtered$zda005_2_ == 2 ~ 0,  # no记为0
+            TRUE ~ NA_real_  # 其他值记为NA
+        )
+    )
+attr(my_data_calculated$intellectual_disability, "label") <- "是否有智力残疾"
+
+# 计算视力残疾情况
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        blind_partially_blind = case_when(
+            my_data_manual_filtered$zda005_3_ == 1 ~ 1,  # yes记为1
+            my_data_manual_filtered$zda005_3_ == 2 ~ 0,  # no记为0
+            TRUE ~ NA_real_  # 其他值记为NA
+        )
+    )
+attr(my_data_calculated$blind_partially_blind, "label") <- "是否有视力残疾"
+
+# 计算听力残疾情况
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        deaf_partially_deaf = case_when(
+            my_data_manual_filtered$zda005_4_ == 1 ~ 1,  # yes记为1
+            my_data_manual_filtered$zda005_4_ == 2 ~ 0,  # no记为0
+            TRUE ~ NA_real_  # 其他值记为NA
+        )
+    )
+attr(my_data_calculated$deaf_partially_deaf, "label") <- "是否有听力残疾"
+
+# 计算语言残疾情况
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        dumb_severe_stuttering = case_when(
+            my_data_manual_filtered$zda005_5_ == 1 ~ 1,  # yes记为1
+            my_data_manual_filtered$zda005_5_ == 2 ~ 0,  # no记为0
+            TRUE ~ NA_real_  # 其他值记为NA
+        )
+    )
+attr(my_data_calculated$dumb_severe_stuttering, "label") <- "是否有语言残疾"
+
+# 计算残疾总数
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        number_disability = case_when(
+            # 如果所有残疾相关变量都是NA，返回NA
+            is.na(physical_disability) & 
+            is.na(intellectual_disability) & 
+            is.na(blind_partially_blind) & 
+            is.na(deaf_partially_deaf) & 
+            is.na(dumb_severe_stuttering) ~ NA_real_,
+            # 否则计算非NA值的总和
+            TRUE ~ rowSums(
+                select(., physical_disability, 
+                       intellectual_disability,
+                       blind_partially_blind,
+                       deaf_partially_deaf,
+                       dumb_severe_stuttering),
+                na.rm = TRUE
+            )
+        )
+    )
+attr(my_data_calculated$number_disability, "label") <- "残疾总数"
+table(my_data_calculated$number_disability)
+
+# 导出疾病情况数据
+disease_data <- my_data_calculated %>%
+    select(
+        ID, physical_disability, intellectual_disability,
+        blind_partially_blind, deaf_partially_deaf,
+        dumb_severe_stuttering, number_disability
+    )
+
+write_parquet(disease_data, "data_export/disease_data.parquet")
+
 
 ```
 ### 数据导出
