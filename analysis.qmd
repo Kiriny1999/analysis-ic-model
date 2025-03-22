@@ -1517,9 +1517,15 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$takecare_parents_hours, "label") <- "照顾父母及岳父岳母总小时数"
 
-# 导出家庭结构数据
+# 导出照顾负担数据
+caregiving_burden_data <- my_data_calculated %>%
+    select(
+        ID, number_care_parents, number_takecare_children,
+        takecare_grandchildren, takecare_grandchildren_hours,
+        takecare_parents, takecare_parents_hours
+    )
 
-
+write_parquet(caregiving_burden_data, "data_export/caregiving_burden_data.parquet")
 ```
 
 ### 医疗保险计算
