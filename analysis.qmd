@@ -98,8 +98,8 @@ format: "pptx"
 ## 模型验证
 - 
 # 代码
-## 读取并合并数据
-```{r 读取并合并数据}
+## 安装并加载需要的包
+```{r 安装并加载需要的包}
 # 安装并加载所需要的包
 if (!requireNamespace("haven", quietly = TRUE)) install.packages("haven")
 if (!requireNamespace("dplyr", quietly = TRUE)) install.packages("dplyr") 
@@ -116,7 +116,9 @@ library(openxlsx)
 library(arrow)
 library(Boruta)
 library(mice)
-
+```
+## 读取并合并数据
+```{r 读取并合并数据}
 files <- list.files("data_raw/2015/self", pattern = "\\.dta$", full.names = TRUE)
 data_list <- lapply(files, read_dta)
 my_data_raw <- Reduce(function(x, y) {
@@ -1251,45 +1253,66 @@ write_parquet(physiological_data, "data_export/physiological_data.parquet")
 ```
 ### 家庭结构计算
 ```{r 家庭结构计算}
-# 计算健在父母数量（貌似原始变量的取值定义错了，不是yes和no，而是 1和2，我在代码层面改了）
+# 计算是否有父母健在（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        has_parents_alive = case_when(
+            # 检查16个变量是否都为NA
+            all(is.na(select(my_data_manual_filtered, 
+                starts_with("ca000_w3_2_"), 
+                starts_with("ca001_w3_2_"),
+                starts_with("ca002_w3_2_"),
+                starts_with("ca003_w3_2_"),
+                starts_with("ca004_w3_2_"),
+                starts_with("ca005_w3_2_"),
+                starts_with("ca006_w3_2_"),
+                starts_with("ca007_w3_2_")
+            ))) ~ NA_real_,
+            # 检查是否有任何一个变量取值为1
+            rowSums(select(my_data_manual_filtered, 
+                starts_with("ca000_w3_2_"), 
+                starts_with("ca001_w3_2_"),
+                starts_with("ca002_w3_2_"),
+                starts_with("ca003_w3_2_"),
+                starts_with("ca004_w3_2_"),
+                starts_with("ca005_w3_2_"),
+                starts_with("ca006_w3_2_"),
+                starts_with("ca007_w3_2_")
+            ) == 1, na.rm = TRUE) > 0 ~ 1,
+            # 其他情况（即所有非NA值都为0）
+            TRUE ~ 0
+        )
+    )
+attr(my_data_calculated$has_parents_alive, "label") <- "是否有父母健在"
+
+# 计算健在父母数量（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         num_parents_alive = case_when(
-            # 检查是否所有值都是NA
+            # 检查16个变量是否都为NA
             all(is.na(select(my_data_manual_filtered, 
-                   ca000_w3_2_1_, ca000_w3_2_2_,
-                   ca001_w3_2_1_, ca001_w3_2_2_,
-                   ca002_w3_1_1_, ca002_w3_1_2_,
-                   ca004_w3_1_1_, ca004_w3_1_2_,
-                   ca004_w3_2_1_, ca004_w3_2_2_,
-                   ca005_w3_1_1_, ca005_w3_1_2_,
-                   ca005_w3_2_1_, ca005_w3_2_2_,
-                   ca006_w3_1_1_, ca006_w3_1_2_,
-                   ca006_w3_2_1_, ca006_w3_2_2_,
-                   ca007_w3_1_1_, ca007_w3_1_2_,
-                   ca007_w3_2_1_, ca007_w3_2_2_
+                starts_with("ca000_w3_2_"), 
+                starts_with("ca001_w3_2_"),
+                starts_with("ca002_w3_2_"),
+                starts_with("ca003_w3_2_"),
+                starts_with("ca004_w3_2_"),
+                starts_with("ca005_w3_2_"),
+                starts_with("ca006_w3_2_"),
+                starts_with("ca007_w3_2_")
             ))) ~ NA_real_,
-            # 否则计算非NA值的总和
+            # 如果不是全部NA，则计算值为1的数量
             TRUE ~ rowSums(
                 select(my_data_manual_filtered, 
-                   ca000_w3_2_1_, ca000_w3_2_2_,
-                   ca001_w3_2_1_, ca001_w3_2_2_,
-                   ca002_w3_1_1_, ca002_w3_1_2_,
-                   ca004_w3_1_1_, ca004_w3_1_2_,
-                   ca004_w3_2_1_, ca004_w3_2_2_,
-                   ca005_w3_1_1_, ca005_w3_1_2_,
-                   ca005_w3_2_1_, ca005_w3_2_2_,
-                   ca006_w3_1_1_, ca006_w3_1_2_,
-                   ca006_w3_2_1_, ca006_w3_2_2_,
-                   ca007_w3_1_1_, ca007_w3_1_2_,
-                   ca007_w3_2_1_, ca007_w3_2_2_
-                ) %>% 
-                mutate_all(~case_when(
-                    . == 1 ~ 1,
-                    . == 2 ~ 0,
-                    TRUE ~ NA_real_
-                )),
-                na.rm = TRUE  # 忽略部分NA值
+                    starts_with("ca000_w3_2_"), 
+                    starts_with("ca001_w3_2_"),
+                    starts_with("ca002_w3_2_"),
+                    starts_with("ca003_w3_2_"),
+                    starts_with("ca004_w3_2_"),
+                    starts_with("ca005_w3_2_"),
+                    starts_with("ca006_w3_2_"),
+                    starts_with("ca007_w3_2_")
+                ) == 1,
+                na.rm = TRUE
             )
         )
     )
@@ -1302,7 +1325,7 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$num_children, "label") <- "子女数量"
 
-# 计算健在子女数量（没问题）
+# 计算健在子女数量（没问题，可如果只计算总量，每个人的孩子总数也不一样，是不是比例作为自变量更合适）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         totalnum_children_alive = case_when(
@@ -1372,11 +1395,10 @@ attr(my_data_calculated$total_number_great_grandchildren, "label") <- "重孙子
 # 导出家庭结构数据
 family_structure_data <- my_data_calculated %>%
     select(
-        ID, num_parents_alive, num_children, totalnum_children_alive,
+        ID, has_parents_alive, num_parents_alive, num_children, totalnum_children_alive,
         married_children_ratio, total_number_grandchildren,
         total_number_great_grandchildren
     )
-
 write_parquet(family_structure_data, "data_export/family_structure_data.parquet")
 ```
 
@@ -1492,7 +1514,7 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$takecare_parents, "label") <- "是否照顾岳父母"
 
-## 计算照顾父母总小时数（没问题）
+## 计算照顾父母总小时数（计算没问题，但是不是应该包括养父养母）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         takecare_parents_hours = case_when(
@@ -1758,17 +1780,17 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$undergone_physicalexamination_past_two_years, "label") <- "过去两年是否体检"
 
-## 计算过去一个月是否住院
+## 计算过去一个月是否去住院
 my_data_calculated <- my_data_calculated %>%
     mutate(
         visithospital_lastmonth = case_when(
-            is.na(my_data_manual_filtered$ec004) ~ NA_real_,
-            my_data_manual_filtered$ec004 == 1 ~ 1,  # yes记为1
-            my_data_manual_filtered$ec004 == 2 ~ 0,  # no记为0
+            is.na(my_data_manual_filtered$ed001) ~ NA_real_,
+            my_data_manual_filtered$ed001 == 1 ~ 1,  # yes记为1
+            my_data_manual_filtered$ed001 == 2 ~ 0,  # no记为0
             TRUE ~ NA_real_  # 其他值记为NA
         )
     )
-attr(my_data_calculated$visithospital_lastmonth, "label") <- "过去一个月是否住院"
+attr(my_data_calculated$visithospital_lastmonth, "label") <- "过去一个月是否去住院"
 
 ## 计算过去一个月是否生病
 my_data_calculated <- my_data_calculated %>%

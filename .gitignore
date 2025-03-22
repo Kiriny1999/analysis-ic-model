@@ -4,4 +4,5 @@
 !my_data_calculated.csv
 # 省略xlsx文件
 *.xlsx
+*.RData
 
