@@ -2261,17 +2261,17 @@ disease_data <- my_data_calculated %>%
         dumb_severe_stuttering, number_disability
     )
 
-write_parquet(disease_data, "data_export/disease_data.parquet")
+write_parquet(disease_data, "data_export/data_calculated/data_calculated_disease.parquet")
 
 
 ```
-### 数据导出
+### 计算数据导出
 ```{r 数据导出}
 # 导出计算后的数据框
-write_parquet(my_data_calculated, "data_export/my_data_calculated.parquet")
+write_parquet(my_data_calculated, "data_export/data_calculated/my_data_calculated.parquet")
 
 # 导出计算后的数据框为csv
-write.csv(my_data_calculated, "data_export/my_data_calculated.csv", row.names = FALSE)
+write.csv(my_data_calculated, "data_export/data_calculated/my_data_calculated.csv", row.names = FALSE)
 
 # 多分类变量在此处按照字符因子计算，还是按照数字计算，哑变量又是在哪里进行
 
