@@ -871,7 +871,7 @@ my_data_wash <- my_data_wash %>%
 ```{r 内在能力清洗}
 # 挑出只包含ID和五个内在能力维度总分的变量
 final_ic_scores <- my_data_wash %>%
-    select(ID, final_physical_score, cognitive_level, final_psychological_score, final_sensory_score, final_vitality_score, ic_total_score)
+    select(ID, age, final_physical_score, cognitive_level, final_psychological_score, final_sensory_score, final_vitality_score, ic_total_score)
 
 # 导出包含所有内在能力维度总分的数据
 write.csv(final_ic_scores, "data_export/final_ic_scores.csv", row.names = FALSE)
@@ -952,7 +952,8 @@ ic_vars <- c(
     "final_psychological_score", # 心理维度分数
     "final_sensory_score",   # 感官维度分数
     "final_vitality_score",  # 活力维度分数
-    "ic_total_score"         # 内在能力总分
+    "ic_total_score",        # 内在能力总分
+    "age"         
 )
 
 # 合并需要保留的变量
@@ -970,7 +971,7 @@ write_parquet(my_data_manual_filtered, "data_export/my_data_manual_filtered.parq
 ```{r 初始化}
 # 初始化计算后的数据
 my_data_calculated <- my_data_manual_filtered %>%
-    select(ID, final_physical_score, cognitive_level, final_psychological_score, final_sensory_score, final_vitality_score, ic_total_score)
+    select(ID, age, final_physical_score, cognitive_level, final_psychological_score, final_sensory_score, final_vitality_score, ic_total_score)
 ```
 ### 人口学数据计算
 ```{r 人口学数据计算}
@@ -2277,20 +2278,204 @@ for (i in 1:5) {
     # 添加变量标签
     attr(my_data_calculated[[year_var]], "label") <- paste0(sub("year_", "", year_var), "年限")
 }
+# 计算各种疾病情况（na值到底视为什么还不确定）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        hypertension = case_when(
+            my_data_manual_filtered$zda007_1_ == 1 ~ 1,
+            my_data_manual_filtered$zda007_1_ == 2 ~ 0,
+            TRUE ~ NA_real_
+        ),
+        dyslipidemia = case_when(
+            my_data_manual_filtered$zda007_2_ == 1 ~ 1,
+            my_data_manual_filtered$zda007_2_ == 2 ~ 0,
+            TRUE ~ NA_real_
+        ),
+        diabetes = case_when(
+            my_data_manual_filtered$zda007_3_ == 1 ~ 1,
+            my_data_manual_filtered$zda007_3_ == 2 ~ 0,
+            TRUE ~ NA_real_
+        ),
+        cancer = case_when(
+            my_data_manual_filtered$zda007_4_ == 1 ~ 1,
+            my_data_manual_filtered$zda007_4_ == 2 ~ 0,
+            TRUE ~ NA_real_
+        ),
+        chronic_lung_disease = case_when(
+            my_data_manual_filtered$zda007_5_ == 1 ~ 1,
+            my_data_manual_filtered$zda007_5_ == 2 ~ 0,
+            TRUE ~ NA_real_
+        ),
+        liver_disease = case_when(
+            my_data_manual_filtered$zda007_6_ == 1 ~ 1,
+            my_data_manual_filtered$zda007_6_ == 2 ~ 0,
+            TRUE ~ NA_real_
+        ),
+        heart_disease = case_when(
+            my_data_manual_filtered$zda007_7_ == 1 ~ 1,
+            my_data_manual_filtered$zda007_7_ == 2 ~ 0,
+            TRUE ~ NA_real_
+        ),
+        stroke = case_when(
+            my_data_manual_filtered$zda007_8_ == 1 ~ 1,
+            my_data_manual_filtered$zda007_8_ == 2 ~ 0,
+            TRUE ~ NA_real_
+        ),
+        kidney_disease = case_when(
+            my_data_manual_filtered$zda007_9_ == 1 ~ 1,
+            my_data_manual_filtered$zda007_9_ == 2 ~ 0,
+            TRUE ~ NA_real_
+        ),
+        digestive_system_disease = case_when(
+            my_data_manual_filtered$zda007_10_ == 1 ~ 1,
+            my_data_manual_filtered$zda007_10_ == 2 ~ 0,
+            TRUE ~ NA_real_
+        ),
+        emotional_and_mental_issues = case_when(
+            my_data_manual_filtered$zda007_11_ == 1 ~ 1,
+            my_data_manual_filtered$zda007_11_ == 2 ~ 0,
+            TRUE ~ NA_real_
+        ),
+        diseases_related_to_memory = case_when(
+            my_data_manual_filtered$zda007_12_ == 1 ~ 1,
+            my_data_manual_filtered$zda007_12_ == 2 ~ 0,
+            TRUE ~ NA_real_
+        ),
+        diseases_arthritis = case_when(
+            my_data_manual_filtered$zda007_13_ == 1 ~ 1,
+            my_data_manual_filtered$zda007_13_ == 2 ~ 0,
+            TRUE ~ NA_real_
+        ),
+        asthma = case_when(
+            my_data_manual_filtered$zda007_14_ == 1 ~ 1,
+            my_data_manual_filtered$zda007_14_ == 2 ~ 0,
+            TRUE ~ NA_real_
+        )
+    )
+
+# 添加变量标签
+attr(my_data_calculated$hypertension, "label") <- "高血压" # 这个高血压和前面算出来的高血压到底看哪个
+attr(my_data_calculated$dyslipidemia, "label") <- "血脂异常"
+attr(my_data_calculated$diabetes, "label") <- "糖尿病"
+attr(my_data_calculated$cancer, "label") <- "癌症"
+attr(my_data_calculated$chronic_lung_disease, "label") <- "慢性肺病"
+attr(my_data_calculated$liver_disease, "label") <- "肝病"
+attr(my_data_calculated$heart_disease, "label") <- "心脏病"
+attr(my_data_calculated$stroke, "label") <- "中风"
+attr(my_data_calculated$kidney_disease, "label") <- "肾病"
+attr(my_data_calculated$digestive_system_disease, "label") <- "消化系统疾病"
+attr(my_data_calculated$emotional_and_mental_issues, "label") <- "情绪和精神问题"
+attr(my_data_calculated$diseases_related_to_memory, "label") <- "记忆相关疾病"
+attr(my_data_calculated$diseases_arthritis, "label") <- "关节炎"
+attr(my_data_calculated$asthma, "label") <- "哮喘"
+
+# 计算慢性病总数
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        number_chronic_disease = case_when(
+            # 如果所有疾病变量都是NA，返回NA
+            is.na(hypertension) & 
+            is.na(dyslipidemia) & 
+            is.na(diabetes) & 
+            is.na(cancer) & 
+            is.na(chronic_lung_disease) & 
+            is.na(liver_disease) & 
+            is.na(heart_disease) & 
+            is.na(stroke) & 
+            is.na(kidney_disease) & 
+            is.na(digestive_system_disease) & 
+            is.na(emotional_and_mental_issues) & 
+            is.na(diseases_related_to_memory) & 
+            is.na(diseases_arthritis) & 
+            is.na(asthma) ~ NA_real_,
+            # 否则计算非NA值的总和
+            TRUE ~ rowSums(
+                select(., hypertension, dyslipidemia, diabetes, cancer,
+                       chronic_lung_disease, liver_disease, heart_disease,
+                       stroke, kidney_disease, digestive_system_disease,
+                       emotional_and_mental_issues, diseases_related_to_memory,
+                       diseases_arthritis, asthma),
+                na.rm = TRUE
+            )
+        )
+    )
+attr(my_data_calculated$number_chronic_disease, "label") <- "慢性病总数"
+
+# 计算各种慢性病年限
+disease_vars <- c("hypertension", "dyslipidemia", "diabetes", "cancer", 
+                 "chronic_lung_disease", "liver_disease", "heart_disease",
+                 "stroke", "kidney_disease", "digestive_system_disease",
+                 "emotional_and_mental_issues", "diseases_related_to_memory",
+                 "diseases_arthritis", "asthma")
+
+for (i in 1:14) {
+    # 构建变量名
+    disease_007 <- paste0("zda007_", i, "_")
+    disease_009 <- paste0("zda009_1_", i, "_")
+    year_var <- paste0("year_", disease_vars[i])
+    
+    # 计算疾病年限
+    my_data_calculated <- my_data_calculated %>%
+        mutate(
+            !!year_var := case_when(
+                get(disease_007, my_data_manual_filtered) == 1 ~ 
+                    if_else(!is.na(get(disease_009, my_data_manual_filtered)),
+                           2015 - get(disease_009, my_data_manual_filtered),
+                           NA_real_),
+                get(disease_007, my_data_manual_filtered) == 2 ~ 0,
+                TRUE ~ NA_real_
+            )
+        )
+    
+    # 添加变量标签
+    attr(my_data_calculated[[year_var]], "label") <- paste0(sub("year_", "", year_var), "年限")
+}
+
+# 计算是否绝经
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        menopause = case_when(
+            my_data_manual_filtered$zda027 == 1 ~ 1,
+            my_data_manual_filtered$zda027 == 2 ~ 0,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$menopause, "label") <- "是否绝经"
+table(my_data_calculated$menopause)
+# 计算是否吸烟
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        smoke = case_when(
+            my_data_manual_filtered$zda059 == 1 ~ 1,
+            my_data_manual_filtered$zda059 == 2 ~ 0,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$smoke, "label") <- "是否吸烟"
+table(my_data_calculated$smoke)
 # 导出疾病情况数据
-disability_data <- my_data_calculated %>%
+disease_data <- my_data_calculated %>%
     select(
         ID, physical_disability, intellectual_disability,
         blind_partially_blind, deaf_partially_deaf,
         dumb_severe_stuttering, number_disability,
         year_physical_disability, year_intellectual,
         year_blind_partially_blind, year_deaf_partially_deaf,
-        year_dumb_severe_stuttering
+        year_dumb_severe_stuttering,
+        hypertension, dyslipidemia, diabetes, cancer,
+        chronic_lung_disease, liver_disease, heart_disease,
+        stroke, kidney_disease, digestive_system_disease,
+        emotional_and_mental_issues, diseases_related_to_memory,
+        diseases_arthritis, asthma, number_chronic_disease,
+        year_hypertension, year_dyslipidemia, year_diabetes,
+        year_cancer, year_chronic_lung_disease, year_liver_disease,
+        year_heart_disease, year_stroke, year_kidney_disease,
+        year_digestive_system_disease, year_emotional_and_mental_issues,
+        year_diseases_related_to_memory, year_diseases_arthritis,
+        year_asthma
     )
 
-write_parquet(disability_data, "data_export/data_calculated/data_calculated_disability.parquet")
-
-
+write_parquet(disease_data, "data_export/data_calculated/data_calculated_disease.parquet")
 
 
 

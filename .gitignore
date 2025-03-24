@@ -1,8 +1,6 @@
 *.DS_Store
 # 省略csv文件
 *.csv
-!data_export/my_data_calculated.csv
-!data_export/variable_labels_manual_filtered.csv
 # 省略xlsx文件
 *.xlsx
 *.RData
