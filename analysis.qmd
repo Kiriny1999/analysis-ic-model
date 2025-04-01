@@ -2816,7 +2816,314 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$fractured_hip, "label") <- "是否髋部骨折"
 
-# 导出疾病情况数据
+# 计算是否绝经
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        menopause = case_when(
+            gender == 2 & my_data_manual_filtered$zda027 == 1 ~ 1,
+            gender == 2 & my_data_manual_filtered$zda027 == 2 ~ 0,
+            gender == 2 ~ NA_real_,
+            TRUE ~ NA_real_  # 男性或性别未知的情况下设为NA
+        )
+    )
+attr(my_data_calculated$menopause, "label") <- "是否绝经"
+
+# 计算是否疼痛
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        pain = case_when(
+            my_data_manual_filtered$da041 == 1 ~ 1,
+            my_data_manual_filtered$da041 == 2 ~ 0,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$pain, "label") <- "是否疼痛"
+
+# 计算不同部位的疼痛情况
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        pain_head = case_when(
+            pain == 0 ~ 0,
+            pain == 1 & my_data_manual_filtered$da042s1 == 1 ~ 1,
+            pain == 1 ~ 0,
+            TRUE ~ NA_real_
+        ),
+        pain_shoulder = case_when(
+            pain == 0 ~ 0,
+            pain == 1 & my_data_manual_filtered$da042s2 == 1 ~ 1,
+            pain == 1 ~ 0,
+            TRUE ~ NA_real_
+        ),
+        pain_arm = case_when(
+            pain == 0 ~ 0,
+            pain == 1 & my_data_manual_filtered$da042s3 == 1 ~ 1,
+            pain == 1 ~ 0,
+            TRUE ~ NA_real_
+        ),
+        pain_wrist = case_when(
+            pain == 0 ~ 0,
+            pain == 1 & my_data_manual_filtered$da042s4 == 1 ~ 1,
+            pain == 1 ~ 0,
+            TRUE ~ NA_real_
+        ),
+        pain_fingers = case_when(
+            pain == 0 ~ 0,
+            pain == 1 & my_data_manual_filtered$da042s5 == 1 ~ 1,
+            pain == 1 ~ 0,
+            TRUE ~ NA_real_
+        ),
+        pain_chest = case_when(
+            pain == 0 ~ 0,
+            pain == 1 & my_data_manual_filtered$da042s6 == 1 ~ 1,
+            pain == 1 ~ 0,
+            TRUE ~ NA_real_
+        ),
+        pain_stomach = case_when(
+            pain == 0 ~ 0,
+            pain == 1 & my_data_manual_filtered$da042s7 == 1 ~ 1,
+            pain == 1 ~ 0,
+            TRUE ~ NA_real_
+        ),
+        pain_back = case_when(
+            pain == 0 ~ 0,
+            pain == 1 & my_data_manual_filtered$da042s8 == 1 ~ 1,
+            pain == 1 ~ 0,
+            TRUE ~ NA_real_
+        ),
+        pain_waist = case_when(
+            pain == 0 ~ 0,
+            pain == 1 & my_data_manual_filtered$da042s9 == 1 ~ 1,
+            pain == 1 ~ 0,
+            TRUE ~ NA_real_
+        ),
+        pain_buttocks = case_when(
+            pain == 0 ~ 0,
+            pain == 1 & my_data_manual_filtered$da042s10 == 1 ~ 1,
+            pain == 1 ~ 0,
+            TRUE ~ NA_real_
+        ),
+        pain_leg = case_when(
+            pain == 0 ~ 0,
+            pain == 1 & my_data_manual_filtered$da042s11 == 1 ~ 1,
+            pain == 1 ~ 0,
+            TRUE ~ NA_real_
+        ),
+        pain_knees = case_when(
+            pain == 0 ~ 0,
+            pain == 1 & my_data_manual_filtered$da042s12 == 1 ~ 1,
+            pain == 1 ~ 0,
+            TRUE ~ NA_real_
+        ),
+        pain_ankle = case_when(
+            pain == 0 ~ 0,
+            pain == 1 & my_data_manual_filtered$da042s13 == 1 ~ 1,
+            pain == 1 ~ 0,
+            TRUE ~ NA_real_
+        ),
+        pain_toes = case_when(
+            pain == 0 ~ 0,
+            pain == 1 & my_data_manual_filtered$da042s14 == 1 ~ 1,
+            pain == 1 ~ 0,
+            TRUE ~ NA_real_
+        ),
+        pain_neck = case_when(
+            pain == 0 ~ 0,
+            pain == 1 & my_data_manual_filtered$da042s15 == 1 ~ 1,
+            pain == 1 ~ 0,
+            TRUE ~ NA_real_
+        ),
+        pain_other = case_when(
+            pain == 0 ~ 0,
+            pain == 1 & my_data_manual_filtered$da042s16 == 1 ~ 1,
+            pain == 1 ~ 0,
+            TRUE ~ NA_real_
+        )
+    )
+
+# 添加变量标签
+attr(my_data_calculated$pain_head, "label") <- "头部疼痛"
+attr(my_data_calculated$pain_shoulder, "label") <- "肩部疼痛"
+attr(my_data_calculated$pain_arm, "label") <- "手臂疼痛"
+attr(my_data_calculated$pain_wrist, "label") <- "手腕疼痛"
+attr(my_data_calculated$pain_fingers, "label") <- "手指疼痛"
+attr(my_data_calculated$pain_chest, "label") <- "胸部疼痛"
+attr(my_data_calculated$pain_stomach, "label") <- "腹部疼痛"
+attr(my_data_calculated$pain_back, "label") <- "背部疼痛"
+attr(my_data_calculated$pain_waist, "label") <- "腰部疼痛"
+attr(my_data_calculated$pain_buttocks, "label") <- "臀部疼痛"
+attr(my_data_calculated$pain_leg, "label") <- "腿部疼痛"
+attr(my_data_calculated$pain_knees, "label") <- "膝盖疼痛"
+attr(my_data_calculated$pain_ankle, "label") <- "脚踝疼痛"
+attr(my_data_calculated$pain_toes, "label") <- "脚趾疼痛"
+attr(my_data_calculated$pain_neck, "label") <- "颈部疼痛"
+attr(my_data_calculated$pain_other, "label") <- "其他部位疼痛"
+
+# 计算疼痛部位总数
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        number_pain_locations = case_when(
+            # 如果所有疼痛变量都是NA，返回NA
+            is.na(pain_head) & is.na(pain_shoulder) & is.na(pain_arm) & 
+            is.na(pain_wrist) & is.na(pain_fingers) & is.na(pain_chest) & 
+            is.na(pain_stomach) & is.na(pain_back) & is.na(pain_waist) & 
+            is.na(pain_buttocks) & is.na(pain_leg) & is.na(pain_knees) & 
+            is.na(pain_ankle) & is.na(pain_toes) & is.na(pain_neck) & 
+            is.na(pain_other) ~ NA_real_,
+            # 否则计算非NA值的总和
+            TRUE ~ rowSums(
+                select(., starts_with("pain_")),
+                na.rm = TRUE
+            )
+        )
+    )
+attr(my_data_calculated$number_pain_locations, "label") <- "疼痛部位总数"
+
+# 计算其他疾病情况
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        others_diseases = case_when(
+            my_data_manual_filtered$da045 == 1 ~ 1,
+            my_data_manual_filtered$da045 == 2 ~ 0,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$others_diseases, "label") <- "是否有其他疾病"
+
+# 计算童年期健康状况
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        childhood_health = case_when(
+            is.na(my_data_manual_filtered$da048) ~ NA_real_,
+            my_data_manual_filtered$da048 == 1 ~ 1,
+            my_data_manual_filtered$da048 == 2 ~ 2,
+            my_data_manual_filtered$da048 == 3 ~ 3,
+            my_data_manual_filtered$da048 == 4 ~ 4,
+            my_data_manual_filtered$da048 == 5 ~ 5,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$childhood_health, "label") <- "童年期健康状况"
+
+# 计算自评健康状况（优秀）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        self_assessed_health_status_excellent = case_when(
+            is.na(my_data_manual_filtered$da001) ~ NA_real_,
+            my_data_manual_filtered$da001 == 1 ~ 1,
+            my_data_manual_filtered$da001 == 2 ~ 2,
+            my_data_manual_filtered$da001 == 3 ~ 3,
+            my_data_manual_filtered$da001 == 4 ~ 4,
+            my_data_manual_filtered$da001 == 5 ~ 5,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$self_assessed_health_status_excellent, "label") <- "自评健康状况(优秀)"
+
+# 计算自评健康状况（好）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        self_assessed_health_status_good = case_when(
+            is.na(my_data_manual_filtered$da002) ~ NA_real_,
+            my_data_manual_filtered$da002 == 1 ~ 1,
+            my_data_manual_filtered$da002 == 2 ~ 2,
+            my_data_manual_filtered$da002 == 3 ~ 3,
+            my_data_manual_filtered$da002 == 4 ~ 4,
+            my_data_manual_filtered$da002 == 5 ~ 5,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$self_assessed_health_status_good, "label") <- "自评健康状况(好)"
+
+# 计算自评健康状况1
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        self_assessed_health_status1 = case_when(
+            is.na(my_data_manual_filtered$da079) ~ NA_real_,
+            my_data_manual_filtered$da079 == 1 ~ 1,
+            my_data_manual_filtered$da079 == 2 ~ 2,
+            my_data_manual_filtered$da079 == 3 ~ 3,
+            my_data_manual_filtered$da079 == 4 ~ 4,
+            my_data_manual_filtered$da079 == 5 ~ 5,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$self_assessed_health_status1, "label") <- "自评健康状况1"
+
+# 计算自评健康状况2
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        self_assessed_health_status2 = case_when(
+            is.na(my_data_manual_filtered$da080) ~ NA_real_,
+            my_data_manual_filtered$da080 == 1 ~ 1,
+            my_data_manual_filtered$da080 == 2 ~ 2,
+            my_data_manual_filtered$da080 == 3 ~ 3,
+            my_data_manual_filtered$da080 == 4 ~ 4,
+            my_data_manual_filtered$da080 == 5 ~ 5,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$self_assessed_health_status2, "label") <- "自评健康状况2"
+
+# 计算健康满意度
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        health_satisfaction = case_when(
+            is.na(my_data_manual_filtered$dc042_w3) ~ NA_real_,
+            my_data_manual_filtered$dc042_w3 == 1 ~ 4,
+            my_data_manual_filtered$dc042_w3 == 2 ~ 3, 
+            my_data_manual_filtered$dc042_w3 == 3 ~ 2,
+            my_data_manual_filtered$dc042_w3 == 4 ~ 1,
+            my_data_manual_filtered$dc042_w3 == 5 ~ 0,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$health_satisfaction, "label") <- "健康满意度"
+
+# 计算婚姻满意度
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        marriage_satisfaction = case_when(
+            is.na(my_data_manual_filtered$dc043_w3) ~ NA_real_,
+            my_data_manual_filtered$dc043_w3 == 1 ~ 4,
+            my_data_manual_filtered$dc043_w3 == 2 ~ 3,
+            my_data_manual_filtered$dc043_w3 == 3 ~ 2,
+            my_data_manual_filtered$dc043_w3 == 4 ~ 1,
+            my_data_manual_filtered$dc043_w3 == 5 ~ 0,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$marriage_satisfaction, "label") <- "婚姻满意度"
+
+# 计算子女满意度
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        children_satisfaction = case_when(
+            is.na(my_data_manual_filtered$dc044_w3) ~ NA_real_,
+            my_data_manual_filtered$dc044_w3 == 1 ~ 4,
+            my_data_manual_filtered$dc044_w3 == 2 ~ 3,
+            my_data_manual_filtered$dc044_w3 == 3 ~ 2,
+            my_data_manual_filtered$dc044_w3 == 4 ~ 1,
+            my_data_manual_filtered$dc044_w3 == 5 ~ 0,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$children_satisfaction, "label") <- "子女满意度"
+
+# 计算生活满意度
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        life_satisfaction = case_when(
+            is.na(my_data_manual_filtered$dc028) ~ NA_real_,
+            my_data_manual_filtered$dc028 == 1 ~ 4,
+            my_data_manual_filtered$dc028 == 2 ~ 3,
+            my_data_manual_filtered$dc028 == 3 ~ 2,
+            my_data_manual_filtered$dc028 == 4 ~ 1,
+            my_data_manual_filtered$dc028 == 5 ~ 0,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$life_satisfaction, "label") <- "生活满意度"
+
 
 ```
 ### 计算数据导出
