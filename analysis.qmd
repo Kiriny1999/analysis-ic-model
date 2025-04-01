@@ -2248,7 +2248,7 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$number_disability, "label") <- "残疾总数"
 
-# 计算各类残疾年限
+# 计算各类残疾年限（没有残疾的年份应该是NA吧）
 disability_vars <- c("intellectual", "blind_partially_blind", "deaf_partially_deaf", "dumb_severe_stuttering")
 
 for (i in 1:5) {
@@ -2278,78 +2278,64 @@ for (i in 1:5) {
     # 添加变量标签
     attr(my_data_calculated[[year_var]], "label") <- paste0(sub("year_", "", year_var), "年限")
 }
-# 计算各种疾病情况（na值到底视为什么还不确定）
+# 计算各种疾病情况（na值到底视为什么还不确定,na应该是0，不是na）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         hypertension = case_when(
             my_data_manual_filtered$zda007_1_ == 1 ~ 1,
-            my_data_manual_filtered$zda007_1_ == 2 ~ 0,
-            TRUE ~ NA_real_
+            TRUE ~ 0
         ),
         dyslipidemia = case_when(
             my_data_manual_filtered$zda007_2_ == 1 ~ 1,
-            my_data_manual_filtered$zda007_2_ == 2 ~ 0,
-            TRUE ~ NA_real_
+            TRUE ~ 0
         ),
         diabetes = case_when(
             my_data_manual_filtered$zda007_3_ == 1 ~ 1,
-            my_data_manual_filtered$zda007_3_ == 2 ~ 0,
-            TRUE ~ NA_real_
+            TRUE ~ 0
         ),
         cancer = case_when(
             my_data_manual_filtered$zda007_4_ == 1 ~ 1,
-            my_data_manual_filtered$zda007_4_ == 2 ~ 0,
-            TRUE ~ NA_real_
+            TRUE ~ 0
         ),
         chronic_lung_disease = case_when(
             my_data_manual_filtered$zda007_5_ == 1 ~ 1,
-            my_data_manual_filtered$zda007_5_ == 2 ~ 0,
-            TRUE ~ NA_real_
+            TRUE ~ 0
         ),
         liver_disease = case_when(
             my_data_manual_filtered$zda007_6_ == 1 ~ 1,
-            my_data_manual_filtered$zda007_6_ == 2 ~ 0,
-            TRUE ~ NA_real_
+            TRUE ~ 0
         ),
         heart_disease = case_when(
             my_data_manual_filtered$zda007_7_ == 1 ~ 1,
-            my_data_manual_filtered$zda007_7_ == 2 ~ 0,
-            TRUE ~ NA_real_
+            TRUE ~ 0
         ),
         stroke = case_when(
             my_data_manual_filtered$zda007_8_ == 1 ~ 1,
-            my_data_manual_filtered$zda007_8_ == 2 ~ 0,
-            TRUE ~ NA_real_
+            TRUE ~ 0
         ),
         kidney_disease = case_when(
             my_data_manual_filtered$zda007_9_ == 1 ~ 1,
-            my_data_manual_filtered$zda007_9_ == 2 ~ 0,
-            TRUE ~ NA_real_
+            TRUE ~ 0
         ),
         digestive_system_disease = case_when(
             my_data_manual_filtered$zda007_10_ == 1 ~ 1,
-            my_data_manual_filtered$zda007_10_ == 2 ~ 0,
-            TRUE ~ NA_real_
+            TRUE ~ 0
         ),
         emotional_and_mental_issues = case_when(
             my_data_manual_filtered$zda007_11_ == 1 ~ 1,
-            my_data_manual_filtered$zda007_11_ == 2 ~ 0,
-            TRUE ~ NA_real_
+            TRUE ~ 0
         ),
         diseases_related_to_memory = case_when(
             my_data_manual_filtered$zda007_12_ == 1 ~ 1,
-            my_data_manual_filtered$zda007_12_ == 2 ~ 0,
-            TRUE ~ NA_real_
+            TRUE ~ 0
         ),
         diseases_arthritis = case_when(
             my_data_manual_filtered$zda007_13_ == 1 ~ 1,
-            my_data_manual_filtered$zda007_13_ == 2 ~ 0,
-            TRUE ~ NA_real_
+            TRUE ~ 0
         ),
         asthma = case_when(
             my_data_manual_filtered$zda007_14_ == 1 ~ 1,
-            my_data_manual_filtered$zda007_14_ == 2 ~ 0,
-            TRUE ~ NA_real_
+            TRUE ~ 0
         )
     )
 
@@ -2441,7 +2427,7 @@ my_data_calculated <- my_data_calculated %>%
         )
     )
 attr(my_data_calculated$menopause, "label") <- "是否绝经"
-table(my_data_calculated$menopause)
+
 # 计算是否吸烟
 my_data_calculated <- my_data_calculated %>%
     mutate(
@@ -2452,32 +2438,385 @@ my_data_calculated <- my_data_calculated %>%
         )
     )
 attr(my_data_calculated$smoke, "label") <- "是否吸烟"
-table(my_data_calculated$smoke)
-# 导出疾病情况数据
-disease_data <- my_data_calculated %>%
-    select(
-        ID, physical_disability, intellectual_disability,
-        blind_partially_blind, deaf_partially_deaf,
-        dumb_severe_stuttering, number_disability,
-        year_physical_disability, year_intellectual,
-        year_blind_partially_blind, year_deaf_partially_deaf,
-        year_dumb_severe_stuttering,
-        hypertension, dyslipidemia, diabetes, cancer,
-        chronic_lung_disease, liver_disease, heart_disease,
-        stroke, kidney_disease, digestive_system_disease,
-        emotional_and_mental_issues, diseases_related_to_memory,
-        diseases_arthritis, asthma, number_chronic_disease,
-        year_hypertension, year_dyslipidemia, year_diabetes,
-        year_cancer, year_chronic_lung_disease, year_liver_disease,
-        year_heart_disease, year_stroke, year_kidney_disease,
-        year_digestive_system_disease, year_emotional_and_mental_issues,
-        year_diseases_related_to_memory, year_diseases_arthritis,
-        year_asthma
+
+# 计算吸烟开始年龄
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        smokeage = my_data_manual_filtered$zda065_1
+    )
+attr(my_data_calculated$smokeage, "label") <- "吸烟开始年龄"
+
+# 计算吸烟年数
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        smokeyear = case_when(
+            is.na(my_data_manual_filtered$zda065_2) ~ NA_real_,
+            TRUE ~ 2015 - my_data_manual_filtered$zda065_2
+        )
+    )
+attr(my_data_calculated$smokeyear, "label") <- "吸烟年数"
+
+# 计算健康变化
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        health_compared = case_when(
+            my_data_manual_filtered$da002_w2_1 == 1 ~ 1,
+            my_data_manual_filtered$da002_w2_1 == 2 ~ 2,
+            my_data_manual_filtered$da002_w2_1 == 3 ~ 3,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$health_compared, "label") <- "健康变化"
+
+# 计算是否做过血糖测试
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        blood_glucose_test = case_when(
+            my_data_manual_filtered$da016_w3 == 1 ~ 1,
+            my_data_manual_filtered$da016_w3 == 2 ~ 0,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$blood_glucose_test, "label") <- "是否做过血糖测试"
+
+# 计算血糖测试频率（是否也得看有没有测过血糖）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        blood_glucose_test_often = case_when(
+            blood_glucose_test == 0 ~ 0,  # 如果没测过血糖，频率为0
+            blood_glucose_test == 1 ~ case_when(  # 如果测过血糖，按频率赋值
+                my_data_manual_filtered$da016_w3_1 == 1 ~ 1,
+                my_data_manual_filtered$da016_w3_1 == 2 ~ 2,
+                my_data_manual_filtered$da016_w3_1 == 3 ~ 3,
+                my_data_manual_filtered$da016_w3_1 == 4 ~ 4,
+                my_data_manual_filtered$da016_w3_1 == 5 ~ 5,
+                my_data_manual_filtered$da016_w3_1 == 6 ~ 6,
+                my_data_manual_filtered$da016_w3_1 == 7 ~ 7,
+                TRUE ~ NA_real_
+            ),
+            TRUE ~ NA_real_  # 其他情况赋值为NA
+        )
+    )
+attr(my_data_calculated$blood_glucose_test_often, "label") <- "血糖测试频率"
+
+# 计算是否心脏病发作
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        heart_attack = case_when(
+            my_data_manual_filtered$da007_w2_5 == 1 ~ 1,
+            my_data_manual_filtered$da007_w2_5 == 2 ~ 0,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$heart_attack, "label") <- "是否心脏病发作"
+
+# 计算心脏病发作年限
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        heart_attack_year = case_when(
+            is.na(my_data_manual_filtered$da007_w2_6_1) ~ NA_real_,
+            TRUE ~ 2015 - my_data_manual_filtered$da007_w2_6_1
+        )
+    )
+attr(my_data_calculated$heart_attack_year, "label") <- "心脏病发作年限"
+
+# 计算各种癌症情况
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        cancer_brain = case_when(
+            my_data_manual_filtered$da017s1 == 1 ~ 1,
+            TRUE ~ 0
+        ),
+        cancer_mouth = case_when(
+            my_data_manual_filtered$da017s2 == 1 ~ 1,
+            TRUE ~ 0
+        ),
+        cancer_larynx = case_when(
+            my_data_manual_filtered$da017s3 == 1 ~ 1,
+            TRUE ~ 0
+        ),
+        cancer_pharynx = case_when(
+            my_data_manual_filtered$da017s4 == 1 ~ 1,
+            TRUE ~ 0
+        ),
+        cancer_thyroid = case_when(
+            my_data_manual_filtered$da017s5 == 1 ~ 1,
+            TRUE ~ 0
+        ),
+        cancer_lung = case_when(
+            my_data_manual_filtered$da017s6 == 1 ~ 1,
+            TRUE ~ 0
+        ),
+        cancer_breast = case_when(
+            my_data_manual_filtered$da017s7 == 1 ~ 1,
+            TRUE ~ 0
+        ),
+        cancer_esophagus = case_when(
+            my_data_manual_filtered$da017s8 == 1 ~ 1,
+            TRUE ~ 0
+        ),
+        cancer_stomach = case_when(
+            my_data_manual_filtered$da017s9 == 1 ~ 1,
+            TRUE ~ 0
+        ),
+        cancer_liver = case_when(
+            my_data_manual_filtered$da017s10 == 1 ~ 1,
+            TRUE ~ 0
+        ),
+        cancer_pancreas = case_when(
+            my_data_manual_filtered$da017s11 == 1 ~ 1,
+            TRUE ~ 0
+        ),
+        cancer_kidney = case_when(
+            my_data_manual_filtered$da017s12 == 1 ~ 1,
+            TRUE ~ 0
+        ),
+        cancer_prostate = case_when(
+            my_data_manual_filtered$da017s13 == 1 ~ 1,
+            TRUE ~ 0
+        ),
+        cancer_testis = case_when(
+            my_data_manual_filtered$da017s14 == 1 ~ 1,
+            TRUE ~ 0
+        ),
+        cancer_ovary = case_when(
+            my_data_manual_filtered$da017s15 == 1 ~ 1,
+            TRUE ~ 0
+        ),
+        cancer_cervix = case_when(
+            my_data_manual_filtered$da017s16 == 1 ~ 1,
+            TRUE ~ 0
+        ),
+        cancer_endometrium = case_when(
+            my_data_manual_filtered$da017s17 == 1 ~ 1,
+            TRUE ~ 0
+        ),
+        cancer_colorectal = case_when(
+            my_data_manual_filtered$da017s18 == 1 ~ 1,
+            TRUE ~ 0
+        ),
+        cancer_bladder = case_when(
+            my_data_manual_filtered$da017s19 == 1 ~ 1,
+            TRUE ~ 0
+        ),
+        cancer_skin = case_when(
+            my_data_manual_filtered$da017s20 == 1 ~ 1,
+            TRUE ~ 0
+        ),
+        cancer_non_hodgkin_lymphoma = case_when(
+            my_data_manual_filtered$da017s21 == 1 ~ 1,
+            TRUE ~ 0
+        ),
+        cancer_leukemia = case_when(
+            my_data_manual_filtered$da017s22 == 1 ~ 1,
+            TRUE ~ 0
+        ),
+        cancer_other = case_when(
+            my_data_manual_filtered$da017s23 == 1 ~ 1,
+            TRUE ~ 0
+        )
     )
 
-write_parquet(disease_data, "data_export/data_calculated/data_calculated_disease.parquet")
+# 添加变量标签
+attr(my_data_calculated$cancer_brain, "label") <- "大脑癌症"
+attr(my_data_calculated$cancer_mouth, "label") <- "口腔癌症"
+attr(my_data_calculated$cancer_larynx, "label") <- "喉癌症"
+attr(my_data_calculated$cancer_pharynx, "label") <- "咽癌症"
+attr(my_data_calculated$cancer_thyroid, "label") <- "甲状腺癌症"
+attr(my_data_calculated$cancer_lung, "label") <- "肺癌症"
+attr(my_data_calculated$cancer_breast, "label") <- "乳腺癌症"
+attr(my_data_calculated$cancer_esophagus, "label") <- "食管癌症"
+attr(my_data_calculated$cancer_stomach, "label") <- "胃癌症"
+attr(my_data_calculated$cancer_liver, "label") <- "肝癌症"
+attr(my_data_calculated$cancer_pancreas, "label") <- "胰腺癌症"
+attr(my_data_calculated$cancer_kidney, "label") <- "肾癌症"
+attr(my_data_calculated$cancer_prostate, "label") <- "前列腺癌症"
+attr(my_data_calculated$cancer_testis, "label") <- "睾丸癌症"
+attr(my_data_calculated$cancer_ovary, "label") <- "卵巢癌症"
+attr(my_data_calculated$cancer_cervix, "label") <- "宫颈癌症"
+attr(my_data_calculated$cancer_endometrium, "label") <- "子宫内膜癌症"
+attr(my_data_calculated$cancer_colorectal, "label") <- "结直肠癌症"
+attr(my_data_calculated$cancer_bladder, "label") <- "膀胱癌症"
+attr(my_data_calculated$cancer_skin, "label") <- "皮肤癌症"
+attr(my_data_calculated$cancer_non_hodgkin_lymphoma, "label") <- "非霍奇金淋巴瘤"
+attr(my_data_calculated$cancer_leukemia, "label") <- "白血病"
+attr(my_data_calculated$cancer_other, "label") <- "其他癌症"
 
+# 计算癌症总数
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        number_cancer = case_when(
+            # 如果所有癌症变量都是NA，返回NA
+            is.na(cancer_brain) & 
+            is.na(cancer_mouth) & 
+            is.na(cancer_larynx) & 
+            is.na(cancer_pharynx) & 
+            is.na(cancer_thyroid) & 
+            is.na(cancer_lung) & 
+            is.na(cancer_breast) & 
+            is.na(cancer_esophagus) & 
+            is.na(cancer_stomach) & 
+            is.na(cancer_liver) & 
+            is.na(cancer_pancreas) & 
+            is.na(cancer_kidney) & 
+            is.na(cancer_prostate) & 
+            is.na(cancer_testis) & 
+            is.na(cancer_ovary) & 
+            is.na(cancer_cervix) & 
+            is.na(cancer_endometrium) & 
+            is.na(cancer_colorectal) & 
+            is.na(cancer_bladder) & 
+            is.na(cancer_skin) & 
+            is.na(cancer_non_hodgkin_lymphoma) & 
+            is.na(cancer_leukemia) & 
+            is.na(cancer_other) ~ NA_real_,
+            # 否则计算非NA值的总和
+            TRUE ~ rowSums(
+                select(., cancer_brain, cancer_mouth, cancer_larynx,
+                       cancer_pharynx, cancer_thyroid, cancer_lung,
+                       cancer_breast, cancer_esophagus, cancer_stomach,
+                       cancer_liver, cancer_pancreas, cancer_kidney,
+                       cancer_prostate, cancer_testis, cancer_ovary,
+                       cancer_cervix, cancer_endometrium, cancer_colorectal,
+                       cancer_bladder, cancer_skin, cancer_non_hodgkin_lymphoma,
+                       cancer_leukemia, cancer_other),
+                na.rm = TRUE
+            )
+        )
+    )
+attr(my_data_calculated$number_cancer, "label") <- "癌症总数"
 
+# 计算是否接受中医治疗癌症
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        traditional_chinese_medicine_cancer_treatment = case_when(
+            number_cancer == 0 ~ 0,
+            number_cancer > 0 & is.na(my_data_manual_filtered$da018s1) ~ NA_real_,
+            number_cancer > 0 & !is.na(my_data_manual_filtered$da018s1) ~ 1,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$traditional_chinese_medicine_cancer_treatment, "label") <- "是否接受中医治疗癌症"
+# 计算是否接受西医治疗癌症
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        western_medicine_cancer_treatment = case_when(
+            number_cancer == 0 ~ 0,
+            number_cancer > 0 & is.na(my_data_manual_filtered$da018s2) ~ NA_real_,
+            number_cancer > 0 & !is.na(my_data_manual_filtered$da018s2) ~ 1,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$western_medicine_cancer_treatment, "label") <- "是否接受西医治疗癌症"
+
+# 计算是否接受化疗治疗癌症
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        chemotherapy_cancer_treatment = case_when(
+            number_cancer == 0 ~ 0,
+            number_cancer > 0 & is.na(my_data_manual_filtered$da018s3) ~ NA_real_,
+            number_cancer > 0 & !is.na(my_data_manual_filtered$da018s3) ~ 1,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$chemotherapy_cancer_treatment, "label") <- "是否接受化疗治疗癌症"
+
+# 计算是否接受手术治疗癌症
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        surgery_cancer_treatment = case_when(
+            number_cancer == 0 ~ 0,
+            number_cancer > 0 & is.na(my_data_manual_filtered$da018s4) ~ NA_real_,
+            number_cancer > 0 & !is.na(my_data_manual_filtered$da018s4) ~ 1,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$surgery_cancer_treatment, "label") <- "是否接受手术治疗癌症"
+
+# 计算是否接受放疗治疗癌症
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        radiotherapy_cancer_treatment = case_when(
+            number_cancer == 0 ~ 0,
+            number_cancer > 0 & is.na(my_data_manual_filtered$da018s5) ~ NA_real_,
+            number_cancer > 0 & !is.na(my_data_manual_filtered$da018s5) ~ 1,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$radiotherapy_cancer_treatment, "label") <- "是否接受放疗治疗癌症"
+
+# 计算是否没有接受以上治疗方法
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        no_above_treatment_method = case_when(
+            number_cancer == 0 ~ 0,
+            number_cancer > 0 & is.na(my_data_manual_filtered$da018s6) ~ NA_real_,
+            number_cancer > 0 & !is.na(my_data_manual_filtered$da018s6) ~ 1,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$no_above_treatment_method, "label") <- "是否没有接受以上治疗方法"
+
+# 计算是否发生重大交通事故或意外伤害
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        traffic_accident_major_accidental_injury = case_when(
+            my_data_manual_filtered$da021 == 1 ~ 1,
+            my_data_manual_filtered$da021 == 2 ~ 0,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$traffic_accident_major_accidental_injury, "label") <- "是否发生重大交通事故或意外伤害"
+
+# 计算伤害是否限制日常活动
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        injury_limit_daily_activities = case_when(
+            traffic_accident_major_accidental_injury == 0 ~ 0,
+            traffic_accident_major_accidental_injury == 1 & my_data_manual_filtered$da022 == 1 ~ 1,
+            traffic_accident_major_accidental_injury == 1 & my_data_manual_filtered$da022 == 2 ~ 0,
+            traffic_accident_major_accidental_injury == 1 & is.na(my_data_manual_filtered$da022) ~ NA_real_,
+            is.na(traffic_accident_major_accidental_injury) ~ NA_real_,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$injury_limit_daily_activities, "label") <- "伤害是否限制日常活动"
+
+# 计算是否跌倒
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        fallen_down = case_when(
+            my_data_manual_filtered$da023 == 1 ~ 1,
+            my_data_manual_filtered$da023 == 2 ~ 0,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$fallen_down, "label") <- "是否跌倒"
+
+# 计算跌倒次数
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        times_fallen_down = case_when(
+            fallen_down == 0 ~ 0,
+            fallen_down == 1 ~ my_data_manual_filtered$da024,
+            is.na(fallen_down) ~ NA_real_,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$times_fallen_down, "label") <- "跌倒次数"
+
+# 计算是否髋部骨折
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        fractured_hip = case_when(
+            my_data_manual_filtered$da025 == 1 ~ 1,
+            my_data_manual_filtered$da025 == 2 ~ 0,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$fractured_hip, "label") <- "是否髋部骨折"
+
+# 导出疾病情况数据
 
 ```
 ### 计算数据导出
