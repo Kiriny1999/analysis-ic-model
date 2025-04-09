@@ -2697,6 +2697,7 @@ my_data_calculated <- my_data_calculated %>%
         )
     )
 attr(my_data_calculated$traditional_chinese_medicine_cancer_treatment, "label") <- "是否接受中医治疗癌症"
+
 # 计算是否接受西医治疗癌症
 my_data_calculated <- my_data_calculated %>%
     mutate(
@@ -3123,10 +3124,332 @@ my_data_calculated <- my_data_calculated %>%
         )
     )
 attr(my_data_calculated$life_satisfaction, "label") <- "生活满意度"
+```
+
+### 行为习惯计算
+```{r 行为习惯计算}
+# 计算社交活动数量
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        number_social_activities = case_when(
+            all(is.na(select(my_data_manual_filtered, starts_with("da056s")))) ~ NA_real_,
+            TRUE ~ rowSums(!is.na(select(my_data_manual_filtered, starts_with("da056s"))), na.rm = TRUE)
+        )
+    )
+attr(my_data_calculated$number_social_activities, "label") <- "社交活动数量"
+
+# 计算社会隔离情况
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        social_isolation = case_when(
+            is.na(number_social_activities) ~ NA_real_,
+            number_social_activities == 0 ~ 1,  # 无社交活动记为1
+            number_social_activities > 0 ~ 0,   # 有社交活动记为0
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$social_isolation, "label") <- "社会隔离"
+
+# 计算是否使用互联网
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        internet_use = case_when(
+            !is.na(my_data_manual_filtered$da056s12) ~ 1,  # 有答案记为1
+            TRUE ~ 0  # NA记为0
+        )
+    )
+attr(my_data_calculated$internet_use, "label") <- "是否使用互联网"
+
+# 计算互联网设备使用数量
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        devices_internet_use = case_when(
+            internet_use == 0 ~ 0,  # 不使用互联网则设备数为0
+            internet_use == 1 ~ case_when(
+                # 如果所有设备使用变量都是NA，返回NA
+                all(is.na(select(my_data_manual_filtered, 
+                    da056_w3s1, da056_w3s2, da056_w3s3,
+                    da056_w3s4, da056_w3s5))) ~ NA_real_,
+                # 否则计算非NA值的数量
+                TRUE ~ rowSums(
+                    !is.na(select(my_data_manual_filtered, 
+                        da056_w3s1, da056_w3s2, da056_w3s3,
+                        da056_w3s4, da056_w3s5))
+                )
+            ),
+            is.na(internet_use) ~ NA_real_,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$devices_internet_use, "label") <- "互联网设备使用数量"
+
+# 计算是否吸烟
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        smoke = case_when(
+            my_data_manual_filtered$da059 == 1 ~ 1,
+            is.na(my_data_manual_filtered$da059) ~ NA_real_,
+            TRUE ~ 0
+        )
+    )
+attr(my_data_calculated$smoke, "label") <- "是否吸烟"
+
+
+
 
 
 ```
-### 计算数据导出
+
+### 受照顾情况计算
+```{r 受照顾情况计算}
+# 照顾花费
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        pay_help = case_when(
+            is.na(my_data_manual_filtered$db027) ~ NA_real_,
+            TRUE ~ my_data_manual_filtered$db027
+        )
+    )
+attr(my_data_calculated$pay_help, "label") <- "是否需要帮助"
+
+# 计算使用辅助设备数量
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        use_assistive_devices = case_when(
+            # 如果所有相关变量都是NA，返回NA
+            all(is.na(select(my_data_manual_filtered, 
+                db029s1, db029s2, db029s3, db029s4,
+                db029s5, db029s6, db029s7))) ~ NA_real_,
+            # 否则直接计算非NA值的数量
+            TRUE ~ rowSums(
+                !is.na(select(my_data_manual_filtered, 
+                    db029s1, db029s2, db029s3, db029s4,
+                    db029s5, db029s6, db029s7)),
+                na.rm = TRUE
+            )
+        )
+    )
+attr(my_data_calculated$use_assistive_devices, "label") <- "使用辅助设备数量"
+
+# 计算正式照顾者数量
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        formal_caregivers = case_when(
+            # 如果所有相关变量都是NA，返回NA
+            all(is.na(select(my_data_manual_filtered, 
+                db035_w3_1s1, db035_w3_1s2, db035_w3_1s3))) ~ NA_real_,
+            # 否则计算非NA值的数量
+            TRUE ~ rowSums(
+                !is.na(select(my_data_manual_filtered, 
+                    db035_w3_1s1, db035_w3_1s2, db035_w3_1s3)),
+                na.rm = TRUE
+            )
+        )
+    )
+attr(my_data_calculated$formal_caregivers, "label") <- "正式照顾者数量"
+```
+
+### 经济状况计算
+```{r 经济状况计算}
+
+
+```
+### 环境情况计算
+```{r 环境情况计算}
+# 计算电梯情况
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        elevator = case_when(
+            is.na(my_data_manual_filtered$i009) ~ NA_real_,
+            my_data_manual_filtered$i009 == 1 ~ 1,
+            my_data_manual_filtered$i009 == 2 ~ 0,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$elevator, "label") <- "是否有电梯"
+
+# 计算无障碍设施情况
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        handicapped_facilities = case_when(
+            is.na(my_data_manual_filtered$i010) ~ NA_real_,
+            my_data_manual_filtered$i010 == 1 ~ 1,
+            my_data_manual_filtered$i010 == 2 ~ 0,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$handicapped_facilities, "label") <- "是否有无障碍设施"
+
+# 计算楼梯情况
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        steps = case_when(
+            is.na(my_data_manual_filtered$i011) ~ NA_real_,
+            my_data_manual_filtered$i011 == 1 ~ 1,
+            TRUE ~ 0
+        )
+    )
+attr(my_data_calculated$steps, "label") <- "是否有楼梯"
+
+# 计算厕所坐便器情况
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        toilet_seat = case_when(
+            !is.na(my_data_manual_filtered$i014s2) ~ 1,  # 有坐便器
+            !is.na(my_data_manual_filtered$i014s1) ~ 0,  # 有蹲便器
+            TRUE ~ NA_real_  # 两者都为NA
+        )
+    )
+attr(my_data_calculated$toilet_seat, "label") <- "是否有坐便器"
+
+# 计算厕所是否能冲水
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        toilet_flushable = case_when(
+            is.na(my_data_manual_filtered$i015) ~ NA_real_,
+            my_data_manual_filtered$i015 == 1 ~ 1,
+            my_data_manual_filtered$i015 == 2 ~ 0,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$toilet_flushable, "label") <- "是否有冲水厕所"
+
+# 计算是否有自来水
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        running_water = case_when(
+            is.na(my_data_manual_filtered$i017) ~ NA_real_,
+            my_data_manual_filtered$i017 == 1 ~ 1,
+            my_data_manual_filtered$i017 == 2 ~ 0,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$running_water, "label") <- "是否有自来水"
+
+# 计算是否有热水
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        hot_water = case_when(
+            is.na(my_data_manual_filtered$i018) ~ NA_real_,
+            my_data_manual_filtered$i018 == 3 ~ 0,
+            TRUE ~ 1
+        )
+    )
+attr(my_data_calculated$hot_water, "label") <- "是否有热水"
+
+# 计算是否有燃气
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        gas = case_when(
+            is.na(my_data_manual_filtered$i019) ~ NA_real_,
+            my_data_manual_filtered$i019 == 1 ~ 1,
+            my_data_manual_filtered$i019 == 2 ~ 0,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$gas, "label") <- "是否有燃气"
+
+# 计算是否有暖气
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        heating = case_when(
+            is.na(my_data_manual_filtered$i020) ~ NA_real_,
+            my_data_manual_filtered$i020 == 1 ~ 1,
+            my_data_manual_filtered$i020 == 2 ~ 0,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$heating, "label") <- "是否有暖气"
+
+# 计算是否有电话
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        telephone = case_when(
+            is.na(my_data_manual_filtered$i023) ~ NA_real_,
+            my_data_manual_filtered$i023 == 1 ~ 1,
+            my_data_manual_filtered$i023 == 2 ~ 0,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$telephone, "label") <- "是否有电话"
+
+# 计算是否有网络
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        internet = case_when(
+            is.na(my_data_manual_filtered$i024) ~ NA_real_,
+            my_data_manual_filtered$i024 == 1 ~ 1,
+            my_data_manual_filtered$i024 == 2 ~ 0,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$internet, "label") <- "是否有网络"
+
+# 计算是否有空气净化器
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        air_cleaner = case_when(
+            is.na(my_data_manual_filtered$i027_w3) ~ NA_real_,
+            my_data_manual_filtered$i027_w3 == 1 ~ 1,
+            my_data_manual_filtered$i027_w3 == 2 ~ 0,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$air_cleaner, "label") <- "是否有空气净化器"
+
+# 计算环境友好度
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        environmentally_friendly = case_when(
+            # 如果所有变量都是NA，返回NA
+            all(is.na(elevator) & 
+                is.na(handicapped_facilities) & 
+                is.na(steps) & 
+                is.na(toilet_seat) & 
+                is.na(toilet_flushable) & 
+                is.na(running_water) & 
+                is.na(hot_water) & 
+                is.na(gas) & 
+                is.na(heating) & 
+                is.na(telephone) & 
+                is.na(internet) & 
+                is.na(air_cleaner)) ~ NA_real_,
+            # 使用rowSums按行计算每个观察对象的总和
+            TRUE ~ (rowSums(
+                cbind(
+                    coalesce(elevator, 0),
+                    coalesce(handicapped_facilities, 0),
+                    coalesce(steps, 0),
+                    coalesce(toilet_seat, 0),
+                    coalesce(toilet_flushable, 0),
+                    coalesce(running_water, 0),
+                    coalesce(hot_water, 0),
+                    coalesce(gas, 0),
+                    coalesce(heating, 0),
+                    coalesce(telephone, 0),
+                    coalesce(internet, 0),
+                    coalesce(air_cleaner, 0)
+                ), na.rm = TRUE
+            ) / 12)
+        )
+    )
+attr(my_data_calculated$environmentally_friendly, "label") <- "环境友好度"
+
+# 导出环境友好度相关数据
+environment_data <- my_data_calculated %>%
+    select(
+        ID, elevator, handicapped_facilities, steps,
+        toilet_seat, toilet_flushable, running_water,
+        hot_water, gas, heating, telephone, internet,
+        air_cleaner, environmentally_friendly
+    )
+
+write_parquet(environment_data, "data_export/data_calculated/data_calculated_environment.parquet")
+
+
+```
+
+### 计算后数据导出
 ```{r 数据导出}
 # 导出计算后的数据框
 write_parquet(my_data_calculated, "data_export/data_calculated/my_data_calculated.parquet")
