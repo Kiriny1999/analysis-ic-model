@@ -855,7 +855,7 @@ required_columns <- c(
     "ID", "final_left_hand_grip", "final_right_hand_grip", "final_grip_score", "final_breath_test", "final_hemoglobin_score", "final_vitality_score"
 )
 my_data_vitality <- my_data_wash %>%select(all_of(required_columns))
-write.csv(my_data_vitality, "vitality_dimension_data.csv", row.names = FALSE)
+write.csv(my_data_vitality, "data_export/vitality_dimension_data.csv", row.names = FALSE)
 ```
 
 ### 内在能力总分计算
@@ -973,15 +973,43 @@ write_parquet(my_data_manual_filtered, "data_export/my_data_manual_filtered.parq
 my_data_calculated <- my_data_manual_filtered %>%
     select(ID, age, final_physical_score, cognitive_level, final_psychological_score, final_sensory_score, final_vitality_score, ic_total_score)
 ```
-### 人口学数据计算
+
+### 人口统计学学数据计算
 ```{r 人口学数据计算}
+# 查看手动筛选数据中有多少个观察值
+nrow(my_data_manual_filtered)
+
+# 读取2011年和2013年人口学数据
+demo_2013 <- read_dta("data_raw/2013/self/Demographic_Background.dta")
+demo_2011 <- read_dta("data_raw/2011/self/demographic_background.dta")
+
+# 转换2011年数据中的ID变量
+demo_2011 <- demo_2011 %>%
+    mutate(
+        # 创建新的ID变量
+        ID = paste0(
+            householdID,  # 使用householdID
+            "0",          # 添加"0"
+            substr(as.character(ID), nchar(as.character(ID))-1, nchar(as.character(ID)))  # 获取原ID的最后两位
+        )
+    )
+
+# 从2011年数据中选择匹配的观察值
+demo_matched_2011 <- demo_2011 %>%
+    filter(ID %in% my_data_manual_filtered$ID)
+
+# 从2013年数据中选择匹配的观察值
+demo_matched_2013 <- demo_2013 %>%
+    filter(ID %in% my_data_manual_filtered$ID)
+nrow(demo_matched_2013)
+
 # 人口统计学数据计算（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         householdID = my_data_manual_filtered$householdID,
         communityID = my_data_manual_filtered$communityID,
         gender = my_data_manual_filtered$xrgender,
-        residence_type = case_when(
+        address_type = case_when(
             is.na(my_data_manual_filtered$bb001_w3_1) ~ NA_real_,
             my_data_manual_filtered$bb001_w3_1 == 1 ~ 1,  # 城市住宅
             my_data_manual_filtered$bb001_w3_1 == 2 ~ 2,  # 农村住宅
@@ -991,24 +1019,18 @@ my_data_calculated <- my_data_calculated %>%
         ),
         address_urban_or_rural = case_when(
             is.na(my_data_manual_filtered$bb001_w3_2) ~ NA_real_,
-            my_data_manual_filtered$bb001_w3_2 == 1 ~ 1,  # main city zone
-            my_data_manual_filtered$bb001_w3_2 == 2 ~ 2,  # combination zone between urban and rural areas
-            my_data_manual_filtered$bb001_w3_2 == 3 ~ 3,  # the town center
-            my_data_manual_filtered$bb001_w3_2 == 4 ~ 4,  # zhenxiang area
-            my_data_manual_filtered$bb001_w3_2 == 5 ~ 5,  # special area
-            my_data_manual_filtered$bb001_w3_2 == 6 ~ 6,  # township central
-            my_data_manual_filtered$bb001_w3_2 == 7 ~ 7,  # village
+            my_data_manual_filtered$bb001_w3_2 == 1 ~ 1,  # 主城区
+            my_data_manual_filtered$bb001_w3_2 == 2 ~ 2,  # 城乡结合部
+            my_data_manual_filtered$bb001_w3_2 == 3 ~ 3,  # 镇中心
+            my_data_manual_filtered$bb001_w3_2 == 4 ~ 4,  # 镇乡
+            my_data_manual_filtered$bb001_w3_2 == 5 ~ 5,  # 特殊区域
+            my_data_manual_filtered$bb001_w3_2 == 6 ~ 6,  # 乡中心
+            my_data_manual_filtered$bb001_w3_2 == 7 ~ 7,  # 村庄
             TRUE ~ NA_real_
         ),
         address_province = case_when(
             is.na(my_data_manual_filtered$bb001_w3) ~ NA_real_,
             TRUE ~ my_data_manual_filtered$bb001_w3
-        ),
-        literate = case_when(
-            is.na(my_data_manual_filtered$bd001_w3_1) ~ NA_real_,
-            my_data_manual_filtered$bd001_w3_1 == 1 ~ 1,  # 能读写
-            my_data_manual_filtered$bd001_w3_1 == 2 ~ 2,  # 不能读写
-            TRUE ~ NA_real_
         ),
         martial_status = case_when(
             is.na(my_data_manual_filtered$be001) ~ NA_real_,
@@ -1020,26 +1042,75 @@ my_data_calculated <- my_data_calculated %>%
             my_data_manual_filtered$be001 == 6 ~ 6,  # 从未结婚
             my_data_manual_filtered$be001 == 7 ~ 7,  # 同居
             TRUE ~ NA_real_
+        ), 
+        education_level = case_when(
+            # 处理bd011为1/2/3且bd001_w2_4<7的情况
+            my_data_manual_filtered$bd011 == 1 & !is.na(my_data_manual_filtered$bd001_w2_4) & my_data_manual_filtered$bd001_w2_4 < 7 ~ 7,
+            my_data_manual_filtered$bd011 == 2 & !is.na(my_data_manual_filtered$bd001_w2_4) & my_data_manual_filtered$bd001_w2_4 < 7 ~ 8,
+            my_data_manual_filtered$bd011 == 3 & !is.na(my_data_manual_filtered$bd001_w2_4) & my_data_manual_filtered$bd001_w2_4 < 7 ~ 9,
+            
+            # 处理bd011为4或NA，且bd001_w2_4为NA的情况
+            (my_data_manual_filtered$bd011 == 4 | is.na(my_data_manual_filtered$bd011)) & is.na(my_data_manual_filtered$bd001_w2_4) ~ NA_real_,
+            
+            # 处理bd011为NA，且bd001_w2_4不为12的情况
+            is.na(my_data_manual_filtered$bd011) & !is.na(my_data_manual_filtered$bd001_w2_4) & my_data_manual_filtered$bd001_w2_4 != 12 ~ as.numeric(my_data_manual_filtered$bd001_w2_4),
+            
+            # 处理bd011为NA，且bd001_w2_4为12的情况
+            is.na(my_data_manual_filtered$bd011) & my_data_manual_filtered$bd001_w2_4 == 12 ~ case_when(
+                # 检查2013年数据
+                ID %in% demo_matched_2013$ID & !is.na(demo_matched_2013$bd001_w2_4[match(ID, demo_matched_2013$ID)]) & 
+                demo_matched_2013$bd001_w2_4[match(ID, demo_matched_2013$ID)] != 12 ~ 
+                as.numeric(demo_matched_2013$bd001_w2_4[match(ID, demo_matched_2013$ID)]),
+                
+                # 如果2013年数据不满足条件，检查2011年数据
+                ID %in% demo_matched_2011$ID & !is.na(demo_matched_2011$bd001[match(ID, demo_matched_2011$ID)]) ~ 
+                as.numeric(demo_matched_2011$bd001[match(ID, demo_matched_2011$ID)]),
+                
+                # 如果都不满足，返回NA
+                TRUE ~ NA_real_
+            ),
+            
+            # 其他情况返回NA
+            TRUE ~ NA_real_
+        ), 
+        literate = case_when(
+            # 如果教育水平大于3
+            education_level > 3 ~ 1,
+            # 如果教育水平为2或3
+            education_level %in% c(2, 3) ~ 1,
+            # 如果教育水平为1，则根据bd001_w3_1判断
+            education_level == 1 ~ case_when(
+                my_data_manual_filtered$bd001_w3_1 == 1 ~ 1,
+                TRUE ~ 0
+            ),
+            # 其他情况
+            TRUE ~ NA_real_
         )
     )
+
 attr(my_data_calculated$householdID, "label") <- "户口ID"
 attr(my_data_calculated$communityID, "label") <- "社区ID" 
 attr(my_data_calculated$gender, "label") <- "性别"
-attr(my_data_calculated$residence_type, "label") <- "居住类型"
+attr(my_data_calculated$address_type, "label") <- "居住类型"
 attr(my_data_calculated$address_urban_or_rural, "label") <- "城乡地址"
 attr(my_data_calculated$address_province, "label") <- "省份"
 attr(my_data_calculated$literate, "label") <- "是否识字"
 attr(my_data_calculated$martial_status, "label") <- "婚姻状况"
+attr(my_data_calculated$education_level, "label") <- "教育水平"
 
 # 导出人口学数据
 demographic_data <- my_data_calculated %>%
-    select(ID, householdID, communityID, gender, residence_type, address_urban_or_rural, address_province, literate, martial_status)
-
-write_parquet(demographic_data, "data_export/data_calculated/data_calculated_demographic.parquet")
-
+    select(ID, householdID, communityID, gender, address_type, address_urban_or_rural, address_province, literate, martial_status, education_level, age)
+# 导出人口学数据为parquet
+write_parquet(demographic_data, "data_export/data_calculated/parquet/data_calculated_demographic.parquet")
+# 导出人口学数据为csv
+write.csv(demographic_data, "data_export/data_calculated/csv/data_calculated_demographic.csv", row.names = FALSE)
 ```
 ### 生理指标计算
-```{r 自变量计算}
+
+```{r}
+
+``````{r 自变量计算}
 # 计算收缩压的最终值并添加标签
 my_data_calculated <- my_data_calculated %>%
     mutate(
