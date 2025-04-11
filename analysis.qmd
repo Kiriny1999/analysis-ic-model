@@ -1389,8 +1389,6 @@ physiological_data <- my_data_calculated %>%
 write_parquet(physiological_data, "data_export/data_calculated/parquet/data_calculated_physiological.parquet")
 # 导出生理学数据为csv
 write.csv(physiological_data, "data_export/data_calculated/csv/data_calculated_physiological.csv", row.names = FALSE)
-
-
 ```
 ### 家庭结构计算
 ```{r 家庭结构计算}
