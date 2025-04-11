@@ -1295,6 +1295,13 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$triglycerides, "label") <- "甘油三酯 (Triglycerides)"
 
+# 计算甘油三酯上限是否超过500（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        top_coding_triglycerides_to_500 = my_data_manual_filtered$bl_top_coding_tg
+    )
+attr(my_data_calculated$top_coding_triglycerides_to_500, "label") <- "甘油三酯上限值是否超过500"
+
 # 计算肌酐（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
@@ -1329,14 +1336,6 @@ my_data_calculated <- my_data_calculated %>%
         total_cholesterol = my_data_manual_filtered$bl_cho
     )
 attr(my_data_calculated$total_cholesterol, "label") <- "总胆固醇 (Total Cholesterol)"
-
-# 计算甘油三酯上限是否超过500（没问题）
-my_data_calculated <- my_data_calculated %>%
-    mutate(
-        top_coding_triglycerides_to_500 = my_data_manual_filtered$bl_top_coding_tg
-    )
-attr(my_data_calculated$top_coding_triglycerides_to_500, "label") <- "甘油三酯上限值是否超过500"
-
 
 # 计算血糖（没问题）
 my_data_calculated <- my_data_calculated %>%
