@@ -857,7 +857,6 @@ required_columns <- c(
 my_data_vitality <- my_data_wash %>%select(all_of(required_columns))
 write.csv(my_data_vitality, "data_export/vitality_dimension_data.csv", row.names = FALSE)
 ```
-
 ### 内在能力总分计算
 ```{r 内在能力总分计算}
 # 计算内在能力总分
@@ -866,7 +865,6 @@ my_data_wash <- my_data_wash %>%
         ic_total_score = final_physical_score + cognitive_level + final_psychological_score + final_sensory_score + final_vitality_score
     )
 ```
-
 ## 内在能力清洗
 ```{r 内在能力清洗}
 # 挑出只包含ID和五个内在能力维度总分的变量
@@ -1003,12 +1001,30 @@ demo_matched_2013 <- demo_2013 %>%
     filter(ID %in% my_data_manual_filtered$ID)
 nrow(demo_matched_2013)
 
-# 人口统计学数据计算（没问题）
+# 计算户口ID（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        householdID = my_data_manual_filtered$householdID,
-        communityID = my_data_manual_filtered$communityID,
-        gender = my_data_manual_filtered$xrgender,
+        householdID = my_data_manual_filtered$householdID
+    )
+attr(my_data_calculated$householdID, "label") <- "户口ID"
+
+# 计算社区ID（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        communityID = my_data_manual_filtered$communityID
+    )
+attr(my_data_calculated$communityID, "label") <- "社区ID"
+
+# 计算性别（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        gender = my_data_manual_filtered$xrgender
+    )
+attr(my_data_calculated$gender, "label") <- "性别"
+
+# 计算居住类型（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
         address_type = case_when(
             is.na(my_data_manual_filtered$bb001_w3_1) ~ NA_real_,
             my_data_manual_filtered$bb001_w3_1 == 1 ~ 1,  # 城市住宅
@@ -1016,7 +1032,13 @@ my_data_calculated <- my_data_calculated %>%
             my_data_manual_filtered$bb001_w3_1 == 3 ~ 3,  # 养老院/疗养院
             my_data_manual_filtered$bb001_w3_1 == 4 ~ 4,  # 其他
             TRUE ~ NA_real_
-        ),
+        )
+    )
+attr(my_data_calculated$address_type, "label") <- "居住类型"
+
+# 计算城乡地址（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
         address_urban_or_rural = case_when(
             is.na(my_data_manual_filtered$bb001_w3_2) ~ NA_real_,
             my_data_manual_filtered$bb001_w3_2 == 1 ~ 1,  # 主城区
@@ -1027,11 +1049,23 @@ my_data_calculated <- my_data_calculated %>%
             my_data_manual_filtered$bb001_w3_2 == 6 ~ 6,  # 乡中心
             my_data_manual_filtered$bb001_w3_2 == 7 ~ 7,  # 村庄
             TRUE ~ NA_real_
-        ),
+        )
+    )
+attr(my_data_calculated$address_urban_or_rural, "label") <- "城乡地址"
+
+# 计算省份（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
         address_province = case_when(
             is.na(my_data_manual_filtered$bb001_w3) ~ NA_real_,
             TRUE ~ my_data_manual_filtered$bb001_w3
-        ),
+        )
+    )
+attr(my_data_calculated$address_province, "label") <- "省份"
+
+# 计算婚姻状况（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
         martial_status = case_when(
             is.na(my_data_manual_filtered$be001) ~ NA_real_,
             my_data_manual_filtered$be001 == 1 ~ 1,  # 已婚与配偶一同居住
@@ -1042,7 +1076,13 @@ my_data_calculated <- my_data_calculated %>%
             my_data_manual_filtered$be001 == 6 ~ 6,  # 从未结婚
             my_data_manual_filtered$be001 == 7 ~ 7,  # 同居
             TRUE ~ NA_real_
-        ), 
+        )
+    )
+attr(my_data_calculated$martial_status, "label") <- "婚姻状况"
+
+# 计算教育水平（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
         education_level = case_when(
             # 处理bd011为1/2/3且bd001_w2_4<7的情况
             my_data_manual_filtered$bd011 == 1 & !is.na(my_data_manual_filtered$bd001_w2_4) & my_data_manual_filtered$bd001_w2_4 < 7 ~ 7,
@@ -1072,7 +1112,13 @@ my_data_calculated <- my_data_calculated %>%
             
             # 其他情况返回NA
             TRUE ~ NA_real_
-        ), 
+        )
+    )
+attr(my_data_calculated$education_level, "label") <- "教育水平"
+
+# 计算是否识字（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
         literate = case_when(
             # 如果教育水平大于3
             education_level > 3 ~ 1,
@@ -1087,16 +1133,7 @@ my_data_calculated <- my_data_calculated %>%
             TRUE ~ NA_real_
         )
     )
-
-attr(my_data_calculated$householdID, "label") <- "户口ID"
-attr(my_data_calculated$communityID, "label") <- "社区ID" 
-attr(my_data_calculated$gender, "label") <- "性别"
-attr(my_data_calculated$address_type, "label") <- "居住类型"
-attr(my_data_calculated$address_urban_or_rural, "label") <- "城乡地址"
-attr(my_data_calculated$address_province, "label") <- "省份"
 attr(my_data_calculated$literate, "label") <- "是否识字"
-attr(my_data_calculated$martial_status, "label") <- "婚姻状况"
-attr(my_data_calculated$education_level, "label") <- "教育水平"
 
 # 导出人口学数据
 demographic_data <- my_data_calculated %>%
@@ -1107,25 +1144,36 @@ write_parquet(demographic_data, "data_export/data_calculated/parquet/data_calcul
 write.csv(demographic_data, "data_export/data_calculated/csv/data_calculated_demographic.csv", row.names = FALSE)
 ```
 ### 生理指标计算
-
-```{r}
-
-``````{r 自变量计算}
-# 计算收缩压的最终值并添加标签
+```{r 生理指标计算}
+# 计算收缩压的最终值并添加标签（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        bp_sbp = rowMeans(select(my_data_manual_filtered, qa003, qa007, qa011), na.rm = TRUE)
+        bp_sbp = case_when(
+            # 如果三个测量值都是NA，返回NA
+            is.na(my_data_manual_filtered$qa003) & 
+            is.na(my_data_manual_filtered$qa007) & 
+            is.na(my_data_manual_filtered$qa011) ~ NA_real_,
+            # 否则计算非NA值的平均值
+            TRUE ~ rowMeans(select(my_data_manual_filtered, qa003, qa007, qa011), na.rm = TRUE)
+        )
     )
 attr(my_data_calculated$bp_sbp, "label") <- "收缩压"
 
-# 计算舒张压的最终值并添加标签
+# 计算舒张压的最终值并添加标签（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        bp_dbp = rowMeans(select(my_data_manual_filtered, qa004, qa008, qa012), na.rm = TRUE)
+        bp_dbp = case_when(
+            # 如果三个测量值都是NA，返回NA
+            is.na(my_data_manual_filtered$qa004) & 
+            is.na(my_data_manual_filtered$qa008) & 
+            is.na(my_data_manual_filtered$qa012) ~ NA_real_,
+            # 否则计算非NA值的平均值
+            TRUE ~ rowMeans(select(my_data_manual_filtered, qa004, qa008, qa012), na.rm = TRUE)
+        )
     )
 attr(my_data_calculated$bp_dbp, "label") <- "舒张压"
 
-# 计算是否为高血压
+# 计算是否为高血压（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         hypertension = case_when(
@@ -1136,7 +1184,7 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$hypertension, "label") <- "是否为高血压"
 
-# 计算是否为低血压并添加标签
+# 计算是否为低血压并添加标签（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         hypotension = case_when(
@@ -1147,13 +1195,21 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$hypotension, "label") <- "是否为低血压"
 
-# 计算脉搏的最终值并添加标签
+# 计算脉搏的最终值并添加标签（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        pulse = round(rowMeans(select(my_data_manual_filtered, qa005, qa009, qa013), na.rm = TRUE))
+        pulse = case_when(
+            # 如果三个测量值都是NA，返回NA
+            is.na(my_data_manual_filtered$qa005) & 
+            is.na(my_data_manual_filtered$qa009) & 
+            is.na(my_data_manual_filtered$qa013) ~ NA_real_,
+            # 否则计算非NA值的平均值
+            TRUE ~ rowMeans(select(my_data_manual_filtered, qa005, qa009, qa013), na.rm = TRUE)
+        )
     )
 attr(my_data_calculated$pulse, "label") <- "脉搏"
-# 计算是否为心动过速并添加标签
+
+# 计算是否为心动过速并添加标签（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         tachycardia = case_when(
@@ -1164,7 +1220,7 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$tachycardia, "label") <- "是否为心动过速"
 
-# 计算是否为心动过缓并添加标签
+# 计算是否为心动过缓并添加标签（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         bradycardia = case_when(
@@ -1175,135 +1231,145 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$bradycardia, "label") <- "是否为心动过缓"
 
-# 计算身高并保留两位小数
+
+# 计算身高（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        height = round((my_data_manual_filtered$qi002), 2))
+        height = my_data_manual_filtered$qi002
+        )
 attr(my_data_calculated$height, "label") <- "身高"
 
-# 计算体重并保留两位小数
+# 计算体重（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        weight = round((my_data_manual_filtered$ql002), 2)
+        weight = my_data_manual_filtered$ql002
     )
 attr(my_data_calculated$weight, "label") <- "体重"
 
-# 计算BMI并添加标签
+# 计算BMI并添加标签（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        bmi = round(weight / (height / 100)^2, 2)
+        bmi = weight / (height / 100)^2
     )
 attr(my_data_calculated$bmi, "label") <- "体质指数 (BMI)"
 
-# 计算腰围并保留两位小数
+# 计算腰围（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        waist_circumference = round((my_data_manual_filtered$qm002), 2)
+        waist_circumference = my_data_manual_filtered$qm002
     )
 attr(my_data_calculated$waist_circumference, "label") <- "腰围"
 
-# 计算白细胞计数并保留两位小数
+# 计算白细胞计数（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        white_blood_cell = round((my_data_manual_filtered$bl_wbc), 2)
+        white_blood_cell = my_data_manual_filtered$bl_wbc
     )
 attr(my_data_calculated$white_blood_cell, "label") <- "白细胞计数"
 
-# 计算红细胞压积并保留两位小数
+# 计算红细胞压积（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        hematocrit = round((my_data_manual_filtered$bl_hct), 2)
+        hematocrit = my_data_manual_filtered$bl_hct
     )
 attr(my_data_calculated$hematocrit, "label") <- "红细胞压积"
 
-# 计算平均红细胞体积并保留两位小数
+# 计算平均红细胞体积（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        mean_corpuscular_volume = round((my_data_manual_filtered$bl_mcv), 2)
+        mean_corpuscular_volume = my_data_manual_filtered$bl_mcv
     )
 attr(my_data_calculated$mean_corpuscular_volume, "label") <- "平均红细胞体积 (MCV)"
 
-## 计算血小板计数并保留两位小数
+## 计算血小板计数（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        platelets = round((my_data_manual_filtered$bl_plt), 2)
+        platelets = my_data_manual_filtered$bl_plt
     )
 attr(my_data_calculated$platelets, "label") <- "血小板计数"
 
-## 计算甘油三酯并保留两位小数
+## 计算甘油三酯（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        triglycerides = round((my_data_manual_filtered$bl_tg), 2)
+        triglycerides = my_data_manual_filtered$bl_tg
     )
 attr(my_data_calculated$triglycerides, "label") <- "甘油三酯 (Triglycerides)"
 
-# 计算肌酐并保留两位小数
+# 计算肌酐（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        creatinine = round((my_data_manual_filtered$bl_crea), 2)
+        creatinine = my_data_manual_filtered$bl_crea
     )
 attr(my_data_calculated$creatinine, "label") <- "肌酐"
 
-# 计算血尿素氮并保留两位小数
+# 计算血尿素氮（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        blood_urea_nitrogen = round((my_data_manual_filtered$bl_bun), 2)
+        blood_urea_nitrogen = my_data_manual_filtered$bl_bun
     )
 attr(my_data_calculated$blood_urea_nitrogen, "label") <- "血尿素氮 (Blood Urea Nitrogen)"
 
-# 计算高密度脂蛋白胆固醇并保留两位小数
+# 计算高密度脂蛋白胆固醇（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        hdl_cholesterol = round((my_data_manual_filtered$bl_hdl), 2)
+        hdl_cholesterol = my_data_manual_filtered$bl_hdl
     )
 attr(my_data_calculated$hdl_cholesterol, "label") <- "高密度脂蛋白胆固醇 (HDL Cholesterol)"
 
-# 计算低密度脂蛋白胆固醇并保留两位小数
+# 计算低密度脂蛋白胆固醇（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        ldl_cholesterol = round((my_data_manual_filtered$bl_ldl), 2)
+        ldl_cholesterol = my_data_manual_filtered$bl_ldl
     )
 attr(my_data_calculated$ldl_cholesterol, "label") <- "低密度脂蛋白胆固醇 (LDL Cholesterol)"
 
-# 计算总胆固醇并保留两位小数
+# 计算总胆固醇（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        total_cholesterol = round((my_data_manual_filtered$bl_cho), 2)
+        total_cholesterol = my_data_manual_filtered$bl_cho
     )
 attr(my_data_calculated$total_cholesterol, "label") <- "总胆固醇 (Total Cholesterol)"
 
-# 计算血糖并保留两位小数
+# 计算甘油三酯上限是否超过500（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        glucose = round((my_data_manual_filtered$bl_glu), 2)
+        top_coding_triglycerides_to_500 = my_data_manual_filtered$bl_top_coding_tg
+    )
+attr(my_data_calculated$top_coding_triglycerides_to_500, "label") <- "甘油三酯上限值是否超过500"
+
+
+# 计算血糖（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        glucose = my_data_manual_filtered$bl_glu
     )
 attr(my_data_calculated$glucose, "label") <- "血糖"
 
-# 计算尿酸并保留两位小数
+# 计算尿酸（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        uric_acid = round((my_data_manual_filtered$bl_ua), 2)
+        uric_acid = my_data_manual_filtered$bl_ua
     )
 attr(my_data_calculated$uric_acid, "label") <- "尿酸"
 
-# 计算胱抑素C并保留两位小数
+# 计算胱抑素C（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        cystatin_c = round((my_data_manual_filtered$bl_cysc), 2)
+        cystatin_c = my_data_manual_filtered$bl_cysc
     )
 attr(my_data_calculated$cystatin_c, "label") <- "胱抑素C (Cystatin C)"
 
-# 计算C反应蛋白并保留两位小数
+# 计算C反应蛋白（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        c_reactive_protein = round((my_data_manual_filtered$bl_crp), 2)
+        c_reactive_protein = my_data_manual_filtered$bl_crp
     )
 attr(my_data_calculated$c_reactive_protein, "label") <- "C反应蛋白 (C-Reactive Protein)"
 
-# 计算糖化血红蛋白并保留两位小数
+# 计算糖化血红蛋白（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        glycated_hemoglobin = round((my_data_manual_filtered$bl_hbalc), 2)
+        glycated_hemoglobin = my_data_manual_filtered$bl_hbalc
     )
 attr(my_data_calculated$glycated_hemoglobin, "label") <- "糖化血红蛋白 (Glycated Hemoglobin)"
 
@@ -1319,8 +1385,11 @@ physiological_data <- my_data_calculated %>%
         total_cholesterol, glucose, uric_acid,
         cystatin_c, c_reactive_protein, glycated_hemoglobin
     )
+# 导出生理学数据为parquet
+write_parquet(physiological_data, "data_export/data_calculated/parquet/data_calculated_physiological.parquet")
+# 导出生理学数据为csv
+write.csv(physiological_data, "data_export/data_calculated/csv/data_calculated_physiological.csv", row.names = FALSE)
 
-write_parquet(physiological_data, "data_export/data_calculated/data_calculated_physiological.parquet")
 
 ```
 ### 家庭结构计算
