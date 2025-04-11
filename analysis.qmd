@@ -1379,11 +1379,12 @@ physiological_data <- my_data_calculated %>%
         pulse, tachycardia, bradycardia,
         height, weight, bmi, waist_circumference,
         white_blood_cell, hematocrit, mean_corpuscular_volume,
-        platelets, triglycerides, creatinine,
+        platelets, triglycerides, top_coding_triglycerides_to_500, creatinine,
         blood_urea_nitrogen, hdl_cholesterol, ldl_cholesterol,
         total_cholesterol, glucose, uric_acid,
         cystatin_c, c_reactive_protein, glycated_hemoglobin
     )
+
 # 导出生理学数据为parquet
 write_parquet(physiological_data, "data_export/data_calculated/parquet/data_calculated_physiological.parquet")
 # 导出生理学数据为csv
