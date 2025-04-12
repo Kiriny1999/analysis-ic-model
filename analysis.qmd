@@ -972,7 +972,7 @@ my_data_calculated <- my_data_manual_filtered %>%
     select(ID, age, final_physical_score, cognitive_level, final_psychological_score, final_sensory_score, final_vitality_score, ic_total_score)
 ```
 
-### 人口统计学学数据计算
+### 人口统计学学数据计算（完成）
 ```{r 人口学数据计算}
 # 查看手动筛选数据中有多少个观察值
 nrow(my_data_manual_filtered)
@@ -1143,7 +1143,7 @@ write_parquet(demographic_data, "data_export/data_calculated/parquet/data_calcul
 # 导出人口学数据为csv
 write.csv(demographic_data, "data_export/data_calculated/csv/data_calculated_demographic.csv", row.names = FALSE)
 ```
-### 生理指标计算
+### 生理指标计算（没问题）
 ```{r 生理指标计算}
 # 计算收缩压的最终值并添加标签（没问题）
 my_data_calculated <- my_data_calculated %>%
@@ -1392,79 +1392,68 @@ write.csv(physiological_data, "data_export/data_calculated/csv/data_calculated_p
 ```
 ### 家庭结构计算
 ```{r 家庭结构计算}
-# 计算是否有父母健在（没问题）
+# 计算亲生父母是否健在（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        has_parents_alive = case_when(
-            # 检查16个变量是否都为NA
-            all(is.na(select(my_data_manual_filtered, 
-                starts_with("ca000_w3_2_"), 
-                starts_with("ca001_w3_2_"),
-                starts_with("ca002_w3_2_"),
-                starts_with("ca003_w3_2_"),
-                starts_with("ca004_w3_2_"),
-                starts_with("ca005_w3_2_"),
-                starts_with("ca006_w3_2_"),
-                starts_with("ca007_w3_2_")
-            ))) ~ NA_real_,
-            # 检查是否有任何一个变量取值为1
-            rowSums(select(my_data_manual_filtered, 
-                starts_with("ca000_w3_2_"), 
-                starts_with("ca001_w3_2_"),
-                starts_with("ca002_w3_2_"),
-                starts_with("ca003_w3_2_"),
-                starts_with("ca004_w3_2_"),
-                starts_with("ca005_w3_2_"),
-                starts_with("ca006_w3_2_"),
-                starts_with("ca007_w3_2_")
-            ) == 1, na.rm = TRUE) > 0 ~ 1,
-            # 其他情况（即所有非NA值都为0）
-            TRUE ~ 0
-        )
-    )
-attr(my_data_calculated$has_parents_alive, "label") <- "是否有父母健在"
-
-# 计算健在父母数量（没问题）
-my_data_calculated <- my_data_calculated %>%
-    mutate(
-        num_parents_alive = case_when(
-            # 检查16个变量是否都为NA
-            all(is.na(select(my_data_manual_filtered, 
-                starts_with("ca000_w3_2_"), 
-                starts_with("ca001_w3_2_"),
-                starts_with("ca002_w3_2_"),
-                starts_with("ca003_w3_2_"),
-                starts_with("ca004_w3_2_"),
-                starts_with("ca005_w3_2_"),
-                starts_with("ca006_w3_2_"),
-                starts_with("ca007_w3_2_")
-            ))) ~ NA_real_,
-            # 如果不是全部NA，则计算值为1的数量
+        biological_parents_alive = case_when(
+            # 如果两个变量都是NA，返回NA
+            is.na(my_data_manual_filtered$ca000_w3_2_1_) & 
+            is.na(my_data_manual_filtered$ca001_w3_2_1_) ~ NA_real_,
+            # 否则计算非NA值的总和
             TRUE ~ rowSums(
-                select(my_data_manual_filtered, 
-                    starts_with("ca000_w3_2_"), 
-                    starts_with("ca001_w3_2_"),
-                    starts_with("ca002_w3_2_"),
-                    starts_with("ca003_w3_2_"),
-                    starts_with("ca004_w3_2_"),
-                    starts_with("ca005_w3_2_"),
-                    starts_with("ca006_w3_2_"),
-                    starts_with("ca007_w3_2_")
-                ) == 1,
-                na.rm = TRUE
+                select(my_data_manual_filtered, ca000_w3_2_1_, ca001_w3_2_1_) %>%
+                mutate_all(~case_when(
+                    . == 1 ~ 1,  # 取值为1记为1
+                    . == 2 ~ 0,  # 取值为2记为0
+                    TRUE ~ NA_real_  # 其他值记为NA
+                )),
+                na.rm = TRUE  # 忽略NA值
             )
         )
     )
-attr(my_data_calculated$num_parents_alive, "label") <- "健在父母数量"
+attr(my_data_calculated$biological_parents_alive, "label") <- "亲生父母健在数量"
+table(my_data_calculated$biological_parents_alive, useNA = "ifany")
 
-# 计算子女数量（没问题）
+# 计算配偶亲生父母健在数量（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        spouse_biological_parents_alive = case_when(
+            # 如果两个变量都是NA，返回NA
+            is.na(my_data_manual_filtered$ca000_w3_2_2_) & 
+            is.na(my_data_manual_filtered$ca001_w3_2_2_) ~ NA_real_,
+            # 否则计算非NA值的总和
+            TRUE ~ rowSums(
+                select(my_data_manual_filtered, ca000_w3_2_2_, ca001_w3_2_2_) %>%
+                mutate_all(~case_when(
+                    . == 1 ~ 1,  # 取值为1记为1
+                    . == 2 ~ 0,  # 取值为2记为0
+                    TRUE ~ NA_real_  # 其他值记为NA
+                )),
+                na.rm = TRUE  # 忽略NA值
+            )
+        )
+    )
+attr(my_data_calculated$spouse_biological_parents_alive, "label") <- "配偶亲生父母健在数量"
+
+# 计算父母是否离异（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        parents_divorced = case_when(
+            my_data_manual_filtered$ca002_w3_1_1_ == 1 ~ 1,
+            my_data_manual_filtered$ca002_w3_1_1_ == 2 ~ 0,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$parents_divorced, "label") <- "父母是否离异"
+
+# 计算子女总数（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         num_children = my_data_manual_filtered$xchildnum
     )
-attr(my_data_calculated$num_children, "label") <- "子女数量"
+attr(my_data_calculated$num_children, "label") <- "子女总数"
 
-# 计算健在子女数量（没问题，可如果只计算总量，每个人的孩子总数也不一样，是不是比例作为自变量更合适）
+# 计算健在子女数量（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         totalnum_children_alive = case_when(
@@ -1474,7 +1463,28 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$totalnum_children_alive, "label") <- "健在子女数量"
 
-# 计算已婚子女比例（没问题）
+# 计算去世子女数量（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        num_children_dead = case_when(
+            is.na(num_children) | is.na(totalnum_children_alive) ~ NA_real_,
+            TRUE ~ num_children - totalnum_children_alive
+        )
+    )
+attr(my_data_calculated$num_children_dead, "label") <- "死亡子女数量"
+
+# 计算死亡子女比例
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        dead_children_ratio = case_when(
+            is.na(num_children_dead) | is.na(totalnum_children_alive) ~ NA_real_,
+            num_children == 0 ~ 0,
+            TRUE ~ num_children_dead / totalnum_children_alive
+        )
+    )
+attr(my_data_calculated$dead_children_ratio, "label") <- "死亡子女比例"
+
+# 计算已婚子女数量及比例（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         num_children_married = case_when(
@@ -1532,13 +1542,19 @@ my_data_calculated <- my_data_calculated %>%
 attr(my_data_calculated$total_number_great_grandchildren, "label") <- "重孙子女总数"
 
 # 导出家庭结构数据
+# 选择家庭结构变量
 family_structure_data <- my_data_calculated %>%
     select(
-        ID, has_parents_alive, num_parents_alive, num_children, totalnum_children_alive,
-        married_children_ratio, total_number_grandchildren,
-        total_number_great_grandchildren
+        ID, biological_parents_alive, spouse_biological_parents_alive, 
+        parents_divorced, num_children, totalnum_children_alive,
+        num_children_dead, dead_children_ratio, 
+        num_children_married, married_children_ratio,
+        total_number_grandchildren, total_number_great_grandchildren
     )
-write_parquet(family_structure_data, "data_export/data_calculated/data_calculated_family_structure.parquet")
+# 导出家庭结构数据为parquet
+write_parquet(family_structure_data, "data_export/data_calculated/parquet/data_calculated_family_structure.parquet")
+# 导出家庭结构数据为csv
+write.csv(family_structure_data, "data_export/data_calculated/csv/data_calculated_family_structure.csv", row.names = FALSE)
 ```
 
 ### 照顾负担计算
@@ -3394,7 +3410,7 @@ attr(my_data_calculated$formal_caregivers, "label") <- "正式照顾者数量"
 ```
 ### 环境情况计算
 ```{r 环境情况计算}
-# 计算电梯情况
+# 计算电梯情况（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         elevator = case_when(
@@ -3406,7 +3422,7 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$elevator, "label") <- "是否有电梯"
 
-# 计算无障碍设施情况
+# 计算无障碍设施情况（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         handicapped_facilities = case_when(
@@ -3418,7 +3434,7 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$handicapped_facilities, "label") <- "是否有无障碍设施"
 
-# 计算楼梯情况
+# 计算楼梯情况（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         steps = case_when(
@@ -3429,7 +3445,7 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$steps, "label") <- "是否有楼梯"
 
-# 计算厕所坐便器情况
+# 计算厕所坐便器情况（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         toilet_seat = case_when(
@@ -3440,7 +3456,7 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$toilet_seat, "label") <- "是否有坐便器"
 
-# 计算厕所是否能冲水
+# 计算厕所是否能冲水（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         toilet_flushable = case_when(
@@ -3452,7 +3468,7 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$toilet_flushable, "label") <- "是否有冲水厕所"
 
-# 计算是否有自来水
+# 计算是否有自来水（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         running_water = case_when(
@@ -3464,7 +3480,7 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$running_water, "label") <- "是否有自来水"
 
-# 计算是否有热水
+# 计算是否有热水（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         hot_water = case_when(
@@ -3475,7 +3491,7 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$hot_water, "label") <- "是否有热水"
 
-# 计算是否有燃气
+# 计算是否有燃气（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         gas = case_when(
@@ -3487,7 +3503,7 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$gas, "label") <- "是否有燃气"
 
-# 计算是否有暖气
+# 计算是否有暖气（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         heating = case_when(
@@ -3499,7 +3515,7 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$heating, "label") <- "是否有暖气"
 
-# 计算是否有电话
+# 计算是否有电话（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         telephone = case_when(
@@ -3511,7 +3527,7 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$telephone, "label") <- "是否有电话"
 
-# 计算是否有网络
+# 计算是否有网络（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         internet = case_when(
@@ -3523,7 +3539,7 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$internet, "label") <- "是否有网络"
 
-# 计算是否有空气净化器
+# 计算是否有空气净化器（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         air_cleaner = case_when(
@@ -3535,40 +3551,36 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$air_cleaner, "label") <- "是否有空气净化器"
 
-# 计算环境友好度
+# 计算环境友好度（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         environmentally_friendly = case_when(
-            # 如果所有变量都是NA，返回NA
-            all(is.na(elevator) & 
-                is.na(handicapped_facilities) & 
-                is.na(steps) & 
-                is.na(toilet_seat) & 
-                is.na(toilet_flushable) & 
-                is.na(running_water) & 
-                is.na(hot_water) & 
-                is.na(gas) & 
-                is.na(heating) & 
-                is.na(telephone) & 
-                is.na(internet) & 
-                is.na(air_cleaner)) ~ NA_real_,
-            # 使用rowSums按行计算每个观察对象的总和
-            TRUE ~ (rowSums(
-                cbind(
-                    coalesce(elevator, 0),
-                    coalesce(handicapped_facilities, 0),
-                    coalesce(steps, 0),
-                    coalesce(toilet_seat, 0),
-                    coalesce(toilet_flushable, 0),
-                    coalesce(running_water, 0),
-                    coalesce(hot_water, 0),
-                    coalesce(gas, 0),
-                    coalesce(heating, 0),
-                    coalesce(telephone, 0),
-                    coalesce(internet, 0),
-                    coalesce(air_cleaner, 0)
-                ), na.rm = TRUE
-            ) / 12)
+            # 如果任何一个变量是NA，返回NA
+            is.na(elevator) | 
+            is.na(handicapped_facilities) | 
+            is.na(steps) | 
+            is.na(toilet_seat) | 
+            is.na(toilet_flushable) | 
+            is.na(running_water) | 
+            is.na(hot_water) | 
+            is.na(gas) | 
+            is.na(heating) | 
+            is.na(telephone) | 
+            is.na(internet) | 
+            is.na(air_cleaner) ~ NA_real_,
+            # 如果没有NA，计算总和除以12
+            TRUE ~ (elevator + 
+                   handicapped_facilities + 
+                   steps + 
+                   toilet_seat + 
+                   toilet_flushable + 
+                   running_water + 
+                   hot_water + 
+                   gas + 
+                   heating + 
+                   telephone + 
+                   internet + 
+                   air_cleaner) / 12
         )
     )
 attr(my_data_calculated$environmentally_friendly, "label") <- "环境友好度"
@@ -3582,7 +3594,10 @@ environment_data <- my_data_calculated %>%
         air_cleaner, environmentally_friendly
     )
 
-write_parquet(environment_data, "data_export/data_calculated/data_calculated_environment.parquet")
+# 导出环境友好度相关数据为parquet
+write_parquet(environment_data, "data_export/data_calculated/parquet/data_calculated_environment.parquet")
+# 导出环境友好度相关数据为csv
+write.csv(environment_data, "data_export/data_calculated/csv/data_calculated_environment.csv", row.names = FALSE)
 
 
 ```
