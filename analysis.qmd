@@ -2197,20 +2197,45 @@ my_data_calculated <- my_data_calculated %>%
 attr(my_data_calculated$nights_inpatientcare, "label") <- "过去一年住院天数"
 table(my_data_calculated$nights_inpatientcare, useNA = "ifany")
 
+# 计算是否自我治疗（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        self_treatment = case_when(
+            # 如果所有相关变量都是NA，返回NA
+            all(is.na(select(my_data_manual_filtered, 
+                ef001s1, ef001s2, ef001s3,
+                ef001s4, ef001s5, ef001s6,
+                ef001s7))) ~ NA_real_,
+            # 只要有一个非NA值就返回1
+            TRUE ~ case_when(
+                rowSums(!is.na(select(my_data_manual_filtered, 
+                    ef001s1, ef001s2, ef001s3,
+                    ef001s4, ef001s5, ef001s6,
+                    ef001s7))) > 0 ~ 1,
+                TRUE ~ 0
+            )
+        )
+    )
+attr(my_data_calculated$self_treatment, "label") <- "是否自我治疗"
+table(my_data_calculated$self_treatment, useNA = "ifany")
+
+
 ## 计算自我治疗费用
 my_data_calculated <- my_data_calculated %>%
     mutate(
         cost_self_treatment = case_when(
-            # 检查是否所有相关变量都是NA
-            all(is.na(select(my_data_manual_filtered, 
-                ef002_1_1_, ef002_1_2_, ef002_1_3_,
-                ef002_1_4_, ef002_1_5_, ef002_1_6_))) ~ NA_real_,
-            # 否则计算总和
-            TRUE ~ rowSums(
-                select(my_data_manual_filtered, 
+            # 如果没有自我治疗，费用为0
+            self_treatment == 0 ~ 0,
+            TRUE ~ case_when(
+                all(is.na(select(my_data_manual_filtered, 
                     ef002_1_1_, ef002_1_2_, ef002_1_3_,
-                    ef002_1_4_, ef002_1_5_, ef002_1_6_),
-                na.rm = TRUE
+                    ef002_1_4_, ef002_1_5_, ef002_1_6_))) ~ NA_real_,
+                TRUE ~ rowSums(
+                    select(my_data_manual_filtered, 
+                        ef002_1_1_, ef002_1_2_, ef002_1_3_,
+                        ef002_1_4_, ef002_1_5_, ef002_1_6_),
+                    na.rm = TRUE
+                )
             )
         )
     )
@@ -2266,6 +2291,32 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$cost_dentalcare, "label") <- "牙科费用"
 table(my_data_calculated$cost_dentalcare, useNA = "ifany")
+
+## 计算牙科自费情况
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        self_cost_dentalcare = case_when(
+            payfor_dentalcare == 0 ~ 0,  # 如果没有付费看牙医，则为0
+            TRUE ~ case_when(  # 如果付费看牙医，根据eh004判断
+                my_data_manual_filtered$eh004 == 1 ~ 1,  # 自费记为1
+                my_data_manual_filtered$eh004 == 2 ~ 0,  # 不自费记为0
+                TRUE ~ NA_real_  # 其他情况记为NA
+            )
+        )
+    )
+attr(my_data_calculated$self_cost_dentalcare, "label") <- "牙科是否自费"
+table(my_data_calculated$self_cost_dentalcare, useNA = "ifany")
+
+## 计算牙科自费金额
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        amount_self_cost_dentalcare = case_when(
+            self_cost_dentalcare == 0 ~ 0,  # 如果没有自费看牙医，金额为0
+            TRUE ~ my_data_manual_filtered$eh004_1  # 其他情况使用eh004_1的值
+        )
+    )
+attr(my_data_calculated$amount_self_cost_dentalcare, "label") <- "牙科自费金额"
+table(my_data_calculated$amount_self_cost_dentalcare, useNA = "ifany")
 
 ## 计算就医满意度（没问题）
 my_data_calculated <- my_data_calculated %>%
