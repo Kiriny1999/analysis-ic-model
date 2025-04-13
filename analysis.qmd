@@ -127,10 +127,8 @@ my_data_raw <- Reduce(function(x, y) {
     merged <- merged %>% select(-all_of(dups))
     merged
 }, data_list)
-# 导出成parquet格式
-write_parquet(my_data_raw, "data_export/my_data_raw.parquet")
 ```
-## 变量重命名
+## 内在能力变量重命名
 ```{r 变量重命名}
 # 变量重命名
 my_data_rename <- my_data_raw %>%
@@ -298,7 +296,7 @@ original_columns <- names(my_data_raw)
 renamed_only_columns <- setdiff(renamed_columns, original_columns)
 my_data_renamed_only <- my_data_rename %>%
     select(all_of(renamed_only_columns))
-write.csv(my_data_renamed_only, "data_export/renamed_data.csv", row.names = FALSE)
+write.csv(my_data_renamed_only, "data_export/data_ic/renamed_data.csv", row.names = FALSE)
 
 ```
 ## 年龄数据清洗
@@ -318,8 +316,8 @@ my_data_elder <- my_data_age %>%
 # 输出现在总共多少人
 total_individuals <- nrow(my_data_elder)
 print(paste("总共人数:", total_individuals))
-my_data_wash <- my_data_elder
 
+my_data_wash <- my_data_elder
 ```
 ## 内在能力分数计算
 ### 运动维度计算
@@ -463,7 +461,7 @@ required_columns <- c(
 my_data_physical <- my_data_wash %>%
     select(all_of(required_columns))
 
-write.csv(my_data_physical, "data_export/physical_dimension_data.csv", row.names = FALSE)
+write.csv(my_data_physical, "data_export/data_ic/physical_dimension_data.csv", row.names = FALSE)
 ```
 ### 认知维度计算
 ```{r 认知维度计算}
@@ -593,7 +591,7 @@ required_columns <- c(
 my_data_cognitive <- my_data_wash %>%
     select(all_of(required_columns))
 
-write.csv(my_data_cognitive, "data_export/cognitive_dimension_data.csv", row.names = FALSE)
+write.csv(my_data_cognitive, "data_export/data_ic/cognitive_dimension_data.csv", row.names = FALSE)
 ```
 ### 心理维度计算
 ```{r 心理维度计算}
@@ -696,7 +694,7 @@ required_columns <- c(
 my_data_psychological <- my_data_wash %>%
     select(all_of(required_columns))
 
-write.csv(my_data_psychological, "data_export/psychological_dimension_data.csv", row.names = FALSE)
+write.csv(my_data_psychological, "data_export/data_ic/psychological_dimension_data.csv", row.names = FALSE)
 ```
 ### 感官维度计算
 ```{r 感官维度计算}
@@ -758,7 +756,7 @@ required_columns <- c(
 my_data_sensory <- my_data_wash %>%
     select(all_of(required_columns))
 
-write.csv(my_data_sensory, "data_export/sensory_dimension_data.csv", row.names = FALSE)
+write.csv(my_data_sensory, "data_export/data_ic/sensory_dimension_data.csv", row.names = FALSE)
 ```
 ### 活力维度计算
 ```{r 活力维度计算}
@@ -849,13 +847,13 @@ my_data_wash <- my_data_wash %>%
 
 # 统计活力维度总分不同取值的数量，包括NA
 table(my_data_wash$final_vitality_score, useNA = "always")
-
+table(my_data_wash$age, useNA = "always")
 # 导出活力维度所有变量和ID，去除其他所有变量，导出一个csv
 required_columns <- c(
     "ID", "final_left_hand_grip", "final_right_hand_grip", "final_grip_score", "final_breath_test", "final_hemoglobin_score", "final_vitality_score"
 )
-my_data_vitality <- my_data_wash %>%select(all_of(required_columns))
-write.csv(my_data_vitality, "data_export/vitality_dimension_data.csv", row.names = FALSE)
+my_data_vitality <- my_data_wash %>% select(all_of(required_columns))
+write.csv(my_data_vitality, "data_export/data_ic/vitality_dimension_data.csv", row.names = FALSE)
 ```
 ### 内在能力总分计算
 ```{r 内在能力总分计算}
@@ -864,6 +862,14 @@ my_data_wash <- my_data_wash %>%
     mutate(
         ic_total_score = final_physical_score + cognitive_level + final_psychological_score + final_sensory_score + final_vitality_score
     )
+# 统计内在能力总分不同取值的数量，包括NA
+table(my_data_wash$ic_total_score, useNA = "always")
+
+# 导出内在能力总分这个变量
+my_data_ic_total_score <- my_data_wash %>%
+    select(ID, ic_total_score)
+
+write.csv(my_data_ic_total_score, "data_export/data_ic/ic_total_score.csv", row.names = FALSE)
 ```
 ## 内在能力清洗
 ```{r 内在能力清洗}
@@ -872,14 +878,14 @@ final_ic_scores <- my_data_wash %>%
     select(ID, age, final_physical_score, cognitive_level, final_psychological_score, final_sensory_score, final_vitality_score, ic_total_score)
 
 # 导出包含所有内在能力维度总分的数据
-write.csv(final_ic_scores, "data_export/final_ic_scores.csv", row.names = FALSE)
+write.csv(final_ic_scores, "data_export/data_ic/final_ic_scores.csv", row.names = FALSE)
 
 # 计算覆盖百分之百内在能力变量的个体
 covered_individuals <- final_ic_scores %>%
     filter(!is.na(final_physical_score) & !is.na(cognitive_level) & !is.na(final_psychological_score) & !is.na(final_sensory_score) & !is.na(final_vitality_score))
 
 # 导出覆盖百分之百内在能力个体的内在能力数据
-write.csv(covered_individuals, "data_export/covered_individuals.csv", row.names = FALSE)
+write.csv(covered_individuals, "data_export/data_ic/covered_individuals.csv", row.names = FALSE)
 
 # 输出覆盖百分之百内在能力变量的个体数量
 covered_count <- nrow(covered_individuals)
@@ -888,14 +894,14 @@ print(paste("覆盖百分之百内在能力变量的个体数量:", covered_coun
 # 导出覆盖100%的个体数据导出为parquet
 my_data_filtered_100_ic <- my_data_wash %>%
     filter(ID %in% covered_individuals$ID)
-write_parquet(my_data_filtered_100_ic, "data_export/filtered_data_100_ic.parquet")
+write_parquet(my_data_filtered_100_ic, "data_export/data_ic/filtered_data_100_ic.parquet")
 
 # 统计覆盖80%内在能力变量的个体
 covered_80_percent_individuals <- final_ic_scores %>%
     filter(rowSums(!is.na(select(., final_physical_score, cognitive_level, final_psychological_score, final_sensory_score, final_vitality_score))) >= 4)
 
 # 导出覆盖80%内在能力变量个体的内在能力数据
-write.csv(covered_80_percent_individuals, "data_export/covered_80_percent_individuals.csv", row.names = FALSE)
+write.csv(covered_80_percent_individuals, "data_export/data_ic/covered_80_percent_individuals.csv", row.names = FALSE)
 
 # 输出覆盖80%内在能力变量的个体数量
 covered_80_percent_count <- nrow(covered_80_percent_individuals)
@@ -906,7 +912,7 @@ my_data_filtered_80_percent_ic <- my_data_wash %>%
     filter(ID %in% covered_80_percent_individuals$ID)
 
 # 将覆盖80%的个体数据导出为parquet
-write_parquet(my_data_filtered_80_percent_ic, "data_export/filtered_data_80_percent_ic.parquet")
+write_parquet(my_data_filtered_80_percent_ic, "data_export/data_ic/filtered_data_80_percent_ic.parquet")
 ```
 ## 自变量手动筛选
 ### 自变量及其标签导出
@@ -933,12 +939,12 @@ addWorksheet(wb, "Variable Labels")
 writeData(wb, "Variable Labels", variable_labels)
 
 # 保存Excel文件
-saveWorkbook(wb, "data_export/variable_labels.xlsx", overwrite = TRUE)
+saveWorkbook(wb, "data_export/data_manual_filter/variable_labels.xlsx", overwrite = TRUE)
 ```
-### 临床经验筛选数据准备
+### 临床经验筛选后数据准备
 ```{r 临床经验筛选}
 # 读取变量列表
-variable_list <- read.csv("data_export/variable_labels_manual_filtered.csv")
+variable_list <- read.csv("data_export/data_manual_filter/variable_labels_manual_filtered.csv")
 
 # 筛选出include为"yes"的变量
 selected_vars <- variable_list$variable[variable_list$include == "yes"]
@@ -962,11 +968,11 @@ my_data_manual_filtered <- my_data_filtered_100_ic %>%
     select(any_of(vars_to_keep))
 
 # 导出自变量手动筛选后的数据
-write_parquet(my_data_manual_filtered, "data_export/my_data_manual_filtered.parquet")
+write_parquet(my_data_manual_filtered, "data_export/data_manual_filter/my_data_manual_filtered.parquet")
 ```
 ## 自变量计算
-### 计算初始化
-```{r 初始化}
+### 自变量计算初始化
+```{r 自变量计算初始化}
 # 初始化计算后的数据
 my_data_calculated <- my_data_manual_filtered %>%
     select(ID, age, final_physical_score, cognitive_level, final_psychological_score, final_sensory_score, final_vitality_score, ic_total_score)
@@ -1143,7 +1149,7 @@ write_parquet(demographic_data, "data_export/data_calculated/parquet/data_calcul
 # 导出人口学数据为csv
 write.csv(demographic_data, "data_export/data_calculated/csv/data_calculated_demographic.csv", row.names = FALSE)
 ```
-### 生理指标计算（没问题）
+### 生理指标计算（完成）
 ```{r 生理指标计算}
 # 计算收缩压的最终值并添加标签（没问题）
 my_data_calculated <- my_data_calculated %>%
@@ -1390,7 +1396,7 @@ write_parquet(physiological_data, "data_export/data_calculated/parquet/data_calc
 # 导出生理学数据为csv
 write.csv(physiological_data, "data_export/data_calculated/csv/data_calculated_physiological.csv", row.names = FALSE)
 ```
-### 家庭结构计算（没问题）
+### 家庭结构计算（完成）
 ```{r 家庭结构计算}
 # 计算亲生父母是否健在（没问题）
 my_data_calculated <- my_data_calculated %>%
@@ -1556,7 +1562,7 @@ write_parquet(family_structure_data, "data_export/data_calculated/parquet/data_c
 # 导出家庭结构数据为csv
 write.csv(family_structure_data, "data_export/data_calculated/csv/data_calculated_family_structure.csv", row.names = FALSE)
 ```
-### 照顾负担计算（没问题）
+### 照顾负担计算（完成）
 ```{r 照顾负担计算}
 # 计算照顾父母数量（没问题）
 my_data_calculated <- my_data_calculated %>%
@@ -2201,46 +2207,133 @@ table(my_data_calculated$nights_inpatientcare, useNA = "ifany")
 my_data_calculated <- my_data_calculated %>%
     mutate(
         self_treatment = case_when(
-            # 如果所有相关变量都是NA，返回NA
-            all(is.na(select(my_data_manual_filtered, 
-                ef001s1, ef001s2, ef001s3,
-                ef001s4, ef001s5, ef001s6,
-                ef001s7))) ~ NA_real_,
+            # 如果所有ef001s变量都是NA，返回NA
+            is.na(my_data_manual_filtered$ef001s1) & 
+            is.na(my_data_manual_filtered$ef001s2) & 
+            is.na(my_data_manual_filtered$ef001s3) & 
+            is.na(my_data_manual_filtered$ef001s4) & 
+            is.na(my_data_manual_filtered$ef001s5) & 
+            is.na(my_data_manual_filtered$ef001s6) & 
+            is.na(my_data_manual_filtered$ef001s7) ~ NA_real_,
             # 只要有一个非NA值就返回1
-            TRUE ~ case_when(
-                rowSums(!is.na(select(my_data_manual_filtered, 
-                    ef001s1, ef001s2, ef001s3,
-                    ef001s4, ef001s5, ef001s6,
-                    ef001s7))) > 0 ~ 1,
-                TRUE ~ 0
-            )
+            !is.na(my_data_manual_filtered$ef001s1) |
+            !is.na(my_data_manual_filtered$ef001s2) |
+            !is.na(my_data_manual_filtered$ef001s3) |
+            !is.na(my_data_manual_filtered$ef001s4) |
+            !is.na(my_data_manual_filtered$ef001s5) |
+            !is.na(my_data_manual_filtered$ef001s6) |
+            !is.na(my_data_manual_filtered$ef001s7) ~ 1,
+            # 其他情况返回0
+            TRUE ~ 0
         )
     )
 attr(my_data_calculated$self_treatment, "label") <- "是否自我治疗"
 table(my_data_calculated$self_treatment, useNA = "ifany")
 
-
-## 计算自我治疗费用
+## 计算自我治疗是否付费
 my_data_calculated <- my_data_calculated %>%
     mutate(
         cost_self_treatment = case_when(
-            # 如果没有自我治疗，费用为0
+            # 如果没有自我治疗，不付费
             self_treatment == 0 ~ 0,
             TRUE ~ case_when(
-                all(is.na(select(my_data_manual_filtered, 
+                # 如果所有ef002相关变量都是NA，返回NA
+                is.na(my_data_manual_filtered$ef002_1_) & 
+                is.na(my_data_manual_filtered$ef002_2_) & 
+                is.na(my_data_manual_filtered$ef002_3_) &
+                is.na(my_data_manual_filtered$ef002_4_) & 
+                is.na(my_data_manual_filtered$ef002_5_) & 
+                is.na(my_data_manual_filtered$ef002_6_) ~ NA_real_,
+                # 如果任意一个ef002相关变量为1，返回1
+                my_data_manual_filtered$ef002_1_ == 1 |
+                my_data_manual_filtered$ef002_2_ == 1 |
+                my_data_manual_filtered$ef002_3_ == 1 |
+                my_data_manual_filtered$ef002_4_ == 1 |
+                my_data_manual_filtered$ef002_5_ == 1 |
+                my_data_manual_filtered$ef002_6_ == 1 ~ 1,
+                # 其他情况返回0
+                TRUE ~ 0
+            )
+        )
+    )
+attr(my_data_calculated$cost_self_treatment, "label") <- "自我治疗是否付费"
+table(my_data_calculated$cost_self_treatment, useNA = "ifany")
+
+# 计算自我治疗费用总额
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        amount_cost_self_treatment = case_when(
+            # 如果没有自我治疗费用，金额为0
+            cost_self_treatment == 0 ~ 0,
+            # 其他情况计算所有费用之和
+            TRUE ~ rowSums(
+                select(my_data_manual_filtered, 
                     ef002_1_1_, ef002_1_2_, ef002_1_3_,
-                    ef002_1_4_, ef002_1_5_, ef002_1_6_))) ~ NA_real_,
+                    ef002_1_4_, ef002_1_5_, ef002_1_6_),
+                na.rm = TRUE
+            )
+        )
+    )
+attr(my_data_calculated$amount_cost_self_treatment, "label") <- "自我治疗费用总额"
+table(my_data_calculated$amount_cost_self_treatment, useNA = "ifany")
+
+# 计算自我治疗是否自费
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        self_cost_self_treatment = case_when(
+            # 如果没有自我治疗付费，则为0
+            cost_self_treatment == 0 ~ 0,
+            # 如果有自我治疗付费，检查ef003相关变量
+            TRUE ~ case_when(
+                # 如果所有ef003相关变量都是NA，返回NA
+                is.na(my_data_manual_filtered$ef003_1_) & 
+                is.na(my_data_manual_filtered$ef003_2_) & 
+                is.na(my_data_manual_filtered$ef003_3_) &
+                is.na(my_data_manual_filtered$ef003_4_) & 
+                is.na(my_data_manual_filtered$ef003_5_) & 
+                is.na(my_data_manual_filtered$ef003_6_) ~ NA_real_,
+                # 如果任意一个ef003相关变量为1，返回1
+                my_data_manual_filtered$ef003_1_ == 1 |
+                my_data_manual_filtered$ef003_2_ == 1 |
+                my_data_manual_filtered$ef003_3_ == 1 |
+                my_data_manual_filtered$ef003_4_ == 1 |
+                my_data_manual_filtered$ef003_5_ == 1 |
+                my_data_manual_filtered$ef003_6_ == 1 ~ 1,
+                # 其他情况返回0
+                TRUE ~ 0
+            )
+        )
+    )
+attr(my_data_calculated$self_cost_self_treatment, "label") <- "自我治疗是否自费"
+table(my_data_calculated$self_cost_self_treatment, useNA = "ifany")
+
+# 计算自我治疗自费金额
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        amount_self_cost_self_treatment = case_when(
+            # 如果没有自费，金额为0
+            self_cost_self_treatment == 0 ~ 0,
+            # 如果有自费，检查相关费用变量
+            TRUE ~ case_when(
+                # 如果所有费用变量都是NA，返回NA
+                is.na(my_data_manual_filtered$ef003_1_1_) & 
+                is.na(my_data_manual_filtered$ef003_1_2_) & 
+                is.na(my_data_manual_filtered$ef003_1_3_) &
+                is.na(my_data_manual_filtered$ef003_1_4_) & 
+                is.na(my_data_manual_filtered$ef003_1_5_) & 
+                is.na(my_data_manual_filtered$ef003_1_6_) ~ NA_real_,
+                # 否则计算所有非NA值的总和
                 TRUE ~ rowSums(
                     select(my_data_manual_filtered, 
-                        ef002_1_1_, ef002_1_2_, ef002_1_3_,
-                        ef002_1_4_, ef002_1_5_, ef002_1_6_),
+                        ef003_1_1_, ef003_1_2_, ef003_1_3_,
+                        ef003_1_4_, ef003_1_5_, ef003_1_6_),
                     na.rm = TRUE
                 )
             )
         )
     )
-attr(my_data_calculated$cost_self_treatment, "label") <- "自我治疗费用"
-table(my_data_calculated$cost_self_treatment, useNA = "ifany")
+attr(my_data_calculated$amount_self_cost_self_treatment, "label") <- "自我治疗自费金额"
+table(my_data_calculated$amount_self_cost_self_treatment, useNA = "ifany")
 
 ## 计算是否看牙医（没问题）
 my_data_calculated <- my_data_calculated %>%
@@ -2333,7 +2426,9 @@ attr(my_data_calculated$satisfaction_healthcare, "label") <- "就医满意度"
 # 导出医疗保险相关数据
 medical_insurance_data <- my_data_calculated %>%
     select(
-        ID, reason_no_health_insurance,
+        ID, 
+        # 医疗保险类型
+        reason_no_health_insurance,
         urban_employee_medical_insurance,
         urban_resident_medical_insurance,
         hezuoyiliao_medical_insurance,
@@ -2343,39 +2438,51 @@ medical_insurance_data <- my_data_calculated %>%
         privatemedical_insurance_individual,
         urban_nonemployed_persons_healthinsuran,
         others_medical_insurance,
+        serious_illness_other_insurances,
+        number_medical_insurance,
+        # 体检情况
         undergone_physicalexamination_past_two_years,
-        visithospital_lastmonth,
+        # 门诊情况
+        last_month_outpatient_visit,
         ill_lastmonth,
-        reason_not_seeking_medical_attention,
         times_visited_outpatient,
         payfor_outpatient,
         amountpayfor_outpatient,
         self_payfor_outpatient,
         amountself_payfor_outpatient,
-        self_outpatient_payment_percent,
         travel_time_outpatient,
         travel_cost_outpatient,
         emergency_outpatient,
+        # 住院情况
         inpatientcare_pastyear,
         times_inpatientcare_pastyear,
         payfor_inpatientcare_pastyear,
         amountpayfor_inpatientcare_pastyear,
         self_payfor_inpatientcare,
         amountself_payfor_inpatientcare,
-        self_inpatientcare_payment_percent,
         travel_time_inpatientcare,
         travel_cost_inpatientcare,
         nights_inpatientcare,
-        reasons_inpatientcare,
+        # 自我治疗情况
+        self_treatment,
         cost_self_treatment,
+        amount_cost_self_treatment,
+        self_cost_self_treatment,
+        amount_self_cost_self_treatment,
+        # 牙科治疗情况
         see_dentalcare,
         times_dentalcare,
         payfor_dentalcare,
         cost_dentalcare,
+        self_cost_dentalcare,
+        amount_self_cost_dentalcare,
+        # 满意度
         satisfaction_healthcare
     )
-
-write_parquet(medical_insurance_data, "data_export/data_calculated/data_calculated_medical_insurance.parquet")
+# 导出医疗保险数据为parquet格式
+write_parquet(medical_insurance_data, "data_export/data_calculated/parquet/data_calculated_medical_insurance.parquet")
+# 导出医疗保险数据为csv格式
+write.csv(medical_insurance_data, "data_export/data_calculated/csv/data_calculated_medical_insurance.csv", row.names = FALSE)
 ```
 ### 疾病情况计算
 ```{r 疾病情况计算}
