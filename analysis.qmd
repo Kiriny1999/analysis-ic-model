@@ -1390,7 +1390,7 @@ write_parquet(physiological_data, "data_export/data_calculated/parquet/data_calc
 # 导出生理学数据为csv
 write.csv(physiological_data, "data_export/data_calculated/csv/data_calculated_physiological.csv", row.names = FALSE)
 ```
-### 家庭结构计算
+### 家庭结构计算（没问题）
 ```{r 家庭结构计算}
 # 计算亲生父母是否健在（没问题）
 my_data_calculated <- my_data_calculated %>%
@@ -1556,10 +1556,9 @@ write_parquet(family_structure_data, "data_export/data_calculated/parquet/data_c
 # 导出家庭结构数据为csv
 write.csv(family_structure_data, "data_export/data_calculated/csv/data_calculated_family_structure.csv", row.names = FALSE)
 ```
-
 ### 照顾负担计算
 ```{r 照顾负担计算}
-# 计算照顾父母数量（没问题，但这个是个反面变量，数字越大可能内在能力越不行，这个在后续建模中要注意一下）
+# 计算照顾父母数量（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         number_care_parents = case_when(
@@ -1579,7 +1578,7 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$number_care_parents, "label") <- "照顾父母数量"
 
-# 计算照顾子女数量（没问题，但和上面一个变量一样的问题）
+# 计算照顾子女数量（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         number_takecare_children = case_when(
@@ -1599,7 +1598,7 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$number_takecare_children, "label") <- "照顾子女数量"
 
-# 计算是否带孙子女（没问题，这个取值和之前照顾父母孩子是相反的）
+# 计算是否带孙子女（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         takecare_grandchildren = case_when(
@@ -1611,7 +1610,7 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$takecare_grandchildren, "label") <- "是否照顾孙子女"
 
-# 计算照顾孙子女总时间（还得根据是否照顾确定取值吧）
+# 计算照顾孙子女总小时数（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         takecare_grandchildren_hours = case_when(
@@ -1657,7 +1656,7 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$takecare_grandchildren_hours, "label") <- "照顾孙子女总小时数"
 
-# 计算是否照顾岳父母（没问题）
+# 计算是否照顾父母（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         takecare_parents = case_when(
@@ -1667,44 +1666,59 @@ my_data_calculated <- my_data_calculated %>%
             TRUE ~ NA_real_  # 其他值记为NA
         )
     )
-attr(my_data_calculated$takecare_parents, "label") <- "是否照顾岳父母"
+attr(my_data_calculated$takecare_parents, "label") <- "是否照顾父母"
 
-## 计算照顾父母总小时数（计算没问题，但是不是应该包括养父养母）
+# 计算照顾父母总小时数（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         takecare_parents_hours = case_when(
-            # 检查是否所有相关变量都是NA
-            all(
-                (is.na(my_data_manual_filtered$cf005_1) | is.na(my_data_manual_filtered$cf005_2)) &
-                (is.na(my_data_manual_filtered$cf005_3) | is.na(my_data_manual_filtered$cf005_4)) &
-                (is.na(my_data_manual_filtered$cf005_5) | is.na(my_data_manual_filtered$cf005_6)) &
-                (is.na(my_data_manual_filtered$cf005_7) | is.na(my_data_manual_filtered$cf005_8))
-            ) ~ NA_real_,
-            # 否则计算照顾父母的总时间
-            TRUE ~ rowSums(
-                cbind(
-                    my_data_manual_filtered$cf005_1 * my_data_manual_filtered$cf005_2,
-                    my_data_manual_filtered$cf005_3 * my_data_manual_filtered$cf005_4,
-                    my_data_manual_filtered$cf005_5 * my_data_manual_filtered$cf005_6,
-                    my_data_manual_filtered$cf005_7 * my_data_manual_filtered$cf005_8
-                ),
-                na.rm = TRUE  # 忽略部分NA值
-            )
+            # 如果不照顾父母，时间为0
+            takecare_parents == 0 ~ 0,
+            # 如果照顾父母，计算照顾时间
+            takecare_parents == 1 ~ case_when(
+                # 检查是否所有相关变量都是NA
+                all(
+                    (is.na(my_data_manual_filtered$cf005_1) | is.na(my_data_manual_filtered$cf005_2)) &
+                    (is.na(my_data_manual_filtered$cf005_3) | is.na(my_data_manual_filtered$cf005_4)) &
+                    (is.na(my_data_manual_filtered$cf005_5) | is.na(my_data_manual_filtered$cf005_6)) &
+                    (is.na(my_data_manual_filtered$cf005_7) | is.na(my_data_manual_filtered$cf005_8))
+                ) ~ NA_real_,
+                # 否则计算照顾父母的总时间
+                TRUE ~ rowSums(
+                    cbind(
+                        my_data_manual_filtered$cf005_1 * my_data_manual_filtered$cf005_2,
+                        my_data_manual_filtered$cf005_3 * my_data_manual_filtered$cf005_4,
+                        my_data_manual_filtered$cf005_5 * my_data_manual_filtered$cf005_6,
+                        my_data_manual_filtered$cf005_7 * my_data_manual_filtered$cf005_8
+                    ),
+                    na.rm = TRUE  # 忽略部分NA值
+                )
+            ),
+            # 如果takecare_parents是NA，返回NA
+            TRUE ~ NA_real_
         )
     )
-attr(my_data_calculated$takecare_parents_hours, "label") <- "照顾父母及岳父岳母总小时数"
+attr(my_data_calculated$takecare_parents_hours, "label") <- "照顾父母总小时数"
 
 # 导出照顾负担数据
+# 导出照顾负担相关数据
 caregiving_burden_data <- my_data_calculated %>%
     select(
-        ID, number_care_parents, number_takecare_children,
-        takecare_grandchildren, takecare_grandchildren_hours,
-        takecare_parents, takecare_parents_hours
+        ID,                             # ID
+        number_care_parents,            # 照顾父母数量
+        number_takecare_children,       # 照顾子女数量
+        takecare_grandchildren,         # 是否照顾孙子女
+        takecare_grandchildren_hours,   # 照顾孙子女总小时数
+        takecare_parents,               # 是否照顾父母
+        takecare_parents_hours         # 照顾父母总小时数
     )
 
-write_parquet(caregiving_burden_data, "data_export/data_calculated/data_calculated_caregiving_burden.parquet")
-```
+# 导出照顾负担数据为parquet格式
+write_parquet(caregiving_burden_data, "data_export/data_calculated/parquet/data_calculated_caregiving_burden.parquet")
+# 导出照顾负担数据为csv格式
+write.csv(caregiving_burden_data, "data_export/data_calculated/csv/data_calculated_caregiving_burden.csv", row.names = FALSE)
 
+```
 ### 医疗保险计算
 ```{r 医疗保险计算}
 # 医疗保健
@@ -2326,7 +2340,6 @@ medical_insurance_data <- my_data_calculated %>%
 
 write_parquet(medical_insurance_data, "data_export/data_calculated/data_calculated_medical_insurance.parquet")
 ```
-
 ### 疾病情况计算
 ```{r 疾病情况计算}
 # 计算身体残疾情况
@@ -3408,7 +3421,7 @@ attr(my_data_calculated$formal_caregivers, "label") <- "正式照顾者数量"
 
 
 ```
-### 环境情况计算
+### 环境情况计算（没问题）
 ```{r 环境情况计算}
 # 计算电梯情况（没问题）
 my_data_calculated <- my_data_calculated %>%
