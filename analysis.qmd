@@ -1721,7 +1721,18 @@ write.csv(caregiving_burden_data, "data_export/data_calculated/csv/data_calculat
 ```
 ### 医疗保险计算
 ```{r 医疗保险计算}
-# 医疗保健
+# 计算是否有其他重大疾病保险（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        serious_illness_other_insurances = case_when(
+            my_data_manual_filtered$ea002 == 1 ~ 1,
+            my_data_manual_filtered$ea002 == 2 ~ 0,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$serious_illness_other_insurances, "label") <- "是否有其他重大疾病保险"
+table(my_data_calculated$serious_illness_other_insurances)
+
 ## 计算无医疗保险原因（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
@@ -1738,11 +1749,12 @@ my_data_calculated <- my_data_calculated %>%
         )
     )
 attr(my_data_calculated$reason_no_health_insurance, "label") <- "无医疗保险原因"
+table(my_data_calculated$reason_no_health_insurance, useNA = "ifany")
 
 # 计算各类医疗保险（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        # 计算城镇职工医疗保险
+        # 计算城镇职工医疗保险（没问题）
         urban_employee_medical_insurance = case_when(
             my_data_manual_filtered$ea001_w3_1_1_ == 1 | 
             my_data_manual_filtered$ea001_w3_2_1_ == 1 | 
@@ -1756,7 +1768,7 @@ my_data_calculated <- my_data_calculated %>%
             TRUE ~ 0
         ),
         
-        # 计算城镇居民医疗保险
+        # 计算城镇居民医疗保险（没问题）
         urban_resident_medical_insurance = case_when(
             my_data_manual_filtered$ea001_w3_1_2_ == 1 | 
             my_data_manual_filtered$ea001_w3_2_2_ == 1 | 
@@ -1770,7 +1782,7 @@ my_data_calculated <- my_data_calculated %>%
             TRUE ~ 0
         ),
         
-        # 计算合作医疗保险
+        # 计算合作医疗保险（没问题）
         hezuoyiliao_medical_insurance = case_when(
             my_data_manual_filtered$ea001_w3_1_3_ == 1 | 
             my_data_manual_filtered$ea001_w3_2_3_ == 1 | 
@@ -1784,7 +1796,7 @@ my_data_calculated <- my_data_calculated %>%
             TRUE ~ 0
         ),
         
-        # 计算城乡居民医疗保险
+        # 计算城乡居民医疗保险（没问题）
         urbanandruralresident_medical_insurance = case_when(
             my_data_manual_filtered$ea001_w3_1_4_ == 1 | 
             my_data_manual_filtered$ea001_w3_2_4_ == 1 | 
@@ -1798,7 +1810,7 @@ my_data_calculated <- my_data_calculated %>%
             TRUE ~ 0
         ),
         
-        # 计算公费医疗保险
+        # 计算公费医疗保险（没问题）
         gongfei_medical_insurance = case_when(
             my_data_manual_filtered$ea001_w3_1_5_ == 1 | 
             my_data_manual_filtered$ea001_w3_2_5_ == 1 | 
@@ -1812,7 +1824,7 @@ my_data_calculated <- my_data_calculated %>%
             TRUE ~ 0
         ),
         
-        # 计算单位补充医疗保险
+        # 计算单位补充医疗保险（没问题）
         privatemedical_insurance_workunit = case_when(
             my_data_manual_filtered$ea001_w3_1_7_ == 1 | 
             my_data_manual_filtered$ea001_w3_2_7_ == 1 | 
@@ -1826,7 +1838,7 @@ my_data_calculated <- my_data_calculated %>%
             TRUE ~ 0
         ),
         
-        # 计算商业医疗保险
+        # 计算商业医疗保险（没问题）
         privatemedical_insurance_individual = case_when(
             my_data_manual_filtered$ea001_w3_1_8_ == 1 | 
             my_data_manual_filtered$ea001_w3_2_8_ == 1 | 
@@ -1840,7 +1852,7 @@ my_data_calculated <- my_data_calculated %>%
             TRUE ~ 0
         ),
         
-        # 计算城镇非从业居民医疗保险
+        # 计算城镇非从业居民医疗保险（没问题）
         urban_nonemployed_persons_healthinsuran = case_when(
             my_data_manual_filtered$ea001_w3_1_9_ == 1 | 
             my_data_manual_filtered$ea001_w3_2_9_ == 1 | 
@@ -1854,7 +1866,7 @@ my_data_calculated <- my_data_calculated %>%
             TRUE ~ 0
         ),
         
-        # 计算其他医疗保险
+        # 计算其他医疗保险（没问题）
         others_medical_insurance = case_when(
             my_data_manual_filtered$ea001_w3_1_10_ == 1 | 
             my_data_manual_filtered$ea001_w3_2_10_ == 1 | 
@@ -1880,6 +1892,51 @@ attr(my_data_calculated$privatemedical_insurance_individual, "label") <- "商业
 attr(my_data_calculated$urban_nonemployed_persons_healthinsuran, "label") <- "城镇非从业居民医疗保险"
 attr(my_data_calculated$others_medical_insurance, "label") <- "其他医疗保险"
 
+# 查看各类医疗保险的分布情况
+table(my_data_calculated$urban_employee_medical_insurance, useNA = "ifany")
+table(my_data_calculated$urban_resident_medical_insurance, useNA = "ifany")
+table(my_data_calculated$hezuoyiliao_medical_insurance, useNA = "ifany")
+table(my_data_calculated$urbanandruralresident_medical_insurance, useNA = "ifany")
+table(my_data_calculated$gongfei_medical_insurance, useNA = "ifany")
+table(my_data_calculated$privatemedical_insurance_workunit, useNA = "ifany")
+table(my_data_calculated$privatemedical_insurance_individual, useNA = "ifany")
+table(my_data_calculated$urban_nonemployed_persons_healthinsuran, useNA = "ifany")
+table(my_data_calculated$others_medical_insurance, useNA = "ifany")
+
+# 计算每个人拥有的医疗保险数量（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        number_medical_insurance = case_when(
+            # 如果所有医疗保险变量都是NA，返回NA
+            is.na(urban_employee_medical_insurance) & 
+            is.na(urban_resident_medical_insurance) & 
+            is.na(hezuoyiliao_medical_insurance) & 
+            is.na(urbanandruralresident_medical_insurance) & 
+            is.na(gongfei_medical_insurance) & 
+            is.na(privatemedical_insurance_workunit) & 
+            is.na(privatemedical_insurance_individual) & 
+            is.na(urban_nonemployed_persons_healthinsuran) & 
+            is.na(others_medical_insurance) &
+            is.na(serious_illness_other_insurances) ~ NA_real_,
+            # 否则计算非NA值的总和
+            TRUE ~ rowSums(
+                select(., urban_employee_medical_insurance,
+                      urban_resident_medical_insurance,
+                      hezuoyiliao_medical_insurance,
+                      urbanandruralresident_medical_insurance,
+                      gongfei_medical_insurance,
+                      privatemedical_insurance_workunit,
+                      privatemedical_insurance_individual,
+                      urban_nonemployed_persons_healthinsuran,
+                      others_medical_insurance,
+                      serious_illness_other_insurances),
+                na.rm = TRUE
+            )
+        )
+    )
+attr(my_data_calculated$number_medical_insurance, "label") <- "医疗保险数量"
+table(my_data_calculated$number_medical_insurance, useNA = "ifany")
+
 ## 计算过去两年是否体检（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
@@ -1892,18 +1949,18 @@ my_data_calculated <- my_data_calculated %>%
 attr(my_data_calculated$undergone_physicalexamination_past_two_years, "label") <- "过去两年是否体检"
 table(my_data_calculated$undergone_physicalexamination_past_two_years, useNA = "ifany")
 
-## 计算过去一个月是否去住院（没问题）
+## 计算过去一个月是否去门诊（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        visithospital_lastmonth = case_when(
+        last_month_outpatient_visit = case_when(
             is.na(my_data_manual_filtered$ed001) ~ NA_real_,
             my_data_manual_filtered$ed001 == 1 ~ 1,  # yes记为1
             my_data_manual_filtered$ed001 == 2 ~ 0,  # no记为0
             TRUE ~ NA_real_  # 其他值记为NA
         )
     )
-attr(my_data_calculated$visithospital_lastmonth, "label") <- "过去一个月是否去住院"
-table(my_data_calculated$visithospital_lastmonth, useNA = "ifany")
+attr(my_data_calculated$last_month_outpatient_visit, "label") <- "过去一个月是否去门诊"
+table(my_data_calculated$last_month_outpatient_visit, useNA = "ifany")
 
 ## 计算过去一个月是否生病（没问题）
 my_data_calculated <- my_data_calculated %>%
@@ -1918,33 +1975,18 @@ my_data_calculated <- my_data_calculated %>%
 attr(my_data_calculated$ill_lastmonth, "label") <- "过去一个月是否生病"
 table(my_data_calculated$ill_lastmonth, useNA = "ifany")
 
-## 计算未就医原因（没问题）
-my_data_calculated <- my_data_calculated %>%
-    mutate(
-        reason_not_seeking_medical_attention = case_when(
-            is.na(my_data_manual_filtered$ed003) ~ NA_real_,
-            my_data_manual_filtered$ed003 == 1 ~ 1,
-            my_data_manual_filtered$ed003 == 2 ~ 2,
-            my_data_manual_filtered$ed003 == 3 ~ 3,
-            my_data_manual_filtered$ed003 == 4 ~ 4,
-            my_data_manual_filtered$ed003 == 5 ~ 5,
-            my_data_manual_filtered$ed003 == 6 ~ 6,
-            my_data_manual_filtered$ed003 == 7 ~ 7,
-            my_data_manual_filtered$ed003 == 8 ~ 8,
-            TRUE ~ NA_real_
-        )
-    )
-attr(my_data_calculated$reason_not_seeking_medical_attention, "label") <- "未就医原因"
-table(my_data_calculated$reason_not_seeking_medical_attention, useNA = "ifany")
-
 ## 计算过去一个月去门诊次数（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         times_visited_outpatient = case_when(
-            # 检查是否所有相关变量都是NA
+            # 如果没去门诊，返回0
+            last_month_outpatient_visit == 0 ~ 0,
+            # 如果所有就诊次数相关变量都是NA，返回NA
             all(is.na(select(my_data_manual_filtered, 
-                starts_with("ed005_")))) ~ NA_real_,
-            # 否则计算总次数
+                ed005_1_, ed005_2_, ed005_3_, 
+                ed005_4_, ed005_5_, ed005_6_, 
+                ed005_7_))) ~ NA_real_,
+            # 其他情况计算总次数
             TRUE ~ rowSums(
                 select(my_data_manual_filtered, 
                     ed005_1_, ed005_2_, ed005_3_, 
@@ -1961,7 +2003,7 @@ table(my_data_calculated$times_visited_outpatient, useNA = "ifany")
 my_data_calculated <- my_data_calculated %>%
     mutate(
         payfor_outpatient = case_when(
-            times_visited_outpatient == 0 ~ 0,  # 如果门诊次数为0，则不付费case
+            last_month_outpatient_visit == 0 ~ 0,  # 如果门诊次数为0，则不付费case
             TRUE ~ case_when(
                 my_data_manual_filtered$ed006 == 1 ~ 1,  # 付费记为1
                 my_data_manual_filtered$ed006 == 2 ~ 0,  # 不付费记为0
@@ -2013,11 +2055,10 @@ table(my_data_calculated$amountself_payfor_outpatient, useNA = "ifany")
 my_data_calculated <- my_data_calculated %>%
     mutate(
         travel_time_outpatient = case_when(
-            times_visited_outpatient == 0 ~ 0,  # 如果去门诊次数为0，时间为0
+            last_month_outpatient_visit == 0 ~ 0,  # 如果去门诊次数为0，时间为0
             TRUE ~ my_data_manual_filtered$ed014_1  # 其他情况使用ed014_1的值
         )
     )
-
 attr(my_data_calculated$travel_time_outpatient, "label") <- "去门诊所需时间"
 table(my_data_calculated$travel_time_outpatient, useNA = "ifany")  # 查看结果，包括N
 
@@ -2025,7 +2066,7 @@ table(my_data_calculated$travel_time_outpatient, useNA = "ifany")  # 查看结�
 my_data_calculated <- my_data_calculated %>%
     mutate(
         travel_cost_outpatient = case_when(
-            times_visited_outpatient == 0 ~ 0,  # 如果没去过门诊，费用为0
+            last_month_outpatient_visit == 0 ~ 0,  # 如果没去过门诊，费用为0
             TRUE ~ my_data_manual_filtered$ed015  # 其他情况使用原始数据
         )
     )
@@ -2036,7 +2077,7 @@ table(my_data_calculated$travel_cost_outpatient, useNA = "ifany")
 my_data_calculated <- my_data_calculated %>%
     mutate(
         emergency_outpatient = case_when(
-            times_visited_outpatient == 0 ~ 0,  # 如果去门诊次数为0，则为0
+            last_month_outpatient_visit == 0 ~ 0,  # 如果去门诊次数为0，则为0
             TRUE ~ case_when(
                 my_data_manual_filtered$ed020 == 2 ~ 1,  # 如果ed020为2，则为1
                 my_data_manual_filtered$ed020 == 1 ~ 0,  # 如果ed020为1，则为0
@@ -2156,21 +2197,6 @@ my_data_calculated <- my_data_calculated %>%
 attr(my_data_calculated$nights_inpatientcare, "label") <- "过去一年住院天数"
 table(my_data_calculated$nights_inpatientcare, useNA = "ifany")
 
-## 计算住院原因
-my_data_calculated <- my_data_calculated %>%
-    mutate(
-        reasons_inpatientcare = case_when(
-            is.na(my_data_manual_filtered$ee019) ~ NA_real_,
-            my_data_manual_filtered$ee019 == 1 ~ 1,
-            my_data_manual_filtered$ee019 == 2 ~ 2,
-            my_data_manual_filtered$ee019 == 3 ~ 3,
-            my_data_manual_filtered$ee019 == 4 ~ 4,
-            TRUE ~ NA_real_
-        )
-    )
-attr(my_data_calculated$reasons_inpatientcare, "label") <- "住院原因"
-table(my_data_calculated$reasons_inpatientcare, useNA = "ifany")
-
 ## 计算自我治疗费用
 my_data_calculated <- my_data_calculated %>%
     mutate(
@@ -2189,6 +2215,7 @@ my_data_calculated <- my_data_calculated %>%
         )
     )
 attr(my_data_calculated$cost_self_treatment, "label") <- "自我治疗费用"
+table(my_data_calculated$cost_self_treatment, useNA = "ifany")
 
 ## 计算是否看牙医（没问题）
 my_data_calculated <- my_data_calculated %>%
