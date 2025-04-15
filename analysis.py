@@ -1,38 +1,36 @@
-from sklearn.datasets import load_iris
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, confusion_matrix
-import matplotlib.pyplot as plt
-import seaborn as sns
+import pandas as pd
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans
+import numpy as np
 
-# 加载数据集
-data = load_iris()
-X = data.data
-y = data.target
+# 读取数据
+df = pd.read_csv('data_export/data_ic/covered_individuals.csv')
 
-# 划分训练集和测试集
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+# 数据预处理
+# 选择用于聚类的特征
+features = ['final_physical_score', 'cognitive_level', 'final_psychological_score', 
+           'final_sensory_score', 'final_vitality_score']
+X = df[features]
 
-# 构建随机森林模型
-model = RandomForestClassifier(n_estimators=100, random_state=42)
+# 数据标准化
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
 
-# 训练模型
-model.fit(X_train, y_train)
+# 使用肘部法则确定最佳聚类数
+inertias = []
+K = range(1, 11)
+for k in K:
+    kmeans = KMeans(n_clusters=k, random_state=42)
+    kmeans.fit(X_scaled)
+    inertias.append(kmeans.inertia_)
 
-# 进行预测
-y_pred = model.predict(X_test)
+# 执行K-means聚类
+optimal_k = 3  # 根据肘部法则图形选择最佳k值
+kmeans = KMeans(n_clusters=optimal_k, random_state=42)
+df['Cluster'] = kmeans.fit_predict(X_scaled)
 
-# 评估模型
-accuracy = accuracy_score(y_test, y_pred)
-print(f"Test Accuracy: {accuracy:.2f}")
+# 分析每个聚类的特征
+cluster_stats = df.groupby('Cluster').mean()
 
-# 计算混淆矩阵
-conf_matrix = confusion_matrix(y_test, y_pred)
 
-# 可视化混淆矩阵
-plt.figure(figsize=(8, 6))
-sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues', xticklabels=data.target_names, yticklabels=data.target_names)
-plt.xlabel('Predicted')
-plt.ylabel('True')
-plt.title('Confusion Matrix')
-plt.show()
+
