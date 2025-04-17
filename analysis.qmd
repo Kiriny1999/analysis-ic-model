@@ -5460,9 +5460,6 @@ write.csv(environment_data, "data_export/data_calculated/csv/data_calculated_env
 # 查看数据框的维度
 dim(my_data_calculated)
 
-# 查看数据框的结构
-str(my_data_calculated)
-
 # 导出计算后的数据框
 write_parquet(my_data_calculated, "data_export/data_calculated/my_data_calculated.parquet")
 
