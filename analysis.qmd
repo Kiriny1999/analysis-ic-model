@@ -977,7 +977,6 @@ write_parquet(my_data_manual_filtered, "data_export/data_manual_filter/my_data_m
 my_data_calculated <- my_data_manual_filtered %>%
     select(ID, age, final_physical_score, cognitive_level, final_psychological_score, final_sensory_score, final_vitality_score, ic_total_score)
 ```
-
 ### 人口统计学学数据计算（完成）
 ```{r 人口学数据计算}
 # 查看手动筛选数据中有多少个观察值
@@ -1179,27 +1178,6 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$bp_dbp, "label") <- "舒张压"
 
-# 计算是否为高血压（没问题）
-my_data_calculated <- my_data_calculated %>%
-    mutate(
-        hypertension = case_when(
-            bp_sbp > 140 | bp_dbp > 90 ~ 1,
-            !is.na(bp_sbp) & !is.na(bp_dbp) ~ 0,
-            TRUE ~ NA_real_
-        )
-    )
-attr(my_data_calculated$hypertension, "label") <- "是否为高血压"
-
-# 计算是否为低血压并添加标签（没问题）
-my_data_calculated <- my_data_calculated %>%
-    mutate(
-        hypotension = case_when(
-            bp_dbp < 60 | bp_sbp < 90 ~ 1,
-            !is.na(bp_sbp) & !is.na(bp_dbp) ~ 0,
-            TRUE ~ NA_real_
-        )
-    )
-attr(my_data_calculated$hypotension, "label") <- "是否为低血压"
 
 # 计算脉搏的最终值并添加标签（没问题）
 my_data_calculated <- my_data_calculated %>%
@@ -1381,7 +1359,7 @@ attr(my_data_calculated$glycated_hemoglobin, "label") <- "糖化血红蛋白 (Gl
 # 导出生理学指标数据
 physiological_data <- my_data_calculated %>%
     select(
-        ID, bp_sbp, bp_dbp, hypertension, hypotension,
+        ID, bp_sbp, bp_dbp, 
         pulse, tachycardia, bradycardia,
         height, weight, bmi, waist_circumference,
         white_blood_cell, hematocrit, mean_corpuscular_volume,
@@ -2484,7 +2462,7 @@ write_parquet(medical_insurance_data, "data_export/data_calculated/parquet/data_
 # 导出医疗保险数据为csv格式
 write.csv(medical_insurance_data, "data_export/data_calculated/csv/data_calculated_medical_insurance.csv", row.names = FALSE)
 ```
-### 疾病情况计算
+### 疾病情况计算（完成）
 ```{r 疾病情况计算}
 # 计算身体残疾情况(没问题)
 my_data_calculated <- my_data_calculated %>%
@@ -2565,40 +2543,77 @@ my_data_calculated <- my_data_calculated %>%
 attr(my_data_calculated$number_disability, "label") <- "残疾总数"
 table(my_data_calculated$number_disability, useNA = "ifany")
 
-# 计算各类残疾年限（没有残疾的年份应该是NA吧）
-disability_vars <- c("intellectual", "blind_partially_blind", "deaf_partially_deaf", "dumb_severe_stuttering")
-
-for (i in 1:5) {
-    # 构建变量名
-    disability_005 <- paste0("zda005_", i, "_")
-    disability_006 <- paste0("zda006_", i, "_")
-    
-    if (i == 1) {
-        year_var <- "year_physical_disability"
-    } else {
-        year_var <- paste0("year_", disability_vars[i-1])
-    }
-    
-    # 计算残疾年限
-    my_data_calculated <- my_data_calculated %>%
-        mutate(
-            !!year_var := case_when(
-                get(disability_005, my_data_manual_filtered) == 1 ~ 
-                    if_else(!is.na(get(disability_006, my_data_manual_filtered)),
-                           2015 - get(disability_006, my_data_manual_filtered),
-                           NA_real_),
-                get(disability_005, my_data_manual_filtered) == 0 ~ 0,
-                TRUE ~ NA_real_
+# 计算身体残疾年限（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        year_physical_disability = case_when(
+            physical_disability == 0 ~ 0,  # 如果没有身体残疾，年限为0
+            TRUE ~ case_when(  # 如果有身体残疾，计算年限
+                !is.na(my_data_manual_filtered$zda006_1_) ~ 2015 - my_data_manual_filtered$zda006_1_,
+                TRUE ~ NA_real_  # 其他情况为NA
             )
         )
-    
-    # 添加变量标签
-    attr(my_data_calculated[[year_var]], "label") <- paste0(sub("year_", "", year_var), "年限")
-}
+    )
+attr(my_data_calculated$year_physical_disability, "label") <- "身体残疾年限"
 table(my_data_calculated$year_physical_disability, useNA = "ifany")
-table(my_data_calculated$year_intellectual, useNA = "ifany")
+
+# 计算智力残疾年限（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        year_intellectual_disability = case_when(
+            intellectual_disability == 0 ~ 0,  # 如果没有智力残疾，年限为0
+            TRUE ~ case_when(  # 如果有智力残疾，计算年限
+                !is.na(my_data_manual_filtered$zda006_2_) ~ 2015 - my_data_manual_filtered$zda006_2_,
+                TRUE ~ NA_real_  # 其他情况为NA
+            )
+        )
+    )
+attr(my_data_calculated$year_intellectual_disability, "label") <- "智力残疾年限"
+table(my_data_calculated$year_intellectual_disability, useNA = "ifany")
+
+# 计算视力残疾年限（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        year_blind_partially_blind = case_when(
+            blind_partially_blind == 0 ~ 0,  # 如果没有视力残疾，年限为0
+            TRUE ~ case_when(  # 如果有视力残疾，计算年限
+                !is.na(my_data_manual_filtered$zda006_3_) ~ 2015 - my_data_manual_filtered$zda006_3_,
+                TRUE ~ NA_real_  # 其他情况为NA
+            )
+        )
+    )
+attr(my_data_calculated$year_blind_partially_blind, "label") <- "视力残疾年限"
 table(my_data_calculated$year_blind_partially_blind, useNA = "ifany")
+
+# 计算听力残疾年限（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        year_deaf_partially_deaf = case_when(
+            deaf_partially_deaf == 0 ~ 0,  # 如果没有听力残疾，年限为0
+            TRUE ~ case_when(  # 如果有听力残疾，计算年限
+                !is.na(my_data_manual_filtered$zda006_4_) ~ case_when(
+                    2015 - my_data_manual_filtered$zda006_4_ < 0 ~ NA_real_,  # 如果计算结果为负值，返回NA
+                    TRUE ~ 2015 - my_data_manual_filtered$zda006_4_  # 否则返回计算结果
+                ),
+                TRUE ~ NA_real_  # 其他情况为NA
+            )
+        )
+    )
+attr(my_data_calculated$year_deaf_partially_deaf, "label") <- "听力残疾年限"
 table(my_data_calculated$year_deaf_partially_deaf, useNA = "ifany")
+
+# 计算语言残疾年限（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        year_dumb_severe_stuttering = case_when(
+            dumb_severe_stuttering == 0 ~ 0,  # 如果没有语言残疾，年限为0
+            TRUE ~ case_when(  # 如果有语言残疾，计算年限
+                !is.na(my_data_manual_filtered$zda006_5_) ~ 2015 - my_data_manual_filtered$zda006_5_,
+                TRUE ~ NA_real_  # 其他情况为NA
+            )
+        )
+    )
+attr(my_data_calculated$year_dumb_severe_stuttering, "label") <- "语言残疾年限"
 table(my_data_calculated$year_dumb_severe_stuttering, useNA = "ifany")
 
 # 计算各种慢性疾病情况（没问题)
@@ -2607,8 +2622,7 @@ my_data_calculated <- my_data_calculated %>%
     mutate(
         hypertension = case_when(
             my_data_manual_filtered$zda007_1_ == 1 | my_data_manual_filtered$da007_1_ == 1 ~ 1,
-            is.na(my_data_manual_filtered$zda007_1_) ~ 0,
-            TRUE ~ NA_real_
+            TRUE ~ 0
         )
     )
 attr(my_data_calculated$hypertension, "label") <- "高血压"
@@ -2619,8 +2633,7 @@ my_data_calculated <- my_data_calculated %>%
     mutate(
         dyslipidemia = case_when(
             my_data_manual_filtered$zda007_2_ == 1 | my_data_manual_filtered$da007_2_ == 1 ~ 1,
-            is.na(my_data_manual_filtered$zda007_2_) ~ 0,
-            TRUE ~ NA_real_
+            TRUE ~ 0
         )
     )
 attr(my_data_calculated$dyslipidemia, "label") <- "血脂异常"
@@ -2631,8 +2644,7 @@ my_data_calculated <- my_data_calculated %>%
     mutate(
         diabetes = case_when(
             my_data_manual_filtered$zda007_3_ == 1 | my_data_manual_filtered$da007_3_ == 1 ~ 1,
-            is.na(my_data_manual_filtered$zda007_3_) ~ 0,
-            TRUE ~ NA_real_
+            TRUE ~ 0
         )
     )
 attr(my_data_calculated$diabetes, "label") <- "糖尿病"
@@ -2643,8 +2655,7 @@ my_data_calculated <- my_data_calculated %>%
     mutate(
         cancer = case_when(
             my_data_manual_filtered$zda007_4_ == 1 | my_data_manual_filtered$da007_4_ == 1 ~ 1,
-            is.na(my_data_manual_filtered$zda007_4_) ~ 0,
-            TRUE ~ NA_real_
+            TRUE ~ 0
         )
     )
 attr(my_data_calculated$cancer, "label") <- "癌症"
@@ -2655,8 +2666,7 @@ my_data_calculated <- my_data_calculated %>%
     mutate(
         chronic_lung_disease = case_when(
             my_data_manual_filtered$zda007_5_ == 1 | my_data_manual_filtered$da007_5_ == 1 ~ 1,
-            is.na(my_data_manual_filtered$zda007_5_) ~ 0,
-            TRUE ~ NA_real_
+            TRUE ~ 0
         )
     )
 attr(my_data_calculated$chronic_lung_disease, "label") <- "慢性肺病"
@@ -2667,104 +2677,95 @@ my_data_calculated <- my_data_calculated %>%
     mutate(
         liver_disease = case_when(
             my_data_manual_filtered$zda007_6_ == 1 | my_data_manual_filtered$da007_6_ == 1 ~ 1,
-            is.na(my_data_manual_filtered$zda007_6_) ~ 0,
-            TRUE ~ NA_real_
+            TRUE ~ 0
         )
     )
 attr(my_data_calculated$liver_disease, "label") <- "肝病"
 table(my_data_calculated$liver_disease, useNA = "ifany")
 
-# 计算心脏病情况
+# 计算心脏病情况（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         heart_disease = case_when(
             my_data_manual_filtered$zda007_7_ == 1 | my_data_manual_filtered$da007_7_ == 1 ~ 1,
-            is.na(my_data_manual_filtered$zda007_7_) ~ 0,
-            TRUE ~ NA_real_
+            TRUE ~ 0
         )
     )
 attr(my_data_calculated$heart_disease, "label") <- "心脏病"
 table(my_data_calculated$heart_disease, useNA = "ifany")
 
-# 计算中风情况
+# 计算中风情况（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         stroke = case_when(
             my_data_manual_filtered$zda007_8_ == 1 | my_data_manual_filtered$da007_8_ == 1 ~ 1,
-            is.na(my_data_manual_filtered$zda007_8_) ~ 0,
-            TRUE ~ NA_real_
+            TRUE ~ 0
         )
     )
 attr(my_data_calculated$stroke, "label") <- "中风"
 table(my_data_calculated$stroke, useNA = "ifany")
 
-# 计算肾病情况
+# 计算肾病情况（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         kidney_disease = case_when(
             my_data_manual_filtered$zda007_9_ == 1 | my_data_manual_filtered$da007_9_ == 1 ~ 1,
-            is.na(my_data_manual_filtered$zda007_9_) ~ 0,
-            TRUE ~ NA_real_
+            TRUE ~ 0
         )
     )
 attr(my_data_calculated$kidney_disease, "label") <- "肾病"
 table(my_data_calculated$kidney_disease, useNA = "ifany")
 
-# 计算消化系统疾病情况
+# 计算消化系统疾病情况（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         digestive_system_disease = case_when(
             my_data_manual_filtered$zda007_10_ == 1 | my_data_manual_filtered$da007_10_ == 1 ~ 1,
-            is.na(my_data_manual_filtered$zda007_10_) ~ 0,
-            TRUE ~ NA_real_
+            TRUE ~ 0
         )
     )
 attr(my_data_calculated$digestive_system_disease, "label") <- "消化系统疾病"
 table(my_data_calculated$digestive_system_disease, useNA = "ifany")
 
-# 计算情绪精神问题情况
+# 计算情绪精神问题情况（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         emotional_and_mental_issues = case_when(
             my_data_manual_filtered$zda007_11_ == 1 | my_data_manual_filtered$da007_11_ == 1 ~ 1,
-            is.na(my_data_manual_filtered$zda007_11_) ~ 0,
-            TRUE ~ NA_real_
+            TRUE ~ 0
         )
     )
 attr(my_data_calculated$emotional_and_mental_issues, "label") <- "情绪精神问题"
 table(my_data_calculated$emotional_and_mental_issues, useNA = "ifany")
 
-# 计算记忆相关疾病情况
+# 计算记忆相关疾病情况（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         diseases_related_to_memory = case_when(
             my_data_manual_filtered$zda007_12_ == 1 | my_data_manual_filtered$da007_12_ == 1 ~ 1,
-            is.na(my_data_manual_filtered$zda007_12_) ~ 0,
-            TRUE ~ NA_real_
+            TRUE ~ 0
         )
     )
 attr(my_data_calculated$diseases_related_to_memory, "label") <- "记忆相关疾病"
 table(my_data_calculated$diseases_related_to_memory, useNA = "ifany")
 
-# 计算关节炎情况
+# 计算关节炎情况（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         diseases_arthritis = case_when(
             my_data_manual_filtered$zda007_13_ == 1 | my_data_manual_filtered$da007_13_ == 1 ~ 1,
-            is.na(my_data_manual_filtered$zda007_13_) ~ 0,
-            TRUE ~ NA_real_
+            TRUE ~ 0
         )
     )
 attr(my_data_calculated$diseases_arthritis, "label") <- "关节炎"
 table(my_data_calculated$diseases_arthritis, useNA = "ifany")
 
-# 计算哮喘情况
+# 计算哮喘情况（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         asthma = case_when(
             my_data_manual_filtered$zda007_14_ == 1 | my_data_manual_filtered$da007_14_ == 1 ~ 1,
-            is.na(my_data_manual_filtered$zda007_14_) ~ 0,
-            TRUE ~ NA_real_
+            TRUE ~ 0
         )
     )
 attr(my_data_calculated$asthma, "label") <- "哮喘"
@@ -2803,6 +2804,284 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$number_chronic_disease, "label") <- "慢性病总数"
 table(my_data_calculated$number_chronic_disease, useNA = "ifany")
+
+# 计算高血压治疗情况（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        treat_hypertension = case_when(
+            hypertension == 0 ~ 0,  # 如果没有高血压，则为0
+            TRUE ~ case_when(
+                is.na(my_data_manual_filtered$da011s1) &
+                is.na(my_data_manual_filtered$da011s2) &
+                is.na(my_data_manual_filtered$da011s3) ~ 2,  # 如果所有变量都是NA，则为2
+                !is.na(my_data_manual_filtered$da011s1) |
+                !is.na(my_data_manual_filtered$da011s2) |
+                !is.na(my_data_manual_filtered$da011s3) ~ 1,  # 如果任一变量非NA，则为1
+            )
+        )
+    )
+attr(my_data_calculated$treat_hypertension, "label") <- "高血压治疗"
+table(my_data_calculated$treat_hypertension, useNA = "ifany")
+
+# 计算血脂异常治疗情况（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        treat_dyslipidemia = case_when(
+            dyslipidemia == 0 ~ 0,  # 如果没有血脂异常，则为0
+            TRUE ~ case_when(  # 如果有血脂异常，根据da010_2_s1-4判断
+                is.na(my_data_manual_filtered$da010_2_s1) &
+                is.na(my_data_manual_filtered$da010_2_s2) &
+                is.na(my_data_manual_filtered$da010_2_s3) &
+                is.na(my_data_manual_filtered$da010_2_s4) ~ 2,  # 如果所有变量都是NA，则为2
+                !is.na(my_data_manual_filtered$da010_2_s1) |
+                !is.na(my_data_manual_filtered$da010_2_s2) |
+                !is.na(my_data_manual_filtered$da010_2_s3) |
+                !is.na(my_data_manual_filtered$da010_2_s4) ~ 1,  # 如果任一变量非NA，则为1
+                TRUE ~ NA_real_  # 其他情况记为NA
+            )
+        )
+    )
+attr(my_data_calculated$treat_dyslipidemia, "label") <- "血脂异常治疗"
+table(my_data_calculated$treat_dyslipidemia, useNA = "ifany")
+
+# 计算糖尿病治疗情况（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        treat_diabetes = case_when(
+            diabetes == 0 ~ 0,  # 如果没有糖尿病，则为0
+            TRUE ~ case_when(  # 如果有糖尿病，根据da014s1-4判断
+                is.na(my_data_manual_filtered$da014s1) &
+                is.na(my_data_manual_filtered$da014s2) &
+                is.na(my_data_manual_filtered$da014s3) &
+                is.na(my_data_manual_filtered$da014s4) ~ 2,  # 如果所有变量都是NA，则为2
+                !is.na(my_data_manual_filtered$da014s1) |
+                !is.na(my_data_manual_filtered$da014s2) |
+                !is.na(my_data_manual_filtered$da014s3) |
+                !is.na(my_data_manual_filtered$da014s4) ~ 1,  # 如果任一变量非NA，则为1
+                TRUE ~ NA_real_  # 其他情况记为NA
+            )
+        )
+    )
+attr(my_data_calculated$treat_diabetes, "label") <- "糖尿病治疗"
+table(my_data_calculated$treat_diabetes, useNA = "ifany")
+
+# 计算慢性肺病治疗情况（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        treat_chronic_lung_disease = case_when(
+            chronic_lung_disease == 0 ~ 0,  # 如果没有慢性肺病，则为0
+            TRUE ~ case_when(  # 如果有慢性肺病，根据da010_5_s1-4判断
+                is.na(my_data_manual_filtered$da010_5_s1) &
+                is.na(my_data_manual_filtered$da010_5_s2) &
+                is.na(my_data_manual_filtered$da010_5_s3) &
+                is.na(my_data_manual_filtered$da010_5_s4) ~ 2,  # 如果所有变量都是NA，则为2
+                !is.na(my_data_manual_filtered$da010_5_s1) |
+                !is.na(my_data_manual_filtered$da010_5_s2) |
+                !is.na(my_data_manual_filtered$da010_5_s3) |
+                !is.na(my_data_manual_filtered$da010_5_s4) ~ 1,  # 如果任一变量非NA，则为1
+                TRUE ~ NA_real_  # 其他情况记为NA
+            )
+        )
+    )
+attr(my_data_calculated$treat_chronic_lung_disease, "label") <- "慢性肺病治疗"
+table(my_data_calculated$treat_chronic_lung_disease, useNA = "ifany")
+
+# 计算肝病治疗情况（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        treat_liver_disease = case_when(
+            liver_disease == 0 ~ 0,  # 如果没有肝病，则为0
+            TRUE ~ case_when(  # 如果有肝病，根据da010_6_s1-4判断
+                is.na(my_data_manual_filtered$da010_6_s1) &
+                is.na(my_data_manual_filtered$da010_6_s2) &
+                is.na(my_data_manual_filtered$da010_6_s3) &
+                is.na(my_data_manual_filtered$da010_6_s4) ~ 2,  # 如果所有变量都是NA，则为2
+                !is.na(my_data_manual_filtered$da010_6_s1) |
+                !is.na(my_data_manual_filtered$da010_6_s2) |
+                !is.na(my_data_manual_filtered$da010_6_s3) |
+                !is.na(my_data_manual_filtered$da010_6_s4) ~ 1,  # 如果任一变量非NA，则为1
+                TRUE ~ NA_real_  # 其他情况记为NA
+            )
+        )
+    )
+attr(my_data_calculated$treat_liver_disease, "label") <- "肝病治疗"
+table(my_data_calculated$treat_liver_disease, useNA = "ifany")
+
+# 计算心脏病治疗情况（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        treat_heart_disease = case_when(
+            heart_disease == 0 ~ 0,  # 如果没有心脏病，则为0
+            TRUE ~ case_when(  # 如果有心脏病，根据da010_7_s1-4判断
+                is.na(my_data_manual_filtered$da010_7_s1) &
+                is.na(my_data_manual_filtered$da010_7_s2) &
+                is.na(my_data_manual_filtered$da010_7_s3) &
+                is.na(my_data_manual_filtered$da010_7_s4) ~ 2,  # 如果所有变量都是NA，则为2
+                !is.na(my_data_manual_filtered$da010_7_s1) |
+                !is.na(my_data_manual_filtered$da010_7_s2) |
+                !is.na(my_data_manual_filtered$da010_7_s3) |
+                !is.na(my_data_manual_filtered$da010_7_s4) ~ 1,  # 如果任一变量非NA，则为1
+                TRUE ~ NA_real_  # 其他情况记为NA
+            )
+        )
+    )
+attr(my_data_calculated$treat_heart_disease, "label") <- "心脏病治疗"
+table(my_data_calculated$treat_heart_disease, useNA = "ifany")
+
+# 计算中风治疗情况（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        treat_stroke = case_when(
+            stroke == 0 ~ 0,  # 如果没有中风，则为0
+            TRUE ~ case_when(  # 如果有中风，根据da019s1-6判断
+                is.na(my_data_manual_filtered$da019s1) &
+                is.na(my_data_manual_filtered$da019s2) &
+                is.na(my_data_manual_filtered$da019s3) &
+                is.na(my_data_manual_filtered$da019s4) &
+                is.na(my_data_manual_filtered$da019s5) &
+                is.na(my_data_manual_filtered$da019s6) ~ 2,  # 如果所有变量都是NA，则为2
+                !is.na(my_data_manual_filtered$da019s1) |
+                !is.na(my_data_manual_filtered$da019s2) |
+                !is.na(my_data_manual_filtered$da019s3) |
+                !is.na(my_data_manual_filtered$da019s4) |
+                !is.na(my_data_manual_filtered$da019s5) |
+                !is.na(my_data_manual_filtered$da019s6) ~ 1,  # 如果任一变量非NA，则为1
+                TRUE ~ NA_real_  # 其他情况记为NA
+            )
+        )
+    )
+attr(my_data_calculated$treat_stroke, "label") <- "中风治疗"
+table(my_data_calculated$treat_stroke, useNA = "ifany")
+
+# 计算肾病治疗情况（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        treat_kidney_disease = case_when(
+            kidney_disease == 0 ~ 0,  # 如果没有肾病，则为0
+            TRUE ~ case_when(  # 如果有肾病，根据da010_9_s1-4判断
+                is.na(my_data_manual_filtered$da010_9_s1) &
+                is.na(my_data_manual_filtered$da010_9_s2) &
+                is.na(my_data_manual_filtered$da010_9_s3) &
+                is.na(my_data_manual_filtered$da010_9_s4) ~ 2,  # 如果所有变量都是NA，则为2
+                !is.na(my_data_manual_filtered$da010_9_s1) |
+                !is.na(my_data_manual_filtered$da010_9_s2) |
+                !is.na(my_data_manual_filtered$da010_9_s3) |
+                !is.na(my_data_manual_filtered$da010_9_s4) ~ 1,  # 如果任一变量非NA，则为1
+                TRUE ~ NA_real_  # 其他情况记为NA
+            )
+        )
+    )
+attr(my_data_calculated$treat_kidney_disease, "label") <- "肾病治疗"
+table(my_data_calculated$treat_kidney_disease, useNA = "ifany")
+
+# 计算消化系统疾病治疗情况（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        treat_digestive_system_disease = case_when(
+            digestive_system_disease == 0 ~ 0,  # 如果没有消化系统疾病，则为0
+            TRUE ~ case_when(  # 如果有消化系统疾病，根据da010_10_s1-4判断
+                is.na(my_data_manual_filtered$da010_10_s1) &
+                is.na(my_data_manual_filtered$da010_10_s2) &
+                is.na(my_data_manual_filtered$da010_10_s3) &
+                is.na(my_data_manual_filtered$da010_10_s4) ~ 2,  # 如果所有变量都是NA，则为2
+                !is.na(my_data_manual_filtered$da010_10_s1) |
+                !is.na(my_data_manual_filtered$da010_10_s2) |
+                !is.na(my_data_manual_filtered$da010_10_s3) |
+                !is.na(my_data_manual_filtered$da010_10_s4) ~ 1,  # 如果任一变量非NA，则为1
+                TRUE ~ NA_real_  # 其他情况记为NA
+            )
+        )
+    )
+attr(my_data_calculated$treat_digestive_system_disease, "label") <- "消化系统疾病治疗"
+table(my_data_calculated$treat_digestive_system_disease, useNA = "ifany")
+
+# 计算情绪精神问题治疗情况（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        treat_emotional_and_mental_issues = case_when(
+            emotional_and_mental_issues == 0 ~ 0,  # 如果没有情绪精神问题，则为0
+            TRUE ~ case_when(  # 如果有情绪精神问题，根据da020s1-4判断
+                is.na(my_data_manual_filtered$da020s1) &
+                is.na(my_data_manual_filtered$da020s2) &
+                is.na(my_data_manual_filtered$da020s3) &
+                is.na(my_data_manual_filtered$da020s4) ~ 2,  # 如果所有变量都是NA，则为2
+                !is.na(my_data_manual_filtered$da020s1) |
+                !is.na(my_data_manual_filtered$da020s2) |
+                !is.na(my_data_manual_filtered$da020s3) |
+                !is.na(my_data_manual_filtered$da020s4) ~ 1,  # 如果任一变量非NA，则为1
+                TRUE ~ NA_real_  # 其他情况记为NA
+            )
+        )
+    )
+attr(my_data_calculated$treat_emotional_and_mental_issues, "label") <- "情绪精神问题治疗"
+table(my_data_calculated$treat_emotional_and_mental_issues, useNA = "ifany")
+
+# 计算记忆相关疾病治疗情况（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        treat_diseases_related_to_memory = case_when(
+            diseases_related_to_memory == 0 ~ 0,  # 如果没有记忆相关疾病，则为0
+            TRUE ~ case_when(  # 如果有记忆相关疾病，根据da010_12_s1-4判断
+                is.na(my_data_manual_filtered$da010_12_s1) &
+                is.na(my_data_manual_filtered$da010_12_s2) &
+                is.na(my_data_manual_filtered$da010_12_s3) &
+                is.na(my_data_manual_filtered$da010_12_s4) ~ 2,  # 如果所有变量都是NA，则为2
+                !is.na(my_data_manual_filtered$da010_12_s1) |
+                !is.na(my_data_manual_filtered$da010_12_s2) |
+                !is.na(my_data_manual_filtered$da010_12_s3) |
+                !is.na(my_data_manual_filtered$da010_12_s4) ~ 1,  # 如果任一变量非NA，则为1
+                TRUE ~ NA_real_  # 其他情况记为NA
+            )
+        )
+    )
+attr(my_data_calculated$treat_diseases_related_to_memory, "label") <- "记忆相关疾病治疗"
+table(my_data_calculated$treat_diseases_related_to_memory, useNA = "ifany")
+
+# 计算关节炎治疗情况（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        treat_diseases_arthritis = case_when(
+            diseases_arthritis == 0 ~ 0,  # 如果没有关节炎，则为0
+            TRUE ~ case_when(  # 如果有关节炎，根据da010_13_s1-4判断
+                is.na(my_data_manual_filtered$da010_13_s1) &
+                is.na(my_data_manual_filtered$da010_13_s2) &
+                is.na(my_data_manual_filtered$da010_13_s3) &
+                is.na(my_data_manual_filtered$da010_13_s4) ~ 2,  # 如果所有变量都是NA，则为2
+                !is.na(my_data_manual_filtered$da010_13_s1) |
+                !is.na(my_data_manual_filtered$da010_13_s2) |
+                !is.na(my_data_manual_filtered$da010_13_s3) |
+                !is.na(my_data_manual_filtered$da010_13_s4) ~ 1,  # 如果任一变量非NA，则为1
+                TRUE ~ NA_real_  # 其他情况记为NA
+            )
+        )
+    )
+attr(my_data_calculated$treat_diseases_arthritis, "label") <- "关节炎治疗"
+table(my_data_calculated$treat_diseases_arthritis, useNA = "ifany")
+
+# 计算癌症治疗情况（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        treat_cancer = case_when(
+            cancer == 0 ~ 0,  # 如果没有癌症，则为0
+            TRUE ~ case_when(  # 如果有癌症，根据da018s1-6判断
+                is.na(my_data_manual_filtered$da018s1) &
+                is.na(my_data_manual_filtered$da018s2) &
+                is.na(my_data_manual_filtered$da018s3) &
+                is.na(my_data_manual_filtered$da018s4) &
+                is.na(my_data_manual_filtered$da018s5) &
+                is.na(my_data_manual_filtered$da018s6) ~ 2,  # 如果所有变量都是NA，则为2
+                !is.na(my_data_manual_filtered$da018s1) |
+                !is.na(my_data_manual_filtered$da018s2) |
+                !is.na(my_data_manual_filtered$da018s3) |
+                !is.na(my_data_manual_filtered$da018s4) |
+                !is.na(my_data_manual_filtered$da018s5) |
+                !is.na(my_data_manual_filtered$da018s6) ~ 1,  # 如果任一变量非NA，则为1
+                TRUE ~ NA_real_  # 其他情况记为NA
+            )
+        )
+    )
+attr(my_data_calculated$treat_cancer, "label") <- "癌症治疗情况"
+table(my_data_calculated$treat_cancer, useNA = "ifany")
 
 # 计算各种慢性病患病年份（没问题）
 my_data_calculated <- my_data_calculated %>%
@@ -2994,310 +3273,6 @@ table(my_data_calculated$year_diseases_related_to_memory, useNA = "ifany")
 table(my_data_calculated$year_diseases_arthritis, useNA = "ifany")
 table(my_data_calculated$year_asthma, useNA = "ifany")
 
-# 计算高血压治疗情况（没问题）
-my_data_calculated <- my_data_calculated %>%
-    mutate(
-        treat_hypertension = case_when(
-            hypertension == 0 ~ 0,  # 如果没有高血压，则为0
-            all(is.na(my_data_manual_filtered$da011s1),
-                is.na(my_data_manual_filtered$da011s2),
-                is.na(my_data_manual_filtered$da011s3)) ~ 2,  # 如果所有变量都是NA，则为2
-            my_data_manual_filtered$da011s1 == 1 |
-            my_data_manual_filtered$da011s2 == 1 |
-            my_data_manual_filtered$da011s3 == 1 ~ 1,  # 如果任一变量为1，则为1
-            TRUE ~ 0  # 其他情况为0
-        )
-    )
-attr(my_data_calculated$treat_hypertension, "label") <- "高血压治疗"
-table(my_data_calculated$treat_hypertension, useNA = "ifany")
-
-# 计算血脂异常治疗情况（没问题）
-my_data_calculated <- my_data_calculated %>%
-    mutate(
-        treat_dyslipidemia = case_when(
-            dyslipidemia == 0 ~ 0,
-            all(is.na(my_data_manual_filtered$da010_2_s1),
-                is.na(my_data_manual_filtered$da010_2_s2),
-                is.na(my_data_manual_filtered$da010_2_s3),
-                is.na(my_data_manual_filtered$da010_2_s4)) ~ 2,
-            my_data_manual_filtered$da010_2_s1 == 1 |
-            my_data_manual_filtered$da010_2_s2 == 1 |
-            my_data_manual_filtered$da010_2_s3 == 1 |
-            my_data_manual_filtered$da010_2_s4 == 1 ~ 1,
-            TRUE ~ 0
-        )
-    )
-attr(my_data_calculated$treat_dyslipidemia, "label") <- "血脂异常治疗"
-table(my_data_calculated$treat_dyslipidemia, useNA = "ifany")
-
-# 计算糖尿病治疗情况（没问题）
-my_data_calculated <- my_data_calculated %>%
-    mutate(
-        treat_diabetes = case_when(
-            diabetes == 0 ~ 0,
-            all(is.na(my_data_manual_filtered$da014s1),
-                is.na(my_data_manual_filtered$da014s2),
-                is.na(my_data_manual_filtered$da014s3),
-                is.na(my_data_manual_filtered$da014s4)) ~ 2,
-            my_data_manual_filtered$da014s1 == 1 |
-            my_data_manual_filtered$da014s2 == 1 |
-            my_data_manual_filtered$da014s3 == 1 |
-            my_data_manual_filtered$da014s4 == 1 ~ 1,
-            TRUE ~ 0
-        )
-    )
-attr(my_data_calculated$treat_diabetes, "label") <- "糖尿病治疗"
-table(my_data_calculated$treat_diabetes, useNA = "ifany")
-
-# 计算慢性肺病治疗情况（没问题）
-my_data_calculated <- my_data_calculated %>%
-    mutate(
-        treat_chronic_lung_disease = case_when(
-            chronic_lung_disease == 0 ~ 0,
-            all(is.na(my_data_manual_filtered$da010_5_s1),
-                is.na(my_data_manual_filtered$da010_5_s2),
-                is.na(my_data_manual_filtered$da010_5_s3),
-                is.na(my_data_manual_filtered$da010_5_s4)) ~ 2,
-            my_data_manual_filtered$da010_5_s1 == 1 |
-            my_data_manual_filtered$da010_5_s2 == 1 |
-            my_data_manual_filtered$da010_5_s3 == 1 |
-            my_data_manual_filtered$da010_5_s4 == 1 ~ 1,
-            TRUE ~ 0
-        )
-    )
-attr(my_data_calculated$treat_chronic_lung_disease, "label") <- "慢性肺病治疗"
-table(my_data_calculated$treat_chronic_lung_disease, useNA = "ifany")
-
-# 计算肝病治疗情况（没问题）
-my_data_calculated <- my_data_calculated %>%
-    mutate(
-        treat_liver_disease = case_when(
-            liver_disease == 0 ~ 0,
-            all(is.na(my_data_manual_filtered$da010_6_s1),
-                is.na(my_data_manual_filtered$da010_6_s2),
-                is.na(my_data_manual_filtered$da010_6_s3),
-                is.na(my_data_manual_filtered$da010_6_s4)) ~ 2,
-            my_data_manual_filtered$da010_6_s1 == 1 |
-            my_data_manual_filtered$da010_6_s2 == 1 |
-            my_data_manual_filtered$da010_6_s3 == 1 |
-            my_data_manual_filtered$da010_6_s4 == 1 ~ 1,
-            TRUE ~ 0
-        )
-    )
-attr(my_data_calculated$treat_liver_disease, "label") <- "肝病治疗"
-table(my_data_calculated$treat_liver_disease, useNA = "ifany")
-
-# 计算心脏病治疗情况（没问题）
-my_data_calculated <- my_data_calculated %>%
-    mutate(
-        treat_heart_disease = case_when(
-            heart_disease == 0 ~ 0,
-            all(is.na(my_data_manual_filtered$da010_7_s1),
-                is.na(my_data_manual_filtered$da010_7_s2),
-                is.na(my_data_manual_filtered$da010_7_s3),
-                is.na(my_data_manual_filtered$da010_7_s4)) ~ 2,
-            my_data_manual_filtered$da010_7_s1 == 1 |
-            my_data_manual_filtered$da010_7_s2 == 1 |
-            my_data_manual_filtered$da010_7_s3 == 1 |
-            my_data_manual_filtered$da010_7_s4 == 1 ~ 1,
-            TRUE ~ 0
-        )
-    )
-attr(my_data_calculated$treat_heart_disease, "label") <- "心脏病治疗"
-table(my_data_calculated$treat_heart_disease, useNA = "ifany")
-
-# 计算中风治疗情况（没问题）
-my_data_calculated <- my_data_calculated %>%
-    mutate(
-        treat_stroke = case_when(
-            stroke == 0 ~ 0,
-            all(is.na(my_data_manual_filtered$da019s1),
-                is.na(my_data_manual_filtered$da019s2),
-                is.na(my_data_manual_filtered$da019s3),
-                is.na(my_data_manual_filtered$da019s4),
-                is.na(my_data_manual_filtered$da019s5),
-                is.na(my_data_manual_filtered$da019s6)) ~ 2,
-            my_data_manual_filtered$da019s1 == 1 |
-            my_data_manual_filtered$da019s2 == 1 |
-            my_data_manual_filtered$da019s3 == 1 |
-            my_data_manual_filtered$da019s4 == 1 |
-            my_data_manual_filtered$da019s5 == 1 |
-            my_data_manual_filtered$da019s6 == 1 ~ 1,
-            TRUE ~ 0
-        )
-    )
-attr(my_data_calculated$treat_stroke, "label") <- "中风治疗"
-table(my_data_calculated$treat_stroke, useNA = "ifany")
-
-# 计算肾病治疗情况（没问题）
-my_data_calculated <- my_data_calculated %>%
-    mutate(
-        treat_kidney_disease = case_when(
-            kidney_disease == 0 ~ 0,
-            all(is.na(my_data_manual_filtered$da010_9_s1),
-                is.na(my_data_manual_filtered$da010_9_s2),
-                is.na(my_data_manual_filtered$da010_9_s3),
-                is.na(my_data_manual_filtered$da010_9_s4)) ~ 2,
-            my_data_manual_filtered$da010_9_s1 == 1 |
-            my_data_manual_filtered$da010_9_s2 == 1 |
-            my_data_manual_filtered$da010_9_s3 == 1 |
-            my_data_manual_filtered$da010_9_s4 == 1 ~ 1,
-            TRUE ~ 0
-        )
-    )
-attr(my_data_calculated$treat_kidney_disease, "label") <- "肾病治疗"
-table(my_data_calculated$treat_kidney_disease, useNA = "ifany")
-
-# 计算消化系统疾病治疗情况（没问题）
-my_data_calculated <- my_data_calculated %>%
-    mutate(
-        treat_digestive_system_disease = case_when(
-            digestive_system_disease == 0 ~ 0,
-            all(is.na(my_data_manual_filtered$da010_10_s1),
-                is.na(my_data_manual_filtered$da010_10_s2),
-                is.na(my_data_manual_filtered$da010_10_s3),
-                is.na(my_data_manual_filtered$da010_10_s4)) ~ 2,
-            my_data_manual_filtered$da010_10_s1 == 1 |
-            my_data_manual_filtered$da010_10_s2 == 1 |
-            my_data_manual_filtered$da010_10_s3 == 1 |
-            my_data_manual_filtered$da010_10_s4 == 1 ~ 1,
-            TRUE ~ 0
-        )
-    )
-attr(my_data_calculated$treat_digestive_system_disease, "label") <- "消化系统疾病治疗"
-table(my_data_calculated$treat_digestive_system_disease, useNA = "ifany")
-
-# 计算情绪精神问题治疗情况（没问题）
-my_data_calculated <- my_data_calculated %>%
-    mutate(
-        treat_emotional_and_mental_issues = case_when(
-            emotional_and_mental_issues == 0 ~ 0,
-            all(is.na(my_data_manual_filtered$da020s1),
-                is.na(my_data_manual_filtered$da020s2),
-                is.na(my_data_manual_filtered$da020s3),
-                is.na(my_data_manual_filtered$da020s4)) ~ 2,
-            my_data_manual_filtered$da020s1 == 1 |
-            my_data_manual_filtered$da020s2 == 1 |
-            my_data_manual_filtered$da020s3 == 1 |
-            my_data_manual_filtered$da020s4 == 1 ~ 1,
-            TRUE ~ 0
-        )
-    )
-attr(my_data_calculated$treat_emotional_and_mental_issues, "label") <- "情绪精神问题治疗"
-table(my_data_calculated$treat_emotional_and_mental_issues, useNA = "ifany")
-
-# 计算记忆相关疾病治疗情况（没问题）
-my_data_calculated <- my_data_calculated %>%
-    mutate(
-        treat_diseases_related_to_memory = case_when(
-            diseases_related_to_memory == 0 ~ 0,
-            all(is.na(my_data_manual_filtered$da010_12_s1),
-                is.na(my_data_manual_filtered$da010_12_s2),
-                is.na(my_data_manual_filtered$da010_12_s3),
-                is.na(my_data_manual_filtered$da010_12_s4)) ~ 2,
-            my_data_manual_filtered$da010_12_s1 == 1 |
-            my_data_manual_filtered$da010_12_s2 == 1 |
-            my_data_manual_filtered$da010_12_s3 == 1 |
-            my_data_manual_filtered$da010_12_s4 == 1 ~ 1,
-            TRUE ~ 0
-        )
-    )
-attr(my_data_calculated$treat_diseases_related_to_memory, "label") <- "记忆相关疾病治疗"
-table(my_data_calculated$treat_diseases_related_to_memory, useNA = "ifany")
-
-# 计算关节炎治疗情况（没问题）
-my_data_calculated <- my_data_calculated %>%
-    mutate(
-        treat_diseases_arthritis = case_when(
-            diseases_arthritis == 0 ~ 0,
-            all(is.na(my_data_manual_filtered$da010_13_s1),
-                is.na(my_data_manual_filtered$da010_13_s2),
-                is.na(my_data_manual_filtered$da010_13_s3),
-                is.na(my_data_manual_filtered$da010_13_s4)) ~ 2,
-            my_data_manual_filtered$da010_13_s1 == 1 |
-            my_data_manual_filtered$da010_13_s2 == 1 |
-            my_data_manual_filtered$da010_13_s3 == 1 |
-            my_data_manual_filtered$da010_13_s4 == 1 ~ 1,
-            TRUE ~ 0
-        )
-    )
-attr(my_data_calculated$treat_diseases_arthritis, "label") <- "关节炎治疗"
-table(my_data_calculated$treat_diseases_arthritis, useNA = "ifany")
-
-# 计算癌症治疗情况（没问题）
-my_data_calculated <- my_data_calculated %>%
-    mutate(
-        treat_cancer = case_when(
-            cancer == 0 ~ 0,  # 如果没有癌症，则为0
-            TRUE ~ case_when(
-                # 如果所有治疗相关变量都是NA，返回NA
-                all(is.na(my_data_manual_filtered$da018s1),
-                    is.na(my_data_manual_filtered$da018s2),
-                    is.na(my_data_manual_filtered$da018s3),
-                    is.na(my_data_manual_filtered$da018s4),
-                    is.na(my_data_manual_filtered$da018s5),
-                    is.na(my_data_manual_filtered$da018s6)) ~ 2,
-                # 如果任意一个治疗变量为1，返回1
-                my_data_manual_filtered$da018s1 == 1 |
-                my_data_manual_filtered$da018s2 == 1 |
-                my_data_manual_filtered$da018s3 == 1 |
-                my_data_manual_filtered$da018s4 == 1 |
-                my_data_manual_filtered$da018s5 == 1 |
-                my_data_manual_filtered$da018s6 == 1 ~ 1,
-                # 其他情况返回0
-                TRUE ~ 0
-            )
-        )
-    )
-attr(my_data_calculated$treat_cancer, "label") <- "癌症治疗情况"
-table(my_data_calculated$treat_cancer, useNA = "ifany")
-
-# 计算是否绝经（没问题）
-my_data_calculated <- my_data_calculated %>%
-    mutate(
-        menopause = case_when(
-            my_data_manual_filtered$zda027 == 1 ~ 1,
-            my_data_manual_filtered$zda027 == 2 ~ 0,
-            TRUE ~ NA_real_
-        )
-    )
-attr(my_data_calculated$menopause, "label") <- "是否绝经"
-table(my_data_calculated$menopause, useNA = "ifany")
-
-
-# 计算是否吸烟（没问题）
-my_data_calculated <- my_data_calculated %>%
-    mutate(
-        smoke = case_when(
-            my_data_manual_filtered$zda059 == 1 ~ 1,
-            my_data_manual_filtered$zda059 == 2 ~ 0,
-            TRUE ~ NA_real_
-        )
-    )
-attr(my_data_calculated$smoke, "label") <- "是否吸烟"
-table(my_data_calculated$smoke, useNA = "ifany")
-
-# 计算吸烟开始年龄（没问题）
-my_data_calculated <- my_data_calculated %>%
-    mutate(
-        smokeage = my_data_manual_filtered$zda065_1
-    )
-attr(my_data_calculated$smokeage, "label") <- "吸烟开始年龄"
-
-# 计算吸烟年数（没问题）
-my_data_calculated <- my_data_calculated %>%
-    mutate(
-        smokeyear = case_when(
-            smoke == 0 ~ 0,  # 不抽烟则年数为0
-            TRUE ~ case_when(
-                smoke == 1 & !is.na(my_data_manual_filtered$zda065_2) ~ 2015 - my_data_manual_filtered$zda065_2,
-                TRUE ~ NA_real_  # 其他情况为NA
-            )
-        )
-    )
-attr(my_data_calculated$smokeyear, "label") <- "吸烟年数"
-table(my_data_calculated$smokeyear, useNA = "ifany")
-
 # 计算健康变化（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
@@ -3309,7 +3284,7 @@ my_data_calculated <- my_data_calculated %>%
         )
     )
 attr(my_data_calculated$health_compared, "label") <- "健康变化"
-
+table(my_data_calculated$health_compared, useNA = "ifany")
 
 # 计算高血压控制情况（没问题）
 my_data_calculated <- my_data_calculated %>%
@@ -3341,8 +3316,30 @@ my_data_calculated <- my_data_calculated %>%
 attr(my_data_calculated$control_diabetes, "label") <- "糖尿病控制情况"
 table(my_data_calculated$control_diabetes, useNA = "ifany")
 
+# 计算测血压次数（没问题)
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        times_exam_bp = case_when(
+            is.na(my_data_manual_filtered$da012) ~ NA_real_,
+            TRUE ~ my_data_manual_filtered$da012
+        )
+    )
+attr(my_data_calculated$times_exam_bp, "label") <- "测血压次数"
+table(my_data_calculated$times_exam_bp, useNA = "ifany")
 
-# 计算是否做过血糖测试
+# 计算是否测血压（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        exam_bp = case_when(
+            is.na(times_exam_bp) ~ NA_real_,
+            times_exam_bp > 0 ~ 1,
+            times_exam_bp == 0 ~ 0
+        )
+    )
+attr(my_data_calculated$exam_bp, "label") <- "是否测血压"
+table(my_data_calculated$exam_bp, useNA = "ifany")
+
+# 计算是否做过血糖测试（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         blood_glucose_test = case_when(
@@ -3352,9 +3349,9 @@ my_data_calculated <- my_data_calculated %>%
         )
     )
 attr(my_data_calculated$blood_glucose_test, "label") <- "是否做过血糖测试"
+table(my_data_calculated$blood_glucose_test, useNA = "ifany")
 
-
-# 计算血糖测试频率
+# 计算血糖测试频率（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         blood_glucose_test_often = case_when(
@@ -3373,8 +3370,9 @@ my_data_calculated <- my_data_calculated %>%
         )
     )
 attr(my_data_calculated$blood_glucose_test_often, "label") <- "血糖测试频率"
+table(my_data_calculated$blood_glucose_test_often, useNA = "ifany")
 
-# 计算是否心脏病发作（没问题）
+# 计算是否心梗发作（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         heart_attack = case_when(
@@ -3386,7 +3384,7 @@ my_data_calculated <- my_data_calculated %>%
 attr(my_data_calculated$heart_attack, "label") <- "是否心脏病发作"
 table(my_data_calculated$heart_attack, useNA = "ifany")
 
-# 计算心脏病发作年份（没问题）
+# 计算心肌发作年份（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         heart_attack_year = case_when(
@@ -3397,106 +3395,105 @@ my_data_calculated <- my_data_calculated %>%
             )
         )
     )
-attr(my_data_calculated$heart_attack_year, "label") <- "心脏病发作年份"
+attr(my_data_calculated$heart_attack_year, "label") <- "心梗发作年份"
 table(my_data_calculated$heart_attack_year, useNA = "ifany")
 
 # 计算各种癌症情况（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         cancer_brain = case_when(
-            my_data_manual_filtered$da017s1 == 1 ~ 1,
+            !is.na(my_data_manual_filtered$da017s1) ~ 1,
             TRUE ~ 0
         ),
         cancer_mouth = case_when(
-            my_data_manual_filtered$da017s2 == 1 ~ 1,
+            !is.na(my_data_manual_filtered$da017s2) ~ 1,
             TRUE ~ 0
         ),
         cancer_larynx = case_when(
-            my_data_manual_filtered$da017s3 == 1 ~ 1,
+            !is.na(my_data_manual_filtered$da017s3) ~ 1,
             TRUE ~ 0
         ),
         cancer_pharynx = case_when(
-            my_data_manual_filtered$da017s4 == 1 ~ 1,
+            !is.na(my_data_manual_filtered$da017s4) ~ 1,
             TRUE ~ 0
         ),
         cancer_thyroid = case_when(
-            my_data_manual_filtered$da017s5 == 1 ~ 1,
+            !is.na(my_data_manual_filtered$da017s5) ~ 1,
             TRUE ~ 0
         ),
         cancer_lung = case_when(
-            my_data_manual_filtered$da017s6 == 1 ~ 1,
+            !is.na(my_data_manual_filtered$da017s6) ~ 1,
             TRUE ~ 0
         ),
         cancer_breast = case_when(
-            my_data_manual_filtered$da017s7 == 1 ~ 1,
+            !is.na(my_data_manual_filtered$da017s7) ~ 1,
             TRUE ~ 0
         ),
         cancer_esophagus = case_when(
-            my_data_manual_filtered$da017s8 == 1 ~ 1,
+            !is.na(my_data_manual_filtered$da017s8) ~ 1,
             TRUE ~ 0
         ),
         cancer_stomach = case_when(
-            my_data_manual_filtered$da017s9 == 1 ~ 1,
+            !is.na(my_data_manual_filtered$da017s9) ~ 1,
             TRUE ~ 0
         ),
         cancer_liver = case_when(
-            my_data_manual_filtered$da017s10 == 1 ~ 1,
+            !is.na(my_data_manual_filtered$da017s10) ~ 1,
             TRUE ~ 0
         ),
         cancer_pancreas = case_when(
-            my_data_manual_filtered$da017s11 == 1 ~ 1,
+            !is.na(my_data_manual_filtered$da017s11) ~ 1,
             TRUE ~ 0
         ),
         cancer_kidney = case_when(
-            my_data_manual_filtered$da017s12 == 1 ~ 1,
+            !is.na(my_data_manual_filtered$da017s12) ~ 1,
             TRUE ~ 0
         ),
         cancer_prostate = case_when(
-            my_data_manual_filtered$da017s13 == 1 ~ 1,
+            !is.na(my_data_manual_filtered$da017s13) ~ 1,
             TRUE ~ 0
         ),
         cancer_testis = case_when(
-            my_data_manual_filtered$da017s14 == 1 ~ 1,
+            !is.na(my_data_manual_filtered$da017s14) ~ 1,
             TRUE ~ 0
         ),
         cancer_ovary = case_when(
-            my_data_manual_filtered$da017s15 == 1 ~ 1,
+            !is.na(my_data_manual_filtered$da017s15) ~ 1,
             TRUE ~ 0
         ),
         cancer_cervix = case_when(
-            my_data_manual_filtered$da017s16 == 1 ~ 1,
+            !is.na(my_data_manual_filtered$da017s16) ~ 1,
             TRUE ~ 0
         ),
         cancer_endometrium = case_when(
-            my_data_manual_filtered$da017s17 == 1 ~ 1,
+            !is.na(my_data_manual_filtered$da017s17) ~ 1,
             TRUE ~ 0
         ),
         cancer_colorectal = case_when(
-            my_data_manual_filtered$da017s18 == 1 ~ 1,
+            !is.na(my_data_manual_filtered$da017s18) ~ 1,
             TRUE ~ 0
         ),
         cancer_bladder = case_when(
-            my_data_manual_filtered$da017s19 == 1 ~ 1,
+            !is.na(my_data_manual_filtered$da017s19) ~ 1,
             TRUE ~ 0
         ),
         cancer_skin = case_when(
-            my_data_manual_filtered$da017s20 == 1 ~ 1,
+            !is.na(my_data_manual_filtered$da017s20) ~ 1,
             TRUE ~ 0
         ),
         cancer_non_hodgkin_lymphoma = case_when(
-            my_data_manual_filtered$da017s21 == 1 ~ 1,
+            !is.na(my_data_manual_filtered$da017s21) ~ 1,
             TRUE ~ 0
         ),
         cancer_leukemia = case_when(
-            my_data_manual_filtered$da017s22 == 1 ~ 1,
+            !is.na(my_data_manual_filtered$da017s22) ~ 1,
             TRUE ~ 0
         ),
         cancer_other = case_when(
-            my_data_manual_filtered$da017s23 == 1 ~ 1,
+            !is.na(my_data_manual_filtered$da017s23) ~ 1,
             TRUE ~ 0
         )
     )
-
 # 添加变量标签
 attr(my_data_calculated$cancer_brain, "label") <- "大脑癌症"
 attr(my_data_calculated$cancer_mouth, "label") <- "口腔癌症"
@@ -3653,44 +3650,96 @@ my_data_calculated <- my_data_calculated %>%
         )
     )
 attr(my_data_calculated$fractured_hip, "label") <- "是否髋部骨折"
+table(my_data_calculated$fractured_hip, useNA = "ifany")
 
-# 计算是否绝经
+# 计算绝经情况（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         menopause = case_when(
-            my_data_manual_filtered$da027 == 1 ~ 1,
-            my_data_manual_filtered$da027 == 2 ~ 0,
-            TRUE ~ NA_real_
+            gender == 1 ~ 2,  # 男性记为2
+            gender == 2 ~ case_when(  # 女性则继续判断
+                my_data_manual_filtered$da027 == 1 | my_data_manual_filtered$zda027 == 1 ~ 1,  # 任一为1则记为1（绝经）
+                my_data_manual_filtered$da027 == 2 | my_data_manual_filtered$zda027 == 2 ~ 0,  # 任一为2则记为0（未绝经）
+                TRUE ~ NA_real_  # 其他情况记为NA
+            ),
+            TRUE ~ NA_real_  # 其他情况记为NA
         )
     )
-attr(my_data_calculated$menopause, "label") <- "是否绝经"
+attr(my_data_calculated$menopause, "label") <- "绝经情况"
 table(my_data_calculated$menopause, useNA = "ifany")
 
-# 计算前列腺疾病情况
+# 计算前列腺疾病情况（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         prostate_illness = case_when(
-            # 如果da029和da029_w2_1任一为1，则为1
-            my_data_manual_filtered$da029 == 1 | my_data_manual_filtered$da029_w2_1 == 1 ~ 1,
-            # 如果两者都为2，则为0
-            my_data_manual_filtered$da029 == 2 & my_data_manual_filtered$da029_w2_1 == 2 ~ 0,
-            # 其他情况（包括都为NA）则为NA
-            TRUE ~ NA_real_
+            gender == 2 ~ 0,  # 女性记为0
+            gender == 1 ~ case_when(  # 男性则继续判断
+                my_data_manual_filtered$da029 == 1 | my_data_manual_filtered$da029_w2_1 == 1 ~ 1,  # 任一为1则记为1
+                (my_data_manual_filtered$da029 == 2 & my_data_manual_filtered$da029_w2_1 != 1) |
+                (my_data_manual_filtered$da029_w2_1 == 2 & my_data_manual_filtered$da029 != 1) ~ 0,  # 一个是2另一个不是1则记为0
+                TRUE ~ NA_real_  # 其他情况（都为NA）记为NA
+            ),
+            TRUE ~ NA_real_  # 其他情况记为NA
         )
     )
 attr(my_data_calculated$prostate_illness, "label") <- "前列腺疾病"
 table(my_data_calculated$prostate_illness, useNA = "ifany")
 
+# 计算前列腺疾病年限（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        prostate_illness_age = case_when(
+            prostate_illness == 0 ~ 0,  # 如果没有前列腺疾病，年限为0
+            prostate_illness == 1 ~ case_when(
+                # 如果da030_1和da030_2都为NA，返回NA
+                is.na(my_data_manual_filtered$da030_1) & 
+                is.na(my_data_manual_filtered$da030_2) ~ NA_real_,
+                # 否则计算年限，优先使用da030_1
+                !is.na(my_data_manual_filtered$da030_1) ~ 2015 - my_data_manual_filtered$da030_1,
+                !is.na(my_data_manual_filtered$da030_2) ~ age - my_data_manual_filtered$da030_2,
+                TRUE ~ NA_real_
+            ),
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$prostate_illness_age, "label") <- "前列腺疾病年限"
+table(my_data_calculated$prostate_illness_age, useNA = "ifany")
+
+# 计算前列腺疾病治疗情况（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        treat_prostate_illness = case_when(
+            prostate_illness == 0 ~ 0,  # 如果没有前列腺疾病，记为0
+            prostate_illness == 1 & my_data_manual_filtered$da031 == 1 ~ 1,  # 有病且治疗记为1
+            prostate_illness == 1 & my_data_manual_filtered$da031 == 2 ~ 2,  # 有病但未治疗记为2
+            TRUE ~ NA_real_  # 其他情况记为NA
+        )
+    )
+attr(my_data_calculated$treat_prostate_illness, "label") <- "前列腺疾病治疗情况"
+table(my_data_calculated$treat_prostate_illness, useNA = "ifany")
+
 # 计算白内障手术情况（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         cataract_surgery = case_when(
-            my_data_manual_filtered$zda035 == 1 ~ 1,
-            my_data_manual_filtered$zda035 == 2 ~ 0,
+            # 如果zda035和da035都是NA，返回NA
+            is.na(my_data_manual_filtered$zda035) & 
+            is.na(my_data_manual_filtered$da035) ~ NA_real_,
+            # 如果任一变量为1，返回1
+            my_data_manual_filtered$zda035 == 1 |
+            my_data_manual_filtered$da035 == 1 ~ 1,
+            # 如果任一变量为2，且另一个不为1，返回0
+            (my_data_manual_filtered$zda035 == 2 & 
+             (is.na(my_data_manual_filtered$da035) | 
+              my_data_manual_filtered$da035 != 1)) |
+            (my_data_manual_filtered$da035 == 2 & 
+             (is.na(my_data_manual_filtered$zda035) | 
+              my_data_manual_filtered$zda035 != 1)) ~ 0,
+            # 其他情况返回NA
             TRUE ~ NA_real_
         )
     )
-attr(my_data_calculated$cataract_surgery, "label") <- "是否做过白内障手术"
+attr(my_data_calculated$cataract_surgery, "label") <- "白内障手术情况"
 table(my_data_calculated$cataract_surgery, useNA = "ifany")
 
 # 计算青光眼治疗情况（没问题）
@@ -3705,29 +3754,29 @@ my_data_calculated <- my_data_calculated %>%
 attr(my_data_calculated$treat_glaucoma, "label") <- "是否治疗过青光眼"
 table(my_data_calculated$treat_glaucoma, useNA = "ifany")
 
-# 计算是否有牙齿（没问题）
+# 计算是否无牙（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         noteeth = case_when(
-            my_data_manual_filtered$zda040 == 1 ~ 1,
-            my_data_manual_filtered$zda040 == 2 ~ 0,
+            # 如果zda040和da040都是NA，返回NA
+            is.na(my_data_manual_filtered$zda040) & 
+            is.na(my_data_manual_filtered$da040) ~ NA_real_,
+            # 如果任一变量为1，返回1
+            my_data_manual_filtered$zda040 == 1 |
+            my_data_manual_filtered$da040 == 1 ~ 1,
+            # 如果任一变量为2，且另一个不为1，返回0
+            (my_data_manual_filtered$zda040 == 2 & 
+             (is.na(my_data_manual_filtered$da040) | 
+              my_data_manual_filtered$da040 != 1)) |
+            (my_data_manual_filtered$da040 == 2 & 
+             (is.na(my_data_manual_filtered$zda040) | 
+              my_data_manual_filtered$zda040 != 1)) ~ 0,
+            # 其他情况返回NA
             TRUE ~ NA_real_
         )
     )
-attr(my_data_calculated$noteeth, "label") <- "是否有牙齿"
+attr(my_data_calculated$noteeth, "label") <- "是否无牙"
 table(my_data_calculated$noteeth, useNA = "ifany")
-
-# 计算白内障手术情况2（没问题）
-my_data_calculated <- my_data_calculated %>%
-    mutate(
-        cataract_surgery2 = case_when(
-            my_data_manual_filtered$da035 == 1 ~ 1,
-            my_data_manual_filtered$da035 == 2 ~ 0,
-            TRUE ~ NA_real_
-        )
-    )
-attr(my_data_calculated$cataract_surgery2, "label") <- "是否做过白内障手术2"
-table(my_data_calculated$cataract_surgery2, useNA = "ifany")
 
 # 计算青光眼情况（没问题）
 my_data_calculated <- my_data_calculated %>%
@@ -3755,18 +3804,6 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$re_glaucoma, "label") <- "青光眼复发情况"
 table(my_data_calculated$re_glaucoma, useNA = "ifany")
-
-# 计算是否有牙齿2（没问题）
-my_data_calculated <- my_data_calculated %>%
-    mutate(
-        noteeth2 = case_when(
-            my_data_manual_filtered$da040 == 1 ~ 1,
-            my_data_manual_filtered$da040 == 2 ~ 0,
-            TRUE ~ NA_real_
-        )
-    )
-attr(my_data_calculated$noteeth2, "label") <- "是否有牙齿2"
-table(my_data_calculated$noteeth2, useNA = "ifany")
 
 # 计算是否疼痛（没问题）
 my_data_calculated <- my_data_calculated %>%
@@ -3800,7 +3837,7 @@ my_data_calculated <- my_data_calculated %>%
         pain_shoulder = case_when(
             pain == 0 ~ 0,  # 如果没有疼痛，记为0
             TRUE ~ case_when(  # 如果有疼痛，根据da042s2判断
-                my_data_manual_filtered$da042s2 == 1 ~ 1,  # 有肩痛记为1
+                !is.na(my_data_manual_filtered$da042s2) ~ 1,  # 有肩痛记为1
                 TRUE ~ 0  # 其他情况记为0
             )
         )
@@ -3814,7 +3851,7 @@ my_data_calculated <- my_data_calculated %>%
         pain_arm = case_when(
             pain == 0 ~ 0,  # 如果没有疼痛，记为0
             TRUE ~ case_when(  # 如果有疼痛，根据da042s3判断
-                my_data_manual_filtered$da042s3 == 1 ~ 1,  # 有手臂痛记为1
+                !is.na(my_data_manual_filtered$da042s3) ~ 1,  # 有手臂痛记为1
                 TRUE ~ 0  # 其他情况记为0
             )
         )
@@ -3828,7 +3865,7 @@ my_data_calculated <- my_data_calculated %>%
         pain_wrist = case_when(
             pain == 0 ~ 0,  # 如果没有疼痛，记为0
             TRUE ~ case_when(  # 如果有疼痛，根据da042s4判断
-                my_data_manual_filtered$da042s4 == 1 ~ 1,  # 有手腕痛记为1
+                !is.na(my_data_manual_filtered$da042s4) ~ 1,  # 有手腕痛记为1
                 TRUE ~ 0  # 其他情况记为0
             )
         )
@@ -3842,7 +3879,7 @@ my_data_calculated <- my_data_calculated %>%
         pain_fingers = case_when(
             pain == 0 ~ 0,  # 如果没有疼痛，记为0
             TRUE ~ case_when(  # 如果有疼痛，根据da042s5判断
-                my_data_manual_filtered$da042s5 == 1 ~ 1,  # 有手指痛记为1
+                !is.na(my_data_manual_filtered$da042s5) ~ 1,  # 有手指痛记为1
                 TRUE ~ 0  # 其他情况记为0
             )
         )
@@ -3856,7 +3893,7 @@ my_data_calculated <- my_data_calculated %>%
         pain_chest = case_when(
             pain == 0 ~ 0,  # 如果没有疼痛，记为0
             TRUE ~ case_when(  # 如果有疼痛，根据da042s6判断
-                my_data_manual_filtered$da042s6 == 1 ~ 1,  # 有胸痛记为1
+                !is.na(my_data_manual_filtered$da042s6) ~ 1,  # 有胸痛记为1
                 TRUE ~ 0  # 其他情况记为0
             )
         )
@@ -3870,7 +3907,7 @@ my_data_calculated <- my_data_calculated %>%
         pain_stomach = case_when(
             pain == 0 ~ 0,  # 如果没有疼痛，记为0
             TRUE ~ case_when(  # 如果有疼痛，根据da042s7判断
-                my_data_manual_filtered$da042s7 == 1 ~ 1,  # 有腹痛记为1
+                !is.na(my_data_manual_filtered$da042s7) ~ 1,  # 有腹痛记为1
                 TRUE ~ 0  # 其他情况记为0
             )
         )
@@ -3884,7 +3921,7 @@ my_data_calculated <- my_data_calculated %>%
         pain_back = case_when(
             pain == 0 ~ 0,  # 如果没有疼痛，记为0
             TRUE ~ case_when(  # 如果有疼痛，根据da042s8判断
-                my_data_manual_filtered$da042s8 == 1 ~ 1,  # 有背痛记为1
+                !is.na(my_data_manual_filtered$da042s8) ~ 1,  # 有背痛记为1
                 TRUE ~ 0  # 其他情况记为0
             )
         )
@@ -3898,7 +3935,7 @@ my_data_calculated <- my_data_calculated %>%
         pain_waist = case_when(
             pain == 0 ~ 0,  # 如果没有疼痛，记为0
             TRUE ~ case_when(  # 如果有疼痛，根据da042s9判断
-                my_data_manual_filtered$da042s9 == 1 ~ 1,  # 有腰痛记为1
+                !is.na(my_data_manual_filtered$da042s9) ~ 1,  # 有腰痛记为1
                 TRUE ~ 0  # 其他情况记为0
             )
         )
@@ -3912,7 +3949,7 @@ my_data_calculated <- my_data_calculated %>%
         pain_buttocks = case_when(
             pain == 0 ~ 0,  # 如果没有疼痛，记为0
             TRUE ~ case_when(  # 如果有疼痛，根据da042s10判断
-                my_data_manual_filtered$da042s10 == 1 ~ 1,  # 有臀痛记为1
+                !is.na(my_data_manual_filtered$da042s10) ~ 1,  # 有臀痛记为1
                 TRUE ~ 0  # 其他情况记为0
             )
         )
@@ -3926,7 +3963,7 @@ my_data_calculated <- my_data_calculated %>%
         pain_leg = case_when(
             pain == 0 ~ 0,  # 如果没有疼痛，记为0
             TRUE ~ case_when(  # 如果有疼痛，根据da042s11判断
-                my_data_manual_filtered$da042s11 == 1 ~ 1,  # 有腿痛记为1
+                !is.na(my_data_manual_filtered$da042s11) ~ 1,  # 有腿痛记为1
                 TRUE ~ 0  # 其他情况记为0
             )
         )
@@ -3940,7 +3977,7 @@ my_data_calculated <- my_data_calculated %>%
         pain_knees = case_when(
             pain == 0 ~ 0,  # 如果没有疼痛，记为0
             TRUE ~ case_when(  # 如果有疼痛，根据da042s12判断
-                my_data_manual_filtered$da042s12 == 1 ~ 1,  # 有膝痛记为1
+                !is.na(my_data_manual_filtered$da042s12) ~ 1,  # 有膝痛记为1
                 TRUE ~ 0  # 其他情况记为0
             )
         )
@@ -3954,7 +3991,7 @@ my_data_calculated <- my_data_calculated %>%
         pain_ankle = case_when(
             pain == 0 ~ 0,  # 如果没有疼痛，记为0
             TRUE ~ case_when(  # 如果有疼痛，根据da042s13判断
-                my_data_manual_filtered$da042s13 == 1 ~ 1,  # 有踝痛记为1
+                !is.na(my_data_manual_filtered$da042s13) ~ 1,  # 有踝痛记为1
                 TRUE ~ 0  # 其他情况记为0
             )
         )
@@ -3968,7 +4005,7 @@ my_data_calculated <- my_data_calculated %>%
         pain_toes = case_when(
             pain == 0 ~ 0,  # 如果没有疼痛，记为0
             TRUE ~ case_when(  # 如果有疼痛，根据da042s14判断
-                my_data_manual_filtered$da042s14 == 1 ~ 1,  # 有趾痛记为1
+                !is.na(my_data_manual_filtered$da042s14) ~ 1,  # 有趾痛记为1
                 TRUE ~ 0  # 其他情况记为0
             )
         )
@@ -3982,7 +4019,7 @@ my_data_calculated <- my_data_calculated %>%
         pain_neck = case_when(
             pain == 0 ~ 0,  # 如果没有疼痛，记为0
             TRUE ~ case_when(  # 如果有疼痛，根据da042s15判断
-                my_data_manual_filtered$da042s15 == 1 ~ 1,  # 有颈痛记为1
+                !is.na(my_data_manual_filtered$da042s15) ~ 1,  # 有颈痛记为1
                 TRUE ~ 0  # 其他情况记为0
             )
         )
@@ -3996,14 +4033,13 @@ my_data_calculated <- my_data_calculated %>%
         pain_other = case_when(
             pain == 0 ~ 0,  # 如果没有疼痛，记为0
             TRUE ~ case_when(  # 如果有疼痛，根据da042s16判断
-                my_data_manual_filtered$da042s16 == 1 ~ 1,  # 有其他部位痛记为1
+                !is.na(my_data_manual_filtered$da042s16) ~ 1,  # 有其他部位痛记为1
                 TRUE ~ 0  # 其他情况记为0
             )
         )
     )
 attr(my_data_calculated$pain_other, "label") <- "其他部位疼痛"
 table(my_data_calculated$pain_other, useNA = "ifany")
-
 
 # 计算疼痛部位总数（没问题）
 my_data_calculated <- my_data_calculated %>%
@@ -4040,12 +4076,12 @@ my_data_calculated <- my_data_calculated %>%
                     is.na(my_data_manual_filtered$da042_w2_1s5),
                     is.na(my_data_manual_filtered$da042_w2_1s6)) ~ 2,
                 # 如果任一治疗变量为1，返回1
-                my_data_manual_filtered$da042_w2_1s1 == 1 |
-                my_data_manual_filtered$da042_w2_1s2 == 1 |
-                my_data_manual_filtered$da042_w2_1s3 == 1 |
-                my_data_manual_filtered$da042_w2_1s4 == 1 |
-                my_data_manual_filtered$da042_w2_1s5 == 1 |
-                my_data_manual_filtered$da042_w2_1s6 == 1 ~ 1,
+                !is.na(my_data_manual_filtered$da042_w2_1s1) |
+                !is.na(my_data_manual_filtered$da042_w2_1s2) |
+                !is.na(my_data_manual_filtered$da042_w2_1s3) |
+                !is.na(my_data_manual_filtered$da042_w2_1s4) |
+                !is.na(my_data_manual_filtered$da042_w2_1s5) |
+                !is.na(my_data_manual_filtered$da042_w2_1s6) ~ 1,
                 # 其他情况返回0
                 TRUE ~ 0
             ),
@@ -4068,6 +4104,85 @@ my_data_calculated <- my_data_calculated %>%
 attr(my_data_calculated$others_diseases, "label") <- "是否有其他疾病"
 table(my_data_calculated$others_diseases, useNA = "ifany")
 
+# 导出疾病情况相关数据
+disease_data <- my_data_calculated %>%
+    select(
+        ID, 
+        # 残疾情况
+        physical_disability, intellectual_disability,
+        blind_partially_blind, deaf_partially_deaf,
+        dumb_severe_stuttering, number_disability,
+        year_physical_disability, year_intellectual_disability,
+        year_blind_partially_blind, year_deaf_partially_deaf,
+        year_dumb_severe_stuttering,
+        # 疾病及治疗情况
+        hypertension, treat_hypertension,
+        dyslipidemia, treat_dyslipidemia,
+        diabetes, treat_diabetes,
+        cancer, treat_cancer,
+        chronic_lung_disease, treat_chronic_lung_disease,
+        liver_disease, treat_liver_disease,
+        heart_disease, treat_heart_disease,
+        stroke, treat_stroke,
+        kidney_disease, treat_kidney_disease,
+        digestive_system_disease, treat_digestive_system_disease,
+        emotional_and_mental_issues, treat_emotional_and_mental_issues,
+        diseases_related_to_memory, treat_diseases_related_to_memory,
+        diseases_arthritis, treat_diseases_arthritis,
+        asthma,number_chronic_disease, 
+        
+        # 疾病年份
+        year_hypertension, year_dyslipidemia, year_diabetes,
+        year_cancer, year_chronic_lung_disease, year_liver_disease,
+        year_heart_disease, year_stroke, year_kidney_disease,
+        year_digestive_system_disease, year_emotional_and_mental_issues,
+        year_diseases_related_to_memory, year_diseases_arthritis,
+        year_asthma,
+        
+        # 健康状况和控制情况
+        health_compared, control_hypertension, control_diabetes,
+        times_exam_bp, exam_bp, blood_glucose_test, blood_glucose_test_often,
+        
+        # 心脏病相关
+        heart_attack, heart_attack_year,
+        
+        # 癌症类型
+        cancer_brain, cancer_mouth, cancer_larynx, cancer_pharynx,
+        cancer_thyroid, cancer_lung, cancer_breast, cancer_esophagus,
+        cancer_stomach, cancer_liver, cancer_pancreas, cancer_kidney,
+        cancer_prostate, cancer_testis, cancer_ovary, cancer_cervix,
+        cancer_endometrium, cancer_colorectal, cancer_bladder,
+        cancer_skin, cancer_non_hodgkin_lymphoma, cancer_leukemia,
+        cancer_other, number_cancer,
+        
+        # 伤害和事故
+        traffic_accident_major_accidental_injury,
+        injury_limit_daily_activities, fallen_down, times_fallen_down,
+        fractured_hip,
+        
+        # 特定健康状况
+        menopause, prostate_illness, prostate_illness_age,
+        treat_prostate_illness, cataract_surgery, treat_glaucoma,
+        noteeth, glaucoma, re_glaucoma,
+        
+        # 疼痛相关
+        pain, pain_head, pain_shoulder, pain_arm,
+        pain_wrist, pain_fingers, pain_chest, pain_stomach,
+        pain_back, pain_waist, pain_buttocks, pain_leg,
+        pain_knees, pain_ankle, pain_toes, pain_neck,
+        pain_other, number_pain_locations, treat_pain,
+        # 其他疾病
+        others_diseases
+    )
+
+# 导出疾病情况相关数据为parquet
+write_parquet(disease_data, "data_export/data_calculated/parquet/data_calculated_disease.parquet")
+
+# 导出疾病情况相关数据为csv
+write.csv(disease_data, "data_export/data_calculated/csv/data_calculated_disease.csv", row.names = FALSE)
+```
+### 健康状况计算（完成）
+```{r 健康状况计算}
 # 计算童年期健康状况(没问题)
 my_data_calculated <- my_data_calculated %>%
     mutate(
@@ -4148,6 +4263,239 @@ my_data_calculated <- my_data_calculated %>%
 attr(my_data_calculated$self_assessed_health_status2, "label") <- "自评健康状况2"
 table(my_data_calculated$self_assessed_health_status2, useNA = "ifany")
 
+# 计算function1变量（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        function1 = case_when(
+            # 如果任何一个变量是NA，返回NA
+            is.na(my_data_manual_filtered$dc042_w3) |
+            is.na(my_data_manual_filtered$dc043_w3) |
+            is.na(my_data_manual_filtered$dc044_w3) |
+            is.na(my_data_manual_filtered$dc028) ~ NA_real_,
+            # 否则计算总和
+            TRUE ~ (case_when(
+                my_data_manual_filtered$dc042_w3 == 1 ~ 3,
+                my_data_manual_filtered$dc042_w3 == 2 ~ 2,
+                my_data_manual_filtered$dc042_w3 == 3 ~ 1,
+                my_data_manual_filtered$dc042_w3 == 4 ~ 0,
+                TRUE ~ 0
+            ) +
+            case_when(
+                my_data_manual_filtered$dc043_w3 == 1 ~ 3,
+                my_data_manual_filtered$dc043_w3 == 2 ~ 2,
+                my_data_manual_filtered$dc043_w3 == 3 ~ 1,
+                my_data_manual_filtered$dc043_w3 == 4 ~ 0,
+                TRUE ~ 0
+            ) +
+            case_when(
+                my_data_manual_filtered$dc044_w3 == 1 ~ 3,
+                my_data_manual_filtered$dc044_w3 == 2 ~ 2,
+                my_data_manual_filtered$dc044_w3 == 3 ~ 1,
+                my_data_manual_filtered$dc044_w3 == 4 ~ 0,
+                TRUE ~ 0
+            ) +
+            case_when(
+                my_data_manual_filtered$dc028 == 1 ~ 3,
+                my_data_manual_filtered$dc028 == 2 ~ 2,
+                my_data_manual_filtered$dc028 == 3 ~ 1,
+                my_data_manual_filtered$dc028 == 4 ~ 0,
+                TRUE ~ 0
+            ))
+        )
+    )
+attr(my_data_calculated$function1, "label") <- "function1变量"
+table(my_data_calculated$function1, useNA = "ifany")
+
+# 计算ADL总分（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        adl_total = case_when(
+            # 如果任何一个变量是NA，返回NA
+            is.na(my_data_manual_filtered$db010) |
+            is.na(my_data_manual_filtered$db011) |
+            is.na(my_data_manual_filtered$db012) |
+            is.na(my_data_manual_filtered$db013) |
+            is.na(my_data_manual_filtered$db014) |
+            is.na(my_data_manual_filtered$db015) ~ NA_real_,
+            # 否则计算总分
+            TRUE ~ (
+                case_when(
+                    my_data_manual_filtered$db010 == 1 ~ 3,
+                    my_data_manual_filtered$db010 == 2 ~ 2,
+                    my_data_manual_filtered$db010 == 3 ~ 1,
+                    my_data_manual_filtered$db010 == 4 ~ 0,
+                    TRUE ~ 0
+                ) +
+                case_when(
+                    my_data_manual_filtered$db011 == 1 ~ 3,
+                    my_data_manual_filtered$db011 == 2 ~ 2,
+                    my_data_manual_filtered$db011 == 3 ~ 1,
+                    my_data_manual_filtered$db011 == 4 ~ 0,
+                    TRUE ~ 0
+                ) +
+                case_when(
+                    my_data_manual_filtered$db012 == 1 ~ 3,
+                    my_data_manual_filtered$db012 == 2 ~ 2,
+                    my_data_manual_filtered$db012 == 3 ~ 1,
+                    my_data_manual_filtered$db012 == 4 ~ 0,
+                    TRUE ~ 0
+                ) +
+                case_when(
+                    my_data_manual_filtered$db013 == 1 ~ 3,
+                    my_data_manual_filtered$db013 == 2 ~ 2,
+                    my_data_manual_filtered$db013 == 3 ~ 1,
+                    my_data_manual_filtered$db013 == 4 ~ 0,
+                    TRUE ~ 0
+                ) +
+                case_when(
+                    my_data_manual_filtered$db014 == 1 ~ 3,
+                    my_data_manual_filtered$db014 == 2 ~ 2,
+                    my_data_manual_filtered$db014 == 3 ~ 1,
+                    my_data_manual_filtered$db014 == 4 ~ 0,
+                    TRUE ~ 0
+                ) +
+                case_when(
+                    my_data_manual_filtered$db015 == 1 ~ 3,
+                    my_data_manual_filtered$db015 == 2 ~ 2,
+                    my_data_manual_filtered$db015 == 3 ~ 1,
+                    my_data_manual_filtered$db015 == 4 ~ 0,
+                    TRUE ~ 0
+                )
+            )
+        )
+    )
+attr(my_data_calculated$adl_total, "label") <- "ADL总分"
+table(my_data_calculated$adl_total, useNA = "ifany")
+
+# 计算IADL总分（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        iadl_total = case_when(
+            # 如果任何一个变量是NA，返回NA
+            is.na(my_data_manual_filtered$db016) |
+            is.na(my_data_manual_filtered$db017) |
+            is.na(my_data_manual_filtered$db018) |
+            is.na(my_data_manual_filtered$db035) |
+            is.na(my_data_manual_filtered$db020) |
+            is.na(my_data_manual_filtered$db019) ~ NA_real_,
+            # 否则计算总分
+            TRUE ~ (
+                case_when(
+                    my_data_manual_filtered$db016 == 1 ~ 3,
+                    my_data_manual_filtered$db016 == 2 ~ 2,
+                    my_data_manual_filtered$db016 == 3 ~ 1,
+                    my_data_manual_filtered$db016 == 4 ~ 0,
+                    TRUE ~ 0
+                ) +
+                case_when(
+                    my_data_manual_filtered$db017 == 1 ~ 3,
+                    my_data_manual_filtered$db017 == 2 ~ 2,
+                    my_data_manual_filtered$db017 == 3 ~ 1,
+                    my_data_manual_filtered$db017 == 4 ~ 0,
+                    TRUE ~ 0
+                ) +
+                case_when(
+                    my_data_manual_filtered$db018 == 1 ~ 3,
+                    my_data_manual_filtered$db018 == 2 ~ 2,
+                    my_data_manual_filtered$db018 == 3 ~ 1,
+                    my_data_manual_filtered$db018 == 4 ~ 0,
+                    TRUE ~ 0
+                ) +
+                case_when(
+                    my_data_manual_filtered$db035 == 1 ~ 3,
+                    my_data_manual_filtered$db035 == 2 ~ 2,
+                    my_data_manual_filtered$db035 == 3 ~ 1,
+                    my_data_manual_filtered$db035 == 4 ~ 0,
+                    TRUE ~ 0
+                ) +
+                case_when(
+                    my_data_manual_filtered$db020 == 1 ~ 3,
+                    my_data_manual_filtered$db020 == 2 ~ 2,
+                    my_data_manual_filtered$db020 == 3 ~ 1,
+                    my_data_manual_filtered$db020 == 4 ~ 0,
+                    TRUE ~ 0
+                ) +
+                case_when(
+                    my_data_manual_filtered$db019 == 1 ~ 3,
+                    my_data_manual_filtered$db019 == 2 ~ 2,
+                    my_data_manual_filtered$db019 == 3 ~ 1,
+                    my_data_manual_filtered$db019 == 4 ~ 0,
+                    TRUE ~ 0
+                )
+            )
+        )
+    )
+attr(my_data_calculated$iadl_total, "label") <- "IADL总分"
+table(my_data_calculated$iadl_total, useNA = "ifany")
+
+# 计算function2变量（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        function2 = case_when(
+            # 如果任何一个变量是NA，返回NA
+            is.na(my_data_manual_filtered$db036_w3) |
+            is.na(my_data_manual_filtered$db037_w3) |
+            is.na(my_data_manual_filtered$db038_w3_1) |
+            is.na(my_data_manual_filtered$db038_w3_2) |
+            is.na(my_data_manual_filtered$db039_w3) ~ NA_real_,
+            # 否则计算总和
+            TRUE ~ (case_when(
+                my_data_manual_filtered$db036_w3 == 1 ~ 3,
+                my_data_manual_filtered$db036_w3 == 2 ~ 2,
+                my_data_manual_filtered$db036_w3 == 3 ~ 1,
+                my_data_manual_filtered$db036_w3 == 4 ~ 0,
+                TRUE ~ 0
+            ) +
+            case_when(
+                my_data_manual_filtered$db037_w3 == 1 ~ 3,
+                my_data_manual_filtered$db037_w3 == 2 ~ 2,
+                my_data_manual_filtered$db037_w3 == 3 ~ 1,
+                my_data_manual_filtered$db037_w3 == 4 ~ 0,
+                TRUE ~ 0
+            ) +
+            case_when(
+                my_data_manual_filtered$db038_w3_1 == 1 ~ 3,
+                my_data_manual_filtered$db038_w3_1 == 2 ~ 2,
+                my_data_manual_filtered$db038_w3_1 == 3 ~ 1,
+                my_data_manual_filtered$db038_w3_1 == 4 ~ 0,
+                TRUE ~ 0
+            ) +
+            case_when(
+                my_data_manual_filtered$db038_w3_2 == 1 ~ 3,
+                my_data_manual_filtered$db038_w3_2 == 2 ~ 2,
+                my_data_manual_filtered$db038_w3_2 == 3 ~ 1,
+                my_data_manual_filtered$db038_w3_2 == 4 ~ 0,
+                TRUE ~ 0
+            ) +
+            case_when(
+                my_data_manual_filtered$db039_w3 == 1 ~ 3,
+                my_data_manual_filtered$db039_w3 == 2 ~ 2,
+                my_data_manual_filtered$db039_w3 == 3 ~ 1,
+                my_data_manual_filtered$db039_w3 == 4 ~ 0,
+                TRUE ~ 0
+            ))
+        )
+    )
+attr(my_data_calculated$function2, "label") <- "function2变量"
+table(my_data_calculated$function2, useNA = "ifany")
+
+# 导出健康状况相关数据
+health_data <- my_data_calculated %>%
+    select(
+        ID, childhood_health, self_assessed_health_status_excellent,
+        self_assessed_health_status_good, self_assessed_health_status1,
+        self_assessed_health_status2, function1, adl_total,
+        iadl_total, function2
+    )
+
+# 导出健康状况相关数据为parquet
+write_parquet(health_data, "data_export/data_calculated/parquet/data_calculated_health.parquet")
+
+# 导出健康状况相关数据为csv
+write.csv(health_data, "data_export/data_calculated/csv/data_calculated_health.csv", row.names = FALSE)
+```
+### 整体满意度计算（完成）
+```{r 整体满意度计算}
 # 计算健康满意度（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
@@ -4211,9 +4559,130 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$life_satisfaction, "label") <- "生活满意度"
 table(my_data_calculated$life_satisfaction, useNA = "ifany")
+
+# 导出整体满意度相关数据
+satisfaction_data <- my_data_calculated %>%
+    select(
+        ID, health_satisfaction, marriage_satisfaction,
+        children_satisfaction, life_satisfaction
+    )
+
+# 导出整体满意度相关数据为parquet
+write_parquet(satisfaction_data, "data_export/data_calculated/parquet/data_calculated_satisfaction.parquet")
+
+# 导出整体满意度相关数据为csv
+write.csv(satisfaction_data, "data_export/data_calculated/csv/data_calculated_satisfaction.csv", row.names = FALSE)
 ```
-### 行为习惯计算
+### 行为习惯计算（完成）
 ```{r 行为习惯计算}
+# 计算高强度运动总量（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        amount_high_exercise = case_when(
+            # 如果第一个变量是2或NA，返回0
+            my_data_manual_filtered$da051_1_ == 2 | 
+            is.na(my_data_manual_filtered$da051_1_) ~ 0,
+            # 如果最后三个变量都是NA，返回NA
+            is.na(my_data_manual_filtered$da053_1_) & 
+            is.na(my_data_manual_filtered$da054_1_) & 
+            is.na(my_data_manual_filtered$da055_1_) ~ NA_real_,
+            # 其他情况计算运动时间等级并与第二个变量相乘
+            TRUE ~ my_data_manual_filtered$da052_1_ * case_when(
+                my_data_manual_filtered$da055_1_ == 2 ~ 4,
+                my_data_manual_filtered$da054_1_ == 2 ~ 3,
+                my_data_manual_filtered$da053_1_ == 2 ~ 2,
+                TRUE ~ 1
+            )
+        )
+    )
+attr(my_data_calculated$amount_high_exercise, "label") <- "高强度运动总量"
+table(my_data_calculated$amount_high_exercise, useNA = "ifany")
+
+# 计算中等强度运动总量（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        amount_moderate_exercise = case_when(
+            # 如果第一个变量是2或NA，返回0
+            my_data_manual_filtered$da051_2_ == 2 | 
+            is.na(my_data_manual_filtered$da051_2_) ~ 0,
+            # 如果最后三个变量都是NA，返回NA
+            is.na(my_data_manual_filtered$da053_2_) & 
+            is.na(my_data_manual_filtered$da054_2_) & 
+            is.na(my_data_manual_filtered$da055_2_) ~ NA_real_,
+            # 其他情况计算运动时间等级并与第二个变量相乘
+            TRUE ~ my_data_manual_filtered$da052_2_ * case_when(
+                my_data_manual_filtered$da055_2_ == 2 ~ 4,
+                my_data_manual_filtered$da054_2_ == 2 ~ 3,
+                my_data_manual_filtered$da053_2_ == 2 ~ 2,
+                TRUE ~ 1
+            )
+        )
+    )
+attr(my_data_calculated$amount_moderate_exercise, "label") <- "中等强度运动总量"
+table(my_data_calculated$amount_moderate_exercise, useNA = "ifany")
+
+# 计算低强度运动总量（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        amount_low_exercise = case_when(
+            # 如果第一个变量是2或NA，返回0
+            my_data_manual_filtered$da051_3_ == 2 | 
+            is.na(my_data_manual_filtered$da051_3_) ~ 0,
+            # 如果最后三个变量都是NA，返回NA
+            is.na(my_data_manual_filtered$da053_3_) & 
+            is.na(my_data_manual_filtered$da054_3_) & 
+            is.na(my_data_manual_filtered$da055_3_) ~ NA_real_,
+            # 其他情况计算运动时间等级并与第二个变量相乘
+            TRUE ~ my_data_manual_filtered$da052_3_ * case_when(
+                my_data_manual_filtered$da055_3_ == 2 ~ 4,
+                my_data_manual_filtered$da054_3_ == 2 ~ 3,
+                my_data_manual_filtered$da053_3_ == 2 ~ 2,
+                TRUE ~ 1
+            )
+        )
+    )
+attr(my_data_calculated$amount_low_exercise, "label") <- "低强度运动总量"
+table(my_data_calculated$amount_low_exercise, useNA = "ifany")
+
+# 计算是否做高强度运动（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        high_exercise = case_when(
+            is.na(amount_high_exercise) ~ NA_real_,
+            amount_high_exercise == 0 ~ 0,
+            amount_high_exercise > 0 ~ 1,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$high_exercise, "label") <- "是否做高强度运动"
+table(my_data_calculated$high_exercise, useNA = "ifany")
+
+# 计算是否做中等强度运动（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        moderate_exercise = case_when(
+            is.na(amount_moderate_exercise) ~ NA_real_,
+            amount_moderate_exercise == 0 ~ 0,
+            amount_moderate_exercise > 0 ~ 1,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$moderate_exercise, "label") <- "是否做中等强度运动"
+table(my_data_calculated$moderate_exercise, useNA = "ifany")
+
+# 计算是否做低强度运动（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        low_exercise = case_when(
+            is.na(amount_low_exercise) ~ NA_real_,
+            amount_low_exercise == 0 ~ 0,
+            amount_low_exercise > 0 ~ 1,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$low_exercise, "label") <- "是否做低强度运动"
+table(my_data_calculated$low_exercise, useNA = "ifany")
+
 # 计算社交活动数量（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
@@ -4249,19 +4718,6 @@ my_data_calculated <- my_data_calculated %>%
 attr(my_data_calculated$internet_use, "label") <- "是否使用互联网"
 table(my_data_calculated$internet_use, useNA = "ifany")
 
-# 计算互联网设备使用数量
-my_data_calculated <- my_data_calculated %>%
-    mutate(
-        devices_internet_use = rowSums(
-            !is.na(select(my_data_manual_filtered, 
-                da056_w3s1, da056_w3s2, da056_w3s3,
-                da056_w3s4, da056_w3s5)),
-            na.rm = TRUE
-        )
-    )
-attr(my_data_calculated$devices_internet_use, "label") <- "互联网设备使用数量"
-table(my_data_calculated$devices_internet_use, useNA = "ifany")
-
 # 计算互联网设备使用数量（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
@@ -4276,7 +4732,8 @@ my_data_calculated <- my_data_calculated %>%
                 TRUE ~ rowSums(
                     !is.na(select(my_data_manual_filtered, 
                         da056_w3s1, da056_w3s2, da056_w3s3,
-                        da056_w3s4, da056_w3s5))
+                        da056_w3s4, da056_w3s5)),
+                    na.rm = TRUE
                 )
             )
         )
@@ -4284,7 +4741,7 @@ my_data_calculated <- my_data_calculated %>%
 attr(my_data_calculated$devices_internet_use, "label") <- "互联网设备使用数量"
 table(my_data_calculated$devices_internet_use, useNA = "ifany")
 
-# 计算社交活动频率（可这个是不是要考虑是否有社交活动，缺失值好像比较多）
+# 计算社交活动频率（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         frequency_social_activities = case_when(
@@ -4317,8 +4774,13 @@ table(my_data_calculated$frequency_social_activities, useNA = "ifany")
 my_data_calculated <- my_data_calculated %>%
     mutate(
         smoke = case_when(
+            # 如果zda059或da059为1则记为1
+            my_data_manual_filtered$zda059 == 1 | 
             my_data_manual_filtered$da059 == 1 ~ 1,
+            # 如果两个变量都是NA则记为NA
+            is.na(my_data_manual_filtered$zda059) & 
             is.na(my_data_manual_filtered$da059) ~ NA_real_,
+            # 其他情况记为0
             TRUE ~ 0
         )
     )
@@ -4329,135 +4791,150 @@ table(my_data_calculated$smoke, useNA = "ifany")
 my_data_calculated <- my_data_calculated %>%
     mutate(
         type_smoke_pipe = case_when(
-            smoke_final == 0 ~ 0,  # 不吸烟则为0
-            smoke_final == 1 ~ case_when(  # 吸烟则继续判断
-                # 如果所有吸烟类型相关变量都是NA，返回NA
-                all(is.na(select(my_data_manual_filtered, 
-                    da060s1, da060s2, da060s3, da060s4,
-                    da060s5, da060s6))) ~ NA_real_,
-                TRUE ~ case_when(
-                    my_data_manual_filtered$da060s1 == 1 ~ 1,  # 有烟斗记为1
-                    TRUE ~ 0  # 其他情况记为0
-                )
-            )
+            smoke == 0 ~ 0,  # 不吸烟则为0
+            # 如果所有吸烟类型相关变量都是NA，返回NA
+            all(is.na(select(my_data_manual_filtered, 
+                da060s1, da060s2, da060s3, da060s4,
+                da060s5, da060s6))) ~ NA_real_,
+            !is.na(my_data_manual_filtered$da060s1) ~ 1,  # 有答案记为1
+            TRUE ~ 0  # 其他情况记为0
         )
     )
 attr(my_data_calculated$type_smoke_pipe, "label") <- "是否吸烟"
 table(my_data_calculated$type_smoke_pipe, useNA = "ifany")
 
-# 计算自卷烟吸烟（没问题）
+# 计算自卷烟吸烟情况（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         type_smoke_self_rolled_cigarette = case_when(
-            smoke_final == 0 ~ 0,  # 不吸烟则为0
-            smoke_final == 1 ~ case_when(  # 吸烟则继续判断
+            smoke == 0 ~ 0,  # 不吸烟则为0
+            TRUE ~ case_when(  # 如果有吸烟，根据da060s2判断
+                # 如果所有吸烟类型相关变量都是NA，返回NA
                 all(is.na(select(my_data_manual_filtered, 
                     da060s1, da060s2, da060s3, da060s4,
                     da060s5, da060s6))) ~ NA_real_,
-                TRUE ~ case_when(
-                    my_data_manual_filtered$da060s2 == 1 ~ 1,  # 有自卷烟记为1
-                    TRUE ~ 0  # 其他情况记为0
-                )
+                !is.na(my_data_manual_filtered$da060s2) ~ 1,  # 有自卷烟记录则为1
+                TRUE ~ 0  # 其他情况记为0
             )
         )
     )
 attr(my_data_calculated$type_smoke_self_rolled_cigarette, "label") <- "是否吸自卷烟"
 table(my_data_calculated$type_smoke_self_rolled_cigarette, useNA = "ifany")
 
-# 计算过滤嘴香烟吸烟（没问题）
+# 计算过滤嘴香烟吸烟情况（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         type_smoke_filtered_cigarette = case_when(
-            smoke_final == 0 ~ 0,  # 不吸烟则为0
-            smoke_final == 1 ~ case_when(  # 吸烟则继续判断
+            smoke == 0 ~ 0,  # 不吸烟则为0
+            TRUE ~ case_when(  # 如果有吸烟，根据da060s3判断
+                # 如果所有吸烟类型相关变量都是NA，返回NA
                 all(is.na(select(my_data_manual_filtered, 
                     da060s1, da060s2, da060s3, da060s4,
                     da060s5, da060s6))) ~ NA_real_,
-                TRUE ~ case_when(
-                    my_data_manual_filtered$da060s3 == 1 ~ 1,  # 有过滤嘴香烟记为1
-                    TRUE ~ 0  # 其他情况记为0
-                )
+                !is.na(my_data_manual_filtered$da060s3) ~ 1,  # 有过滤嘴香烟记录则为1
+                TRUE ~ 0  # 其他情况记为0
             )
         )
     )
 attr(my_data_calculated$type_smoke_filtered_cigarette, "label") <- "是否吸过滤嘴香烟"
 table(my_data_calculated$type_smoke_filtered_cigarette, useNA = "ifany")
 
-# 计算无过滤嘴香烟吸烟（没问题）
+# 计算无过滤嘴香烟吸烟情况（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         type_smoke_unfiltered_cigarette = case_when(
-            smoke_final == 0 ~ 0,  # 不吸烟则为0
-            smoke_final == 1 ~ case_when(  # 吸烟则继续判断
+            smoke == 0 ~ 0,  # 不吸烟则为0
+            TRUE ~ case_when(  # 如果有吸烟，根据da060s4判断
+                # 如果所有吸烟类型相关变量都是NA，返回NA
                 all(is.na(select(my_data_manual_filtered, 
                     da060s1, da060s2, da060s3, da060s4,
                     da060s5, da060s6))) ~ NA_real_,
-                TRUE ~ case_when(
-                    my_data_manual_filtered$da060s4 == 1 ~ 1,  # 有无过滤嘴香烟记为1
-                    TRUE ~ 0  # 其他情况记为0
-                )
+                !is.na(my_data_manual_filtered$da060s4) ~ 1,  # 有无过滤嘴香烟记录则为1
+                TRUE ~ 0  # 其他情况记为0
             )
         )
     )
 attr(my_data_calculated$type_smoke_unfiltered_cigarette, "label") <- "是否吸无过滤嘴香烟"
 table(my_data_calculated$type_smoke_unfiltered_cigarette, useNA = "ifany")
 
-# 计算雪茄吸烟（没问题）
+# 计算雪茄吸烟情况（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         type_smoke_cigar = case_when(
-            smoke_final == 0 ~ 0,  # 不吸烟则为0
-            smoke_final == 1 ~ case_when(  # 吸烟则继续判断
+            smoke == 0 ~ 0,  # 不吸烟则为0
+            TRUE ~ case_when(  # 如果有吸烟，根据da060s5判断
+                # 如果所有吸烟类型相关变量都是NA，返回NA
                 all(is.na(select(my_data_manual_filtered, 
                     da060s1, da060s2, da060s3, da060s4,
                     da060s5, da060s6))) ~ NA_real_,
-                TRUE ~ case_when(
-                    my_data_manual_filtered$da060s5 == 1 ~ 1,  # 有雪茄记为1
-                    TRUE ~ 0  # 其他情况记为0
-                )
+                !is.na(my_data_manual_filtered$da060s5) ~ 1,  # 有雪茄记录则为1
+                TRUE ~ 0  # 其他情况记为0
             )
         )
     )
 attr(my_data_calculated$type_smoke_cigar, "label") <- "是否吸雪茄"
 table(my_data_calculated$type_smoke_cigar, useNA = "ifany")
 
-# 计算水烟吸烟（没问题）
+# 计算水烟吸烟情况（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         type_smoke_water_cigarette = case_when(
-            smoke_final == 0 ~ 0,  # 不吸烟则为0
-            smoke_final == 1 ~ case_when(  # 吸烟则继续判断
+            smoke == 0 ~ 0,  # 不吸烟则为0
+            TRUE ~ case_when(  # 如果有吸烟，根据da060s6判断
+                # 如果所有吸烟类型相关变量都是NA，返回NA
                 all(is.na(select(my_data_manual_filtered, 
                     da060s1, da060s2, da060s3, da060s4,
                     da060s5, da060s6))) ~ NA_real_,
-                TRUE ~ case_when(
-                    my_data_manual_filtered$da060s6 == 1 ~ 1,  # 有水烟记为1
-                    TRUE ~ 0  # 其他情况记为0
-                )
+                !is.na(my_data_manual_filtered$da060s6) ~ 1,  # 有水烟记录则为1
+                TRUE ~ 0  # 其他情况记为0
             )
         )
     )
 attr(my_data_calculated$type_smoke_water_cigarette, "label") <- "是否吸水烟"
 table(my_data_calculated$type_smoke_water_cigarette, useNA = "ifany")
 
+# 计算吸烟状态（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        status_smoke = case_when(
+            smoke == 0 ~ 0,  # 不吸烟记为0
+            smoke == 1 & !is.na(my_data_manual_filtered$da062) ~ 1,  # 吸烟已戒记为1
+            smoke == 1 & is.na(my_data_manual_filtered$da062) ~ 2,  # 吸烟未戒记为2
+            TRUE ~ NA_real_  # 其他情况记为NA
+        )
+    )
+attr(my_data_calculated$status_smoke, "label") <- "吸烟状态"
+table(my_data_calculated$status_smoke, useNA = "ifany")
+
+# 计算吸烟数量（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        number_smoke = case_when(
+            smoke == 0 ~ 0,  # 不吸烟则数量为0
+            TRUE ~ my_data_manual_filtered$da063  # 其他情况使用da063的值
+        )
+    )
+attr(my_data_calculated$number_smoke, "label") <- "吸烟数量"
+table(my_data_calculated$number_smoke, useNA = "ifany")
+
 # 计算吸烟年数（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
         year_smoke = case_when(
-            smoke_final == 0 ~ 0,  # 不吸烟则年数为0
+            smoke == 0 ~ 0,  # 不吸烟则年数为0
             TRUE ~ case_when(
-                # 如果da065_2不为NA,计算2015-da065_2
+                # 依次检查四个变量,取第一个非NA的计算结果
                 !is.na(my_data_manual_filtered$da065_2) ~ 2015 - my_data_manual_filtered$da065_2,
-                # 如果da065_1不为NA,计算age-da065_1
+                !is.na(my_data_manual_filtered$zda065_2) ~ 2015 - my_data_manual_filtered$zda065_2,
                 !is.na(my_data_manual_filtered$da065_1) ~ age - my_data_manual_filtered$da065_1,
-                # 两者都为NA则返回NA
+                !is.na(my_data_manual_filtered$zda065_1) ~ age - my_data_manual_filtered$zda065_1,
+                # 四个变量都是NA则返回NA
                 TRUE ~ NA_real_
             )
         )
     )
 attr(my_data_calculated$year_smoke, "label") <- "吸烟年数"
 table(my_data_calculated$year_smoke, useNA = "ifany")
-
 
 # 计算饮酒情况（没问题）
 my_data_calculated <- my_data_calculated %>%
@@ -4482,7 +4959,7 @@ my_data_calculated <- my_data_calculated %>%
                 all(is.na(select(my_data_manual_filtered, 
                     da068s1, da068s2, da068s3))) ~ NA_real_,
                 TRUE ~ case_when(
-                    my_data_manual_filtered$da068s1 == 1 ~ 1,  # 喝白酒记为1
+                    !is.na(my_data_manual_filtered$da068s1) ~ 1,  # 喝白酒记为1
                     TRUE ~ 0  # 其他情况记为0
                 )
             ),
@@ -4501,10 +4978,8 @@ my_data_calculated <- my_data_calculated %>%
                 # 如果所有饮酒类型相关变量都是NA，返回NA
                 all(is.na(select(my_data_manual_filtered, 
                     da068s1, da068s2, da068s3))) ~ NA_real_,
-                TRUE ~ case_when(
-                    my_data_manual_filtered$da068s2 == 1 ~ 1,  # 喝啤酒记为1
-                    TRUE ~ 0  # 其他情况记为0
-                )
+                !is.na(my_data_manual_filtered$da068s2) ~ 1,  # 喝啤酒记为1
+                TRUE ~ 0  # 其他情况记为0
             ),
             TRUE ~ NA_real_
         )
@@ -4521,16 +4996,27 @@ my_data_calculated <- my_data_calculated %>%
                 # 如果所有饮酒类型相关变量都是NA，返回NA
                 all(is.na(select(my_data_manual_filtered, 
                     da068s1, da068s2, da068s3))) ~ NA_real_,
-                TRUE ~ case_when(
-                    my_data_manual_filtered$da068s3 == 1 ~ 1,  # 喝葡萄酒记为1
-                    TRUE ~ 0  # 其他情况记为0
-                )
+                !is.na(my_data_manual_filtered$da068s3) ~ 1,  # 喝葡萄酒记为1
+                TRUE ~ 0  # 其他情况记为0
             ),
             TRUE ~ NA_real_
         )
     )
 attr(my_data_calculated$type_drink_wine, "label") <- "是否喝葡萄酒"
 table(my_data_calculated$type_drink_wine, useNA = "ifany")
+
+# 计算饮酒状态（没问题）
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        drink_status = case_when(
+            drink == 0 ~ 0,  # 不喝酒记为0
+            drink %in% c(1,2) & !is.na(my_data_manual_filtered$da070) ~ 1,  # 饮酒已戒记为1
+            drink %in% c(1,2) & is.na(my_data_manual_filtered$da070) ~ 2,  # 饮酒未戒记为2
+            TRUE ~ NA_real_  # 其他情况记为NA
+        )
+    )
+attr(my_data_calculated$drink_status, "label") <- "饮酒状态"
+table(my_data_calculated$drink_status, useNA = "ifany")
 
 # 计算饮酒年数（没问题）
 my_data_calculated <- my_data_calculated %>%
@@ -4642,7 +5128,6 @@ my_data_calculated <- my_data_calculated %>%
 attr(my_data_calculated$much_drink_beer, "label") <- "啤酒饮酒量"
 table(my_data_calculated$much_drink_beer, useNA = "ifany")
 
-
 # 计算葡萄酒饮酒量（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
@@ -4654,8 +5139,37 @@ my_data_calculated <- my_data_calculated %>%
 attr(my_data_calculated$much_drink_wine, "label") <- "葡萄酒饮酒量"
 table(my_data_calculated$much_drink_wine, useNA = "ifany")
 
+# 导出行为习惯相关数据
+behavior_data <- my_data_calculated %>%
+    select(
+        ID,
+        # 运动相关
+        amount_high_exercise, amount_moderate_exercise, amount_low_exercise,
+        high_exercise, moderate_exercise, low_exercise,
+        
+        # 社交相关
+        number_social_activities, social_isolation,
+        internet_use, devices_internet_use,
+        frequency_social_activities,
+        
+        # 吸烟相关
+        smoke, type_smoke_pipe, type_smoke_self_rolled_cigarette,
+        type_smoke_filtered_cigarette, type_smoke_unfiltered_cigarette,
+        type_smoke_cigar, type_smoke_water_cigarette,
+        status_smoke, number_smoke, year_smoke,
+        
+        # 饮酒相关
+        drink, type_drink_liqor, type_drink_beer, type_drink_wine,
+        drink_status, year_drink,
+        frequency_drink_liquor, frequency_drink_beer, frequency_drink_wine,
+        much_drink_liquor, much_drink_beer, much_drink_wine
+    )
 
+# 导出行为习惯相关数据为parquet
+write_parquet(behavior_data, "data_export/data_calculated/parquet/data_calculated_behavior.parquet")
 
+# 导出行为习惯相关数据为csv
+write.csv(behavior_data, "data_export/data_calculated/csv/data_calculated_behavior.csv", row.names = FALSE)
 ```
 ### 受照顾情况计算（完成）
 ```{r 受照顾情况计算}
@@ -4748,6 +5262,7 @@ write_parquet(care_data, "data_export/data_calculated/parquet/data_calculated_ca
 
 # 导出受照顾情况相关数据为csv
 write.csv(care_data, "data_export/data_calculated/csv/data_calculated_care.csv", row.names = FALSE)
+
 ```
 ### 环境情况计算（完成）
 ```{r 环境情况计算}
@@ -4942,13 +5457,17 @@ write.csv(environment_data, "data_export/data_calculated/csv/data_calculated_env
 ```
 ### 计算后数据导出
 ```{r 数据导出}
+# 查看数据框的维度
+dim(my_data_calculated)
+
+# 查看数据框的结构
+str(my_data_calculated)
+
 # 导出计算后的数据框
 write_parquet(my_data_calculated, "data_export/data_calculated/my_data_calculated.parquet")
 
 # 导出计算后的数据框为csv
 write.csv(my_data_calculated, "data_export/data_calculated/my_data_calculated.csv", row.names = FALSE)
-
-# 多分类变量在此处按照字符因子计算，还是按照数字计算，哑变量又是在哪里进行
 ```
 
 ### 缺失值筛选
