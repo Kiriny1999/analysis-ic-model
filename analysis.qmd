@@ -1821,7 +1821,19 @@ my_data_calculated <- my_data_calculated %>%
             is.na(my_data_manual_filtered$ea001_w3_3_7_) ~ NA_real_,
             TRUE ~ 0
         ),
-        
+        # 计算医疗救助保险（没问题）
+        medicalaid_medical_insurance = case_when(
+            my_data_manual_filtered$ea001_w3_1_6_ == 1 | 
+            my_data_manual_filtered$ea001_w3_2_6_ == 1 | 
+            my_data_manual_filtered$ea001_w3_3_6_ == 1 ~ 1,
+            my_data_manual_filtered$ea001_w3_1_6_ == 2 & 
+            my_data_manual_filtered$ea001_w3_2_6_ == 2 & 
+            my_data_manual_filtered$ea001_w3_3_6_ == 2 ~ 0,
+            is.na(my_data_manual_filtered$ea001_w3_1_6_) & 
+            is.na(my_data_manual_filtered$ea001_w3_2_6_) & 
+            is.na(my_data_manual_filtered$ea001_w3_3_6_) ~ NA_real_,
+            TRUE ~ 0
+        ),
         # 计算商业医疗保险（没问题）
         privatemedical_insurance_individual = case_when(
             my_data_manual_filtered$ea001_w3_1_8_ == 1 | 
@@ -1871,6 +1883,7 @@ attr(my_data_calculated$urban_resident_medical_insurance, "label") <- "城镇居
 attr(my_data_calculated$hezuoyiliao_medical_insurance, "label") <- "合作医疗保险"
 attr(my_data_calculated$urbanandruralresident_medical_insurance, "label") <- "城乡居民医疗保险"
 attr(my_data_calculated$gongfei_medical_insurance, "label") <- "公费医疗保险"
+attr(my_data_calculated$medicalaid_medical_insurance, "label") <- "医疗救助保险"
 attr(my_data_calculated$privatemedical_insurance_workunit, "label") <- "单位补充医疗保险"
 attr(my_data_calculated$privatemedical_insurance_individual, "label") <- "商业医疗保险"
 attr(my_data_calculated$urban_nonemployed_persons_healthinsuran, "label") <- "城镇非从业居民医疗保险"
@@ -1882,6 +1895,7 @@ table(my_data_calculated$urban_resident_medical_insurance, useNA = "ifany")
 table(my_data_calculated$hezuoyiliao_medical_insurance, useNA = "ifany")
 table(my_data_calculated$urbanandruralresident_medical_insurance, useNA = "ifany")
 table(my_data_calculated$gongfei_medical_insurance, useNA = "ifany")
+table(my_data_calculated$medicalaid_medical_insurance, useNA = "ifany")
 table(my_data_calculated$privatemedical_insurance_workunit, useNA = "ifany")
 table(my_data_calculated$privatemedical_insurance_individual, useNA = "ifany")
 table(my_data_calculated$urban_nonemployed_persons_healthinsuran, useNA = "ifany")
@@ -1897,6 +1911,7 @@ my_data_calculated <- my_data_calculated %>%
             is.na(hezuoyiliao_medical_insurance) & 
             is.na(urbanandruralresident_medical_insurance) & 
             is.na(gongfei_medical_insurance) & 
+            is.na(medicalaid_medical_insurance) &
             is.na(privatemedical_insurance_workunit) & 
             is.na(privatemedical_insurance_individual) & 
             is.na(urban_nonemployed_persons_healthinsuran) & 
@@ -1909,6 +1924,7 @@ my_data_calculated <- my_data_calculated %>%
                       hezuoyiliao_medical_insurance,
                       urbanandruralresident_medical_insurance,
                       gongfei_medical_insurance,
+                      medicalaid_medical_insurance,
                       privatemedical_insurance_workunit,
                       privatemedical_insurance_individual,
                       urban_nonemployed_persons_healthinsuran,
@@ -5460,35 +5476,44 @@ write.csv(environment_data, "data_export/data_calculated/csv/data_calculated_env
 # 查看数据框的维度
 dim(my_data_calculated)
 
+# 将ic_total_score变量放在第一列
+my_data_calculated <- my_data_calculated %>%
+    select(ic_total_score, everything())
+
+# 查看数据框的维度
+dim(my_data_calculated)
+
 # 导出计算后的数据框
 write_parquet(my_data_calculated, "data_export/data_calculated/my_data_calculated.parquet")
 
 # 导出计算后的数据框为csv
 write.csv(my_data_calculated, "data_export/data_calculated/my_data_calculated.csv", row.names = FALSE)
+
+
 ```
-
-### 缺失值筛选
+## 缺失值筛选
 ```{r 缺失值筛选及处理}
-# 安装并加载所需的包
-if (!requireNamespace("visdat", quietly = TRUE)) install.packages("visdat")
-library(visdat)
-
-# 查看缺失值情况
-vis_miss(my_data_calculated, cluster = TRUE)
-
 # 去除缺失值超过80%的变量
 my_data_na_filtered <- my_data_calculated %>%
     select(which(colMeans(is.na(.)) <= 0.8))
 
 # 导出筛选后的数据
 write_parquet(my_data_na_filtered, "data_export/my_data_na_filtered.parquet")
+
+
 ```
 
 ### 算法筛选
 ```{r Boruta算法筛选}
 # 使用Boruta算法进行变量筛选（Boruta方法应该用在缺失值处理之后还是之前）
 set.seed(123)
-boruta_output <- Boruta(ic_total_score ~ ., data = my_data_na_filtered, doTrace = 2)
+
+# 去除第2-11个变量
+my_data_na_filtered_subset <- my_data_na_filtered %>%
+  select(-c(2:11))
+
+# 使用Boruta算法进行变量筛选
+boruta_output <- Boruta(ic_total_score ~ ., data = my_data_na_filtered_subset, doTrace = 2)
 
 # 获取重要变量
 important_vars <- getSelectedAttributes(boruta_output, withTentative = TRUE)
@@ -5504,11 +5529,14 @@ write_parquet(my_data_boruta_filtered, "data_export/my_data_boruta_filtered.parq
 
 ## 建模及验证
 ```{r 数据分割}
-# 安装所需的包
-if (!requireNamespace("recipes", quietly = TRUE)) install.packages("recipes")
-if (!requireNamespace("rsample", quietly = TRUE)) install.packages("rsample")
-if (!requireNamespace("ggplot2", quietly = TRUE)) install.packages("ggplot2")
-if (!requireNamespace("caret", quietly = TRUE)) install.packages("caret")
+library(recipes)  # for feature engineering
+
+# Modeling packages
+library(glmnet)   # for implementing regularized regression
+library(caret)    # for automating the tuning process
+
+# Model interpretability packages
+library(vip)      # for variable importance
 
 # 加载所需的包
 library(recipes)
