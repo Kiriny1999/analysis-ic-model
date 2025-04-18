@@ -5881,6 +5881,7 @@ print(paste("ANN模型的测试集RMSE:", ann_rmse))
 # 计算平均绝对误差（MAE）
 ann_mae <- mean(abs(ann_predictions - ic_test$ic_total_score))
 print(paste("ANN模型的测试集MAE:", ann_mae))
+
 ```
 ### XGBoost
 ```{r XGBoost}
