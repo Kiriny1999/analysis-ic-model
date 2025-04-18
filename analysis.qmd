@@ -1041,6 +1041,8 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$address_type, "label") <- "居住类型"
 
+
+
 # 计算城乡地址（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
@@ -5472,14 +5474,7 @@ write_parquet(environment_data, "data_export/data_calculated/parquet/data_calcul
 write.csv(environment_data, "data_export/data_calculated/csv/data_calculated_environment.csv", row.names = FALSE)
 ```
 ### 计算后数据导出
-```{r 数据导出}
-# 查看数据框的维度
-dim(my_data_calculated)
-
-# 将ic_total_score变量放在第一列
-my_data_calculated <- my_data_calculated %>%
-    select(ic_total_score, everything())
-
+```{r 数据导出及处理}
 # 查看数据框的维度
 dim(my_data_calculated)
 
@@ -5489,95 +5484,235 @@ write_parquet(my_data_calculated, "data_export/data_calculated/my_data_calculate
 # 导出计算后的数据框为csv
 write.csv(my_data_calculated, "data_export/data_calculated/my_data_calculated.csv", row.names = FALSE)
 
+# 生成预处理后数据
+preprocessed_data <- my_data_calculated %>%
+    # 去掉内在能力五个维度变量和ID、householdID、communityID
+    select(-final_physical_score, -cognitive_level, 
+           -final_psychological_score, -final_sensory_score, 
+           -final_vitality_score, -ID, -householdID, -communityID) %>%
+    # 将内在能力总分放在最后
+    relocate(ic_total_score, .after = last_col()) %>%
+    # 把gender挪到age前面
+    relocate(gender, .before = age)
 
+# 将所有变量转换为数值型
+preprocessed_data <- preprocessed_data %>%
+    mutate(across(everything(), as.numeric))
+
+# 将指定变量转换为因子
+preprocessed_data <- preprocessed_data %>%
+    mutate(across(c(
+        gender, address_type, address_urban_or_rural, address_province, literate, martial_status, tachycardia, bradycardia, 
+        biological_parents_alive, spouse_biological_parents_alive, parents_divorced, takecare_grandchildren, takecare_parents, 
+        serious_illness_other_insurances, reason_no_health_insurance, urban_employee_medical_insurance, urban_resident_medical_insurance, 
+        hezuoyiliao_medical_insurance, urbanandruralresident_medical_insurance, gongfei_medical_insurance, medicalaid_medical_insurance, 
+        privatemedical_insurance_workunit, privatemedical_insurance_individual, urban_nonemployed_persons_healthinsuran, others_medical_insurance, 
+        undergone_physicalexamination_past_two_years, last_month_outpatient_visit, ill_lastmonth, payfor_outpatient, self_payfor_outpatient, 
+        emergency_outpatient, inpatientcare_pastyear, payfor_inpatientcare_pastyear, self_payfor_inpatientcare, self_treatment, cost_self_treatment, 
+        self_cost_self_treatment, see_dentalcare, payfor_dentalcare, self_cost_dentalcare, physical_disability, intellectual_disability, 
+        blind_partially_blind, deaf_partially_deaf, dumb_severe_stuttering, hypertension, dyslipidemia, diabetes, chronic_lung_disease, liver_disease, 
+        heart_disease, stroke, kidney_disease, digestive_system_disease, emotional_and_mental_issues, diseases_related_to_memory, diseases_arthritis, 
+        asthma, cancer, treat_hypertension, treat_dyslipidemia, treat_diabetes, treat_chronic_lung_disease, treat_liver_disease, treat_heart_disease, 
+        treat_stroke, treat_kidney_disease, treat_digestive_system_disease, treat_emotional_and_mental_issues, treat_diseases_related_to_memory, 
+        treat_diseases_arthritis, treat_cancer, control_hypertension, control_diabetes, exam_bp, blood_glucose_test, heart_attack, cancer_brain, 
+        cancer_mouth, cancer_larynx, cancer_pharynx, cancer_thyroid, cancer_lung, cancer_breast, cancer_esophagus, cancer_stomach, cancer_liver, 
+        cancer_pancreas, cancer_kidney, cancer_prostate, cancer_testis, cancer_ovary, cancer_cervix, cancer_endometrium, cancer_colorectal, 
+        cancer_bladder, cancer_skin, cancer_non_hodgkin_lymphoma, cancer_leukemia, cancer_other, traffic_accident_major_accidental_injury, 
+        injury_limit_daily_activities, fallen_down, fractured_hip, menopause, prostate_illness, treat_prostate_illness, cataract_surgery, 
+        treat_glaucoma, noteeth, glaucoma, re_glaucoma, pain, pain_head, pain_shoulder, pain_arm, pain_wrist, pain_fingers, pain_chest, pain_stomach, 
+        pain_back, pain_waist, pain_buttocks, pain_leg, pain_knees, pain_ankle, pain_toes, pain_neck, pain_other, treat_pain, others_diseases, 
+        high_exercise, moderate_exercise, low_exercise, social_isolation, internet_use, smoke, type_smoke_pipe, type_smoke_self_rolled_cigarette, 
+        type_smoke_filtered_cigarette, type_smoke_unfiltered_cigarette, type_smoke_cigar, type_smoke_water_cigarette, status_smoke, drink, 
+        type_drink_liqor, type_drink_beer, type_drink_wine, drink_status, frequency_drink_liquor, much_drink_liquor, frequency_drink_beer, 
+        much_drink_beer, frequency_drink_wine, much_drink_wine, use_assistive_devices, formal_caregivers, elevator, handicapped_facilities, steps, 
+        toilet_seat, toilet_flushable, running_water, hot_water, gas, heating, telephone, internet, air_cleaner
+    ), as.factor))
+
+dim(preprocessed_data)
+
+# 导出预处理后数据为parquet
+write_parquet(preprocessed_data, "data_export/data_calculated/preprocessed_data.parquet")
+
+# 导出预处理后数据为csv
+write.csv(preprocessed_data, "data_export/data_calculated/preprocessed_data.csv", row.names = FALSE)
 ```
 ## 缺失值筛选
 ```{r 缺失值筛选及处理}
-# 去除缺失值超过80%的变量
-my_data_na_filtered <- my_data_calculated %>%
-    select(which(colMeans(is.na(.)) <= 0.8))
+# 去除缺失值超过20%的变量
+my_data_na_filtered <- preprocessed_data %>%
+    select_if(~sum(is.na(.)) / nrow(preprocessed_data) <= 0.2)
 
-# 导出筛选后的数据
-write_parquet(my_data_na_filtered, "data_export/my_data_na_filtered.parquet")
+# 查看缺失值筛选后的数据框的维度
+dim(my_data_na_filtered)
+
+# 加载mice包
+library(mice)
+
+# 对连续变量进行mice插补
+continuous_vars <- my_data_na_filtered %>%
+    select_if(is.numeric)
+
+imputed_continuous <- mice(continuous_vars, method = 'pmm', m = 5, maxit = 10, seed = 500)
+
+# 用插补后的数据替换原始数据
+my_data_na_filtered[ , names(continuous_vars)] <- complete(imputed_continuous)
+
+# 对分类变量进行众数插补
+categorical_vars <- my_data_na_filtered %>%
+    select_if(is.factor)
+
+mode_impute <- function(x) {
+    ux <- unique(x)
+    ux[which.max(tabulate(match(x, ux)))]
+}
+
+my_data_na_filtered[ , names(categorical_vars)] <- lapply(categorical_vars, function(x) {
+    x[is.na(x)] <- mode_impute(x)
+    return(x)
+})
+
+# 查看插补后的数据框的维度
+dim(my_data_na_filtered)
+
+
+# 导出缺失值筛选后的数据框
+write_parquet(my_data_na_filtered, "data_export/data_calculated/my_data_na_filtered.parquet")
 
 
 ```
-
-### 算法筛选
+## 算法筛选
 ```{r Boruta算法筛选}
 # 使用Boruta算法进行变量筛选（Boruta方法应该用在缺失值处理之后还是之前）
 set.seed(123)
 
-# 去除第2-11个变量
-my_data_na_filtered_subset <- my_data_na_filtered %>%
-  select(-c(2:11))
+# 检查因子变量的水平数量
+single_level_factors <- sapply(my_data_na_filtered, function(x) {
+  if (is.factor(x)) length(levels(x)) == 1 else FALSE
+})
 
-# 使用Boruta算法进行变量筛选
-boruta_output <- Boruta(ic_total_score ~ ., data = my_data_na_filtered_subset, doTrace = 2)
+# 打印只有一个水平的因子变量
+print(names(single_level_factors[single_level_factors]))
 
-# 获取重要变量
-important_vars <- getSelectedAttributes(boruta_output, withTentative = TRUE)
+# 移除只有一个水平的因子变量
+my_data_na_filtered <- my_data_na_filtered %>%
+  select(-all_of(names(single_level_factors[single_level_factors])))
+dim(my_data_na_filtered)
 
-# 创建包含重要变量的新数据框
-my_data_boruta_filtered <- my_data_na_filtered %>%
-  select(ic_total_score, any_of(important_vars))
+variable_names <- names(my_data_na_filtered)
+print(variable_names)
 
-# 导出筛选后的数据
-write_parquet(my_data_boruta_filtered, "data_export/my_data_boruta_filtered.parquet")
+# 准备数据
+x <- model.matrix(ic_total_score ~ ., my_data_na_filtered)[,-1]
+y <- my_data_na_filtered$ic_total_score
 
+# 运行Boruta算法
+boruta.out <- Boruta(x, y, doTrace = 2)
+
+# 获取确定纳入的变量
+confirmed_vars <- names(boruta.out$finalDecision[boruta.out$finalDecision == "Confirmed"])
+print("确定纳入的变量:")
+print(confirmed_vars)
+
+# 选出建模需要的数据
+model_data <- my_data_na_filtered %>%
+    select(
+        gender, age, address_urban_or_rural, martial_status, education_level, literate, height, weight, bmi, waist_circumference, hematocrit, creatinine, cystatin_c, num_children_married, total_number_grandchildren, total_number_great_grandchildren, payfor_inpatientcare_pastyear, deaf_partially_deaf, number_disability, year_deaf_partially_deaf, number_chronic_disease, treat_chronic_lung_disease, year_chronic_lung_disease, health_compared, menopause, pain, pain_head, pain_shoulder, pain_arm, pain_wrist, pain_fingers, pain_chest, pain_back, pain_waist, pain_leg, pain_knees, pain_ankle, pain_toes, pain_neck, number_pain_locations, treat_pain, function1, iadl_total, health_satisfaction, life_satisfaction, number_social_activities, number_smoke, ic_total_score
+    )
+
+# 查看提取后的数据框的维度
+dim(model_data)
+
+# 导出提取后的数据框
+write_parquet(model_data, "data_export/data_calculated/model_data.parquet")
+write.csv(model_data, "data_export/data_calculated/model_data.csv", row.names = FALSE)
 ```
 
 ## 建模及验证
-```{r 数据分割}
-library(recipes)  # for feature engineering
+```{r 建模及验证}
+# 检查并安装所需的R包
+required_packages <- c("glmnet", "caret", "vip", "recipes", "rsample", "ggplot2")
+if (!require(randomForest)) install.packages("randomForest")
 
-# Modeling packages
-library(glmnet)   # for implementing regularized regression
-library(caret)    # for automating the tuning process
+# 检查哪些包没有安装
+new_packages <- required_packages[!(required_packages %in% installed.packages()[,"Package"])]
 
-# Model interpretability packages
-library(vip)      # for variable importance
+# 如果有未安装的包，则安装它们
+if(length(new_packages)) install.packages(new_packages)
 
 # 加载所需的包
+library(glmnet)  
+library(caret)   
+library(vip)
 library(recipes)
 library(rsample)
 library(ggplot2)
 library(caret)
+library(randomForest)
 
 # 数据拆分
 set.seed(123)
-split <- initial_split(my_data_boruta_filtered, prop = 0.7) # 是否需要分层抽样？
+split <- initial_split(model_data, prop = 0.7) # 是否需要分层抽样？
 ic_train  <- training(split)
 ic_test   <- testing(split)
 
 # 特征工程
-blueprint <- recipe(ic_total ~ ., data = ic_train) %>%
+blueprint <- recipe(ic_total_score ~ ., data = model_data) %>%
   step_nzv(all_nominal()) %>%
   step_integer(matches("Qual|Cond|QC|Qu")) %>%
   step_center(all_numeric(), -all_outcomes()) %>%
   step_scale(all_numeric(), -all_outcomes()) %>%
-  step_dummy(all_nominal(), -all_outcomes(), one_hot = TRUE) %>%
+  step_dummy(all_nominal(), -all_outcomes()) %>%
   step_impute_knn(all_predictors(), neighbors = 6)
 
-# 确定再采样验证方法
+# 确定交叉验证方法
 cv <- trainControl(
   method = "repeatedcv", 
   number = 10, 
   repeats = 5
 )
 
-# 构建超参数网格
-hyper_grid <- expand.grid(
-  neighbors = c(1, 3, 5, 7, 9)
-)
+# 构建KNN模型
+hyper_grid <- expand.grid(k = seq(2, 25, by = 1))
 
-# 多元线性回归
-lm_fit <- train(
+# 调试KNN模型
+knn_fit <- train(
   blueprint, 
   data = ic_train, 
-  method = "lm", 
+  method = "knn", 
   trControl = cv, 
   tuneGrid = hyper_grid,
   metric = "RMSE"
 )
+
+# 查看KNN模型的结果
+print(knn_fit)
+
+# 查看最佳模型的性能
+best_model_performance <- knn_fit$results[knn_fit2$results$k == best_k, ]
+print("最佳模型的性能:")
+print(best_model_performance)
+
+# 构建随机森林模型
+set.seed(123)
+rf_fit <- train(
+  blueprint,
+  data = ic_train, 
+  method = "rf", 
+  trControl = cv,
+  importance = TRUE
+)
+
+# 查看模型的重要性
+varImpPlot(rf_fit$finalModel)
+
+# 查看模型的性能
+print(rf_fit)
+
+# 使用模型进行预测
+rf_predictions <- predict(rf_fit, newdata = ic_test)
+
+# 计算预测误差
+rf_rmse <- sqrt(mean((rf_predictions - ic_test$ic_total_score)^2))
+print(paste("随机森林模型的RMSE:", rf_rmse))
+
 ```
