@@ -66,8 +66,6 @@ format: "pptx"
 ### 自变量计算
 1. 按照纳入的每个指标附属条目计算出每个指标的最终分数（其中仔细考虑NA和非空0值的意义）
 2. 将计算的自变量重新命名
-
-
 ### 缺失值变量筛选
 1. 如果某个变量缺失值大于20%，则删除该变量
    
@@ -87,15 +85,9 @@ format: "pptx"
 
 ## 模型选择
 1. 多元线性回归
-2. 决策树
+2. KNN
 3. 随机森林
 4. 神经网络
-5. 支持向量机
-
-## 模型构建
-- 数据再采样（resample）
-
-## 模型验证
 - 
 # 代码
 ## 安装并加载需要的包
@@ -5489,7 +5481,7 @@ preprocessed_data <- my_data_calculated %>%
     # 去掉内在能力五个维度变量和ID、householdID、communityID
     select(-final_physical_score, -cognitive_level, 
            -final_psychological_score, -final_sensory_score, 
-           -final_vitality_score, -ID, -householdID, -communityID) %>%
+           -final_vitality_score, -ID, -householdID, -communityID) %>% # 个体的ID可以留着
     # 将内在能力总分放在最后
     relocate(ic_total_score, .after = last_col()) %>%
     # 把gender挪到age前面
@@ -5552,12 +5544,12 @@ library(mice)
 continuous_vars <- my_data_na_filtered %>%
     select_if(is.numeric)
 
-imputed_continuous <- mice(continuous_vars, method = 'pmm', m = 5, maxit = 10, seed = 500)
+imputed_continuous <- mice(continuous_vars, method = 'pmm', m = 5, maxit = 10, seed = 500) # pmm是不是也能用于分类
 
 # 用插补后的数据替换原始数据
 my_data_na_filtered[ , names(continuous_vars)] <- complete(imputed_continuous)
 
-# 对分类变量进行众数插补
+# 对分类变量进行众数插补（可以人工插补）
 categorical_vars <- my_data_na_filtered %>%
     select_if(is.factor)
 
@@ -5607,11 +5599,17 @@ y <- my_data_na_filtered$ic_total_score
 
 # 运行Boruta算法
 boruta.out <- Boruta(x, y, doTrace = 2)
+plot(boruta.out, xlab = "变量", ylab = "重要性", main = "Boruta算法变量重要性排序")
 
 # 获取确定纳入的变量
 confirmed_vars <- names(boruta.out$finalDecision[boruta.out$finalDecision == "Confirmed"])
 print("确定纳入的变量:")
 print(confirmed_vars)
+
+# 获取可能纳入的变量
+tentative_vars <- names(boruta.out$finalDecision[boruta.out$finalDecision == "Tentative"])
+print("可能纳入的变量:")
+print(tentative_vars)
 
 # 选出建模需要的数据
 model_data <- my_data_na_filtered %>%
@@ -5628,16 +5626,19 @@ write.csv(model_data, "data_export/data_calculated/model_data.csv", row.names = 
 ```
 
 ## 建模及验证
-```{r 建模及验证}
-# 检查并安装所需的R包
+### 数据预处理
+```{r 数据预处理}
+# 检查所需的包是否已安装，如果未安装则安装
+# 检查并安装所需的包
 required_packages <- c("glmnet", "caret", "vip", "recipes", "rsample", "ggplot2")
-if (!require(randomForest)) install.packages("randomForest")
 
-# 检查哪些包没有安装
-new_packages <- required_packages[!(required_packages %in% installed.packages()[,"Package"])]
-
-# 如果有未安装的包，则安装它们
-if(length(new_packages)) install.packages(new_packages)
+# 检查每个包是否已安装，如果未安装则进行安装
+for (pkg in required_packages) {
+  if (!require(pkg, character.only = TRUE)) {
+    install.packages(pkg)
+    library(pkg, character.only = TRUE)
+  }
+}
 
 # 加载所需的包
 library(glmnet)  
@@ -5647,7 +5648,6 @@ library(recipes)
 library(rsample)
 library(ggplot2)
 library(caret)
-library(randomForest)
 
 # 数据拆分
 set.seed(123)
@@ -5670,7 +5670,47 @@ cv <- trainControl(
   number = 10, 
   repeats = 5
 )
+```
 
+### 多元线性回归
+```{r 多元线性回归}
+# 构建多元线性回归模型
+lm_fit <- train(
+  blueprint, 
+  data = ic_train, 
+  method = "lm", 
+  trControl = cv
+)
+
+# 查看模型的性能
+print(lm_fit)
+
+# 查看多元线性回归模型的详细信息
+summary(lm_fit$finalModel)
+
+# 使用vip包可视化多元线性回归模型的变量重要性
+vip(lm_fit, num_features = 10, geom = "point") + 
+  ggtitle("多元线性回归模型的变量重要性")
+
+# 使用多元线性回归模型进行预测（需要考虑一下如何解释）
+lm_predictions <- predict(lm_fit, newdata = ic_test)
+
+# 计算均方误差（MSE）
+lm_mse <- mean((lm_predictions - ic_test$ic_total_score)^2)
+print(paste("多元线性回归模型的测试集MSE:", lm_mse))
+
+# 计算均方根误差（RMSE）
+lm_rmse <- sqrt(lm_mse)
+print(paste("多元线性回归模型的测试集RMSE:", lm_rmse))
+
+# 计算平均绝对误差（MAE）
+lm_mae <- mean(abs(lm_predictions - ic_test$ic_total_score))
+print(paste("多元线性回归模型的测试集MAE:", lm_mae))
+
+```
+
+### KNN
+```{r KNN}
 # 构建KNN模型
 hyper_grid <- expand.grid(k = seq(2, 25, by = 1))
 
@@ -5688,10 +5728,33 @@ knn_fit <- train(
 print(knn_fit)
 
 # 查看最佳模型的性能
-best_model_performance <- knn_fit$results[knn_fit2$results$k == best_k, ]
+best_k <- knn_fit$bestTune$k
+best_model_performance <- knn_fit$results[knn_fit$results$k == best_k, ]
 print("最佳模型的性能:")
 print(best_model_performance)
 
+# 使用vip包可视化变量重要性
+vip(knn_fit, num_features = 10, geom = "point") + 
+  ggtitle("KNN模型的变量重要性")
+
+# 使用KNN模型进行预测
+knn_predictions <- predict(knn_fit, newdata = ic_test)
+
+# 计算均方误差（MSE）
+knn_mse <- mean((knn_predictions - ic_test$ic_total_score)^2)
+print(paste("KNN模型的测试集MSE:", knn_mse))
+
+# 计算均方根误差（RMSE）
+knn_rmse <- sqrt(knn_mse)
+print(paste("KNN模型的测试集RMSE:", knn_rmse))
+
+# 计算平均绝对误差（MAE）
+knn_mae <- mean(abs(knn_predictions - ic_test$ic_total_score))
+print(paste("KNN模型的测试集MAE:", knn_mae))
+```
+
+### 随机森林
+```{r 随机森林}
 # 构建随机森林模型
 set.seed(123)
 rf_fit <- train(
@@ -5708,5 +5771,167 @@ varImpPlot(rf_fit$finalModel)
 # 查看模型的性能
 print(rf_fit)
 
+# 使用vip包可视化随机森林模型的变量重要性
+vip(rf_fit, num_features = 10, geom = "point") +
+  ggtitle("随机森林模型的变量重要性")
 
+# 使用随机森林模型进行预测
+rf_predictions <- predict(rf_fit, newdata = ic_test)
+# 计算均方误差（MSE）
+rf_mse <- mean((rf_predictions - ic_test$ic_total_score)^2)
+print(paste("随机森林模型的测试集MSE:", rf_mse))
+# 计算均方根误差（RMSE）
+rf_rmse <- sqrt(rf_mse)
+print(paste("随机森林模型的测试集RMSE:", rf_rmse))
+# 计算平均绝对误差（MAE）
+rf_mae <- mean(abs(rf_predictions - ic_test$ic_total_score))
+print(paste("随机森林模型的测试集MAE:", rf_mae))
 ```
+### 支持向量机
+```{r 支持向量机}
+### 支持向量机
+```{r 支持向量机}
+# 加载kernlab包
+if (!require(kernlab)) install.packages("kernlab")
+library(kernlab)
+
+# 构建SVM模型
+set.seed(123)
+svm_fit <- train(
+  blueprint,
+  data = ic_train,
+  method = "svmRadial",
+  trControl = cv,
+  tuneLength = 10,  # 自动生成10组超参数组合
+  preProcess = c("center", "scale")  # 数据预处理
+)
+
+# 查看模型的性能
+print(svm_fit)
+
+# 查看最佳模型的参数
+print("最佳模型参数：")
+print(svm_fit$bestTune)
+
+# 使用vip包可视化SVM模型的变量重要性
+vip(svm_fit, num_features = 10, geom = "point") +
+  ggtitle("SVM模型的变量重要性")
+
+# 使用SVM模型进行预测
+svm_predictions <- predict(svm_fit, newdata = ic_test)
+
+# 计算均方误差（MSE）
+svm_mse <- mean((svm_predictions - ic_test$ic_total_score)^2)
+print(paste("SVM模型的测试集MSE:", svm_mse))
+
+# 计算均方根误差（RMSE）
+svm_rmse <- sqrt(svm_mse)
+print(paste("SVM模型的测试集RMSE:", svm_rmse))
+
+# 计算平均绝对误差（MAE）
+svm_mae <- mean(abs(svm_predictions - ic_test$ic_total_score))
+print(paste("SVM模型的测试集MAE:", svm_mae))
+```
+### ANN
+```{r ANN}
+# 加载nnet包
+if (!require(nnet)) install.packages("nnet")
+library(nnet)
+
+# 构建ANN模型
+set.seed(123)
+ann_fit <- train(
+  blueprint,
+  data = ic_train,
+  method = "nnet",
+  trControl = cv,
+  # 设置神经网络参数
+  tuneGrid = expand.grid(
+    size = seq(2, 10, by = 2),  # 隐藏层神经元数量
+    decay = seq(0.1, 0.5, by = 0.1)  # 权重衰减参数
+  ),
+  # 其他参数设置
+  maxit = 1000,  # 最大迭代次数
+  linout = TRUE,  # 线性输出层
+  trace = FALSE  # 不显示训练过程
+)
+
+# 查看模型的性能
+print(ann_fit)
+
+# 查看最佳模型的参数
+print("最佳模型参数：")
+print(ann_fit$bestTune)
+
+# 使用vip包可视化ANN模型的变量重要性
+vip(ann_fit, num_features = 10, geom = "point") +
+  ggtitle("ANN模型的变量重要性")
+
+# 使用ANN模型进行预测
+ann_predictions <- predict(ann_fit, newdata = ic_test)
+
+# 计算均方误差（MSE）
+ann_mse <- mean((ann_predictions - ic_test$ic_total_score)^2)
+print(paste("ANN模型的测试集MSE:", ann_mse))
+
+# 计算均方根误差（RMSE）
+ann_rmse <- sqrt(ann_mse)
+print(paste("ANN模型的测试集RMSE:", ann_rmse))
+
+# 计算平均绝对误差（MAE）
+ann_mae <- mean(abs(ann_predictions - ic_test$ic_total_score))
+print(paste("ANN模型的测试集MAE:", ann_mae))
+```
+### XGBoost
+```{r XGBoost}
+# 加载xgboost包
+if (!require(xgboost)) install.packages("xgboost")
+library(xgboost)
+
+# 构建XGBoost模型
+set.seed(123)
+xgb_fit <- train(
+  blueprint,
+  data = ic_train,
+  method = "xgbTree",
+  trControl = cv,
+  tuneGrid = expand.grid(
+    nrounds = c(100, 200),
+    max_depth = c(3, 6),
+    eta = c(0.01, 0.1),
+    gamma = 0,
+    colsample_bytree = 1,
+    min_child_weight = 1,
+    subsample = 1
+  )
+)
+
+# 查看模型的性能
+print(xgb_fit)
+
+# 查看最佳模型的参数
+print("最佳模型参数：")
+print(xgb_fit$bestTune)
+
+# 使用vip包可视化XGBoost模型的变量重要性
+vip(xgb_fit, num_features = 10, geom = "point") +
+  ggtitle("XGBoost模型的变量重要性")
+
+# 使用XGBoost模型进行预测
+xgb_predictions <- predict(xgb_fit, newdata = ic_test)
+
+# 计算均方误差（MSE）
+xgb_mse <- mean((xgb_predictions - ic_test$ic_total_score)^2)
+print(paste("XGBoost模型的测试集MSE:", xgb_mse))
+
+# 计算均方根误差（RMSE）
+xgb_rmse <- sqrt(xgb_mse)
+print(paste("XGBoost模型的测试集RMSE:", xgb_rmse))
+
+# 计算平均绝对误差（MAE）
+xgb_mae <- mean(abs(xgb_predictions - ic_test$ic_total_score))
+print(paste("XGBoost模型的测试集MAE:", xgb_mae))
+```
+## 建模结果导出
+```{r 建模结果导出}
+```  
