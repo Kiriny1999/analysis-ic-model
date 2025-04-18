@@ -5708,11 +5708,5 @@ varImpPlot(rf_fit$finalModel)
 # 查看模型的性能
 print(rf_fit)
 
-# 使用模型进行预测
-rf_predictions <- predict(rf_fit, newdata = ic_test)
-
-# 计算预测误差
-rf_rmse <- sqrt(mean((rf_predictions - ic_test$ic_total_score)^2))
-print(paste("随机森林模型的RMSE:", rf_rmse))
 
 ```
