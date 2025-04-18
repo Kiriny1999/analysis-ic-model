@@ -5789,8 +5789,6 @@ print(paste("随机森林模型的测试集MAE:", rf_mae))
 ```
 ### 支持向量机
 ```{r 支持向量机}
-### 支持向量机
-```{r 支持向量机}
 # 加载kernlab包
 if (!require(kernlab)) install.packages("kernlab")
 library(kernlab)
@@ -5935,4 +5933,82 @@ print(paste("XGBoost模型的测试集MAE:", xgb_mae))
 ```
 ## 建模结果导出
 ```{r 建模结果导出}
+# 加载所需的包
+if (!require(openxlsx)) install.packages("openxlsx")
+library(openxlsx)
+
+# 创建一个新的工作簿
+wb <- createWorkbook()
+
+# 添加模型参数工作表
+addWorksheet(wb, "Model Parameters")
+
+# 创建模型参数数据框
+model_params <- data.frame(
+    Model = c("Linear Regression", "KNN", "Random Forest", "SVM", "ANN", "XGBoost"),
+    Parameters = c(
+        "N/A",
+        paste("k =", best_k),
+        paste("mtry =", rf_fit$bestTune$mtry),
+        paste("sigma =", round(svm_fit$bestTune$sigma, 4), ", C =", round(svm_fit$bestTune$C, 4)),
+        paste("size =", ann_fit$bestTune$size, ", decay =", ann_fit$bestTune$decay),
+        paste("nrounds =", xgb_fit$bestTune$nrounds, 
+              ", max_depth =", xgb_fit$bestTune$max_depth,
+              ", eta =", xgb_fit$bestTune$eta)
+    )
+)
+
+# 写入模型参数
+writeData(wb, "Model Parameters", model_params)
+
+# 添加模型性能工作表
+addWorksheet(wb, "Model Performance")
+
+# 创建模型性能数据框
+model_performance <- data.frame(
+    Model = c("Linear Regression", "KNN", "Random Forest", "SVM", "ANN", "XGBoost"),
+    Train_MSE = c(
+        min(lm_fit$results$RMSE^2),
+        min(knn_fit$results$RMSE^2),
+        min(rf_fit$results$RMSE^2),
+        min(svm_fit$results$RMSE^2),
+        min(ann_fit$results$RMSE^2),
+        min(xgb_fit$results$RMSE^2)
+    ),
+    Train_RMSE = c(
+        min(lm_fit$results$RMSE),
+        min(knn_fit$results$RMSE),
+        min(rf_fit$results$RMSE),
+        min(svm_fit$results$RMSE),
+        min(ann_fit$results$RMSE),
+        min(xgb_fit$results$RMSE)
+    ),
+    Train_MAE = c(
+        min(lm_fit$results$MAE),
+        min(knn_fit$results$MAE),
+        min(rf_fit$results$MAE),
+        min(svm_fit$results$MAE),
+        min(ann_fit$results$MAE),
+        min(xgb_fit$results$MAE)
+    ),
+    Test_MSE = c(lm_mse, knn_mse, rf_mse, svm_mse, ann_mse, xgb_mse),
+    Test_RMSE = c(lm_rmse, knn_rmse, rf_rmse, svm_rmse, ann_rmse, xgb_rmse),
+    Test_MAE = c(lm_mae, knn_mae, rf_mae, svm_mae, ann_mae, xgb_mae)
+)
+
+# 写入模型性能
+writeData(wb, "Model Performance", model_performance)
+
+# 设置列宽
+setColWidths(wb, "Model Parameters", cols = 1:2, widths = c(15, 50))
+setColWidths(wb, "Model Performance", cols = 1:7, widths = c(15, 12, 12, 12, 12, 12, 12))
+
+# ... existing code ...
+
+# 设置列宽
+setColWidths(wb, "Model Parameters", cols = 1:2, widths = c(15, 50))
+setColWidths(wb, "Model Performance", cols = 1:4, widths = c(15, 12, 12, 12))
+
+# 保存工作簿
+saveWorkbook(wb, "data_export/model_results/model_comparison.xlsx", overwrite = TRUE)
 ```  
