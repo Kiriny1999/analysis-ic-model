@@ -5865,6 +5865,18 @@ print(ann_fit$bestTune)
 vip(ann_fit, num_features = 10, geom = "point") +
   ggtitle("ANN模型的变量重要性")
 
+# 加载神经网络可视化包
+if (!require(NeuralNetTools)) install.packages("NeuralNetTools")
+library(NeuralNetTools)
+
+# 保存神经网络结构图
+plotnet(ann_fit$finalModel, 
+        circle_col = "lightblue",  # 节点颜色
+        circle_cex = 6,  # 节点大小
+        rel_rsc = c(1, 1),  # 相对大小调整
+        cex_val = 0.8)  # 文字大小
+dev.off()
+
 # 使用ANN模型进行预测
 ann_predictions <- predict(ann_fit, newdata = ic_test)
 
@@ -6003,12 +6015,68 @@ writeData(wb, "Model Performance", model_performance)
 setColWidths(wb, "Model Parameters", cols = 1:2, widths = c(15, 50))
 setColWidths(wb, "Model Performance", cols = 1:7, widths = c(15, 12, 12, 12, 12, 12, 12))
 
-# ... existing code ...
-
-# 设置列宽
-setColWidths(wb, "Model Parameters", cols = 1:2, widths = c(15, 50))
-setColWidths(wb, "Model Performance", cols = 1:4, widths = c(15, 12, 12, 12))
-
 # 保存工作簿
 saveWorkbook(wb, "data_export/model_results/model_comparison.xlsx", overwrite = TRUE)
+
+# 设置中文字体
+if (!require(showtext)) install.packages("showtext")
+library(showtext)
+showtext_auto()
+font_add("SimHei", "/System/Library/Fonts/STHeiti Light.ttc")
+
+# 创建一个函数来提取每个模型的变量重要性分数
+get_importance_scores <- function(model, model_name) {
+  imp <- vip::vi(model)
+  imp$model <- model_name
+  return(imp)
+}
+
+# 获取变量标签
+get_label_or_name <- function(var_name) {
+  label <- attr(model_data[[var_name]], "label")
+  return(ifelse(is.null(label), var_name, label))
+}
+
+# 修改变量重要性数据框中的变量名为标签
+process_importance <- function(imp_data, model_name) {
+  imp <- head(get_importance_scores(imp_data, model_name), 20)
+  imp$Variable <- sapply(imp$Variable, get_label_or_name)
+  return(imp)
+}
+
+# 获取每个模型的变量重要性
+lm_imp <- head(get_importance_scores(lm_fit, "Linear Regression"), 20)
+knn_imp <- head(get_importance_scores(knn_fit, "KNN"), 20)
+rf_imp <- head(get_importance_scores(rf_fit, "Random Forest"), 20)
+svm_imp <- head(get_importance_scores(svm_fit, "SVM"), 20)
+ann_imp <- head(get_importance_scores(ann_fit, "ANN"), 20)
+xgb_imp <- head(get_importance_scores(xgb_fit, "XGBoost"), 20)
+
+# 合并所有模型的变量重要性
+all_imp <- rbind(lm_imp, knn_imp, rf_imp, svm_imp, ann_imp, xgb_imp)
+
+# 创建组合图
+print(ggplot(all_imp, aes(x = reorder(Variable, Importance), y = Importance)) +
+  geom_point(aes(color = model), size = 3) +
+  facet_wrap(~model, scales = "free_y") +
+  coord_flip() +
+  theme_minimal() +
+  labs(
+    title = "变量重要性比较",
+    x = "变量",
+    y = "重要性得分"
+  ) +
+  theme(
+    text = element_text(family = "SimHei"),
+    axis.text.y = element_text(size = 8, family = "SimHei"),
+    axis.text.x = element_text(family = "SimHei"),
+    strip.text = element_text(size = 10, face = "bold", family = "SimHei"),
+    plot.title = element_text(family = "SimHei")
+  ))
+
+# 保存图片为SVG格式
+ggsave("data_export/model_results/variable_importance_comparison.svg", 
+       width = 12, height = 8, device = "svg")
+
+
 ```  
