@@ -1015,105 +1015,140 @@ attr(my_data_calculated$communityID, "label") <- "社区ID"
 # 计算性别（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        gender = my_data_manual_filtered$xrgender
+        gender = factor(my_data_manual_filtered$xrgender, 
+                       levels = c(1, 2),
+                       labels = c("男", "女"))
     )
 attr(my_data_calculated$gender, "label") <- "性别"
+table(my_data_calculated$gender, useNA = "always")
+
 
 # 计算居住类型（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        address_type = case_when(
-            is.na(my_data_manual_filtered$bb001_w3_1) ~ NA_real_,
-            my_data_manual_filtered$bb001_w3_1 == 1 ~ 1,  # 城市住宅
-            my_data_manual_filtered$bb001_w3_1 == 2 ~ 2,  # 农村住宅
-            my_data_manual_filtered$bb001_w3_1 == 3 ~ 3,  # 养老院/疗养院
-            my_data_manual_filtered$bb001_w3_1 == 4 ~ 4,  # 其他
-            TRUE ~ NA_real_
+        address_type = factor(
+            case_when(
+                is.na(my_data_manual_filtered$bb001_w3_1) ~ NA_real_,
+                my_data_manual_filtered$bb001_w3_1 == 1 ~ 1,  # 城市住宅
+                my_data_manual_filtered$bb001_w3_1 == 2 ~ 2,  # 农村住宅
+                my_data_manual_filtered$bb001_w3_1 == 3 ~ 3,  # 养老院/疗养院
+                my_data_manual_filtered$bb001_w3_1 == 4 ~ 4,  # 其他
+                TRUE ~ NA_real_
+            ),
+            levels = c(1, 2, 3, 4),
+            labels = c("城市住宅", "农村住宅", "养老院/疗养院", "其他")
         )
     )
 attr(my_data_calculated$address_type, "label") <- "居住类型"
+table(my_data_calculated$address_type, useNA = "always")
 
 
-
-# 计算城乡地址（没问题）
+# 计算城乡地址
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        address_urban_or_rural = case_when(
-            is.na(my_data_manual_filtered$bb001_w3_2) ~ NA_real_,
-            my_data_manual_filtered$bb001_w3_2 == 1 ~ 1,  # 主城区
-            my_data_manual_filtered$bb001_w3_2 == 2 ~ 2,  # 城乡结合部
-            my_data_manual_filtered$bb001_w3_2 == 3 ~ 3,  # 镇中心
-            my_data_manual_filtered$bb001_w3_2 == 4 ~ 4,  # 镇乡
-            my_data_manual_filtered$bb001_w3_2 == 5 ~ 5,  # 特殊区域
-            my_data_manual_filtered$bb001_w3_2 == 6 ~ 6,  # 乡中心
-            my_data_manual_filtered$bb001_w3_2 == 7 ~ 7,  # 村庄
-            TRUE ~ NA_real_
+        address_urban_or_rural = factor(
+            case_when(
+                is.na(my_data_manual_filtered$bb001_w3_2) ~ NA_real_,
+                my_data_manual_filtered$bb001_w3_2 == 1 ~ 1,  # 主城区
+                my_data_manual_filtered$bb001_w3_2 == 2 ~ 2,  # 城乡结合部
+                my_data_manual_filtered$bb001_w3_2 == 3 ~ 3,  # 镇中心
+                my_data_manual_filtered$bb001_w3_2 == 4 ~ 4,  # 镇乡
+                my_data_manual_filtered$bb001_w3_2 == 5 ~ 5,  # 特殊区域
+                my_data_manual_filtered$bb001_w3_2 == 6 ~ 6,  # 乡中心
+                my_data_manual_filtered$bb001_w3_2 == 7 ~ 7,  # 村庄
+                TRUE ~ NA_real_
+            ),
+            levels = c(1, 2, 3, 4, 5, 6, 7),
+            labels = c("主城区", "城乡结合部", "镇中心", "镇乡", "特殊区域", "乡中心", "村庄")
         )
     )
 attr(my_data_calculated$address_urban_or_rural, "label") <- "城乡地址"
+table(my_data_calculated$address_urban_or_rural, useNA = "always")
 
-# 计算省份（没问题）
+# 计算省份
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        address_province = case_when(
-            is.na(my_data_manual_filtered$bb001_w3) ~ NA_real_,
-            TRUE ~ my_data_manual_filtered$bb001_w3
+        address_province = factor(
+            case_when(
+                is.na(my_data_manual_filtered$bb001_w3) ~ NA_real_,
+                my_data_manual_filtered$bb001_w3 == 1 ~ 1,
+                my_data_manual_filtered$bb001_w3 == 2 ~ 2,
+                my_data_manual_filtered$bb001_w3 == 3 ~ 3,
+                TRUE ~ NA_real_
+            ),
+            levels = c(1, 2, 3),
+            labels = c("和户口一致", "户口外其他省份", "国外")
         )
     )
 attr(my_data_calculated$address_province, "label") <- "省份"
+table(my_data_calculated$address_province, useNA = "always")
 
 # 计算婚姻状况（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        martial_status = case_when(
-            is.na(my_data_manual_filtered$be001) ~ NA_real_,
-            my_data_manual_filtered$be001 == 1 ~ 1,  # 已婚与配偶一同居住
-            my_data_manual_filtered$be001 == 2 ~ 2,  # 已婚但配偶暂时不在一起居住
-            my_data_manual_filtered$be001 == 3 ~ 3,  # 已婚但配偶在外地工作
-            my_data_manual_filtered$be001 == 4 ~ 4,  # 离异
-            my_data_manual_filtered$be001 == 5 ~ 5,  # 丧偶
-            my_data_manual_filtered$be001 == 6 ~ 6,  # 从未结婚
-            my_data_manual_filtered$be001 == 7 ~ 7,  # 同居
-            TRUE ~ NA_real_
+        martial_status = factor(
+            case_when(
+                is.na(my_data_manual_filtered$be001) ~ NA_real_,
+                my_data_manual_filtered$be001 == 1 ~ 1,  # 已婚与配偶一同居住
+                my_data_manual_filtered$be001 == 2 ~ 2,  # 已婚但配偶暂时不在一起居住
+                my_data_manual_filtered$be001 == 3 ~ 3,  # 已婚但配偶在外地工作
+                my_data_manual_filtered$be001 == 4 ~ 4,  # 离异
+                my_data_manual_filtered$be001 == 5 ~ 5,  # 丧偶
+                my_data_manual_filtered$be001 == 6 ~ 6,  # 从未结婚
+                my_data_manual_filtered$be001 == 7 ~ 7,  # 同居
+                TRUE ~ NA_real_
+            ),
+            levels = c(1, 2, 3, 4, 5, 6, 7),
+            labels = c("已婚与配偶一同居住", "已婚但配偶暂时不在一起居住", "已婚但配偶在外地工作", 
+                      "离异", "丧偶", "从未结婚", "同居")
         )
     )
 attr(my_data_calculated$martial_status, "label") <- "婚姻状况"
+table(my_data_calculated$martial_status, useNA = "always")
 
 # 计算教育水平（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        education_level = case_when(
-            # 处理bd011为1/2/3且bd001_w2_4<7的情况
-            my_data_manual_filtered$bd011 == 1 & !is.na(my_data_manual_filtered$bd001_w2_4) & my_data_manual_filtered$bd001_w2_4 < 7 ~ 7,
-            my_data_manual_filtered$bd011 == 2 & !is.na(my_data_manual_filtered$bd001_w2_4) & my_data_manual_filtered$bd001_w2_4 < 7 ~ 8,
-            my_data_manual_filtered$bd011 == 3 & !is.na(my_data_manual_filtered$bd001_w2_4) & my_data_manual_filtered$bd001_w2_4 < 7 ~ 9,
-            
-            # 处理bd011为4或NA，且bd001_w2_4为NA的情况
-            (my_data_manual_filtered$bd011 == 4 | is.na(my_data_manual_filtered$bd011)) & is.na(my_data_manual_filtered$bd001_w2_4) ~ NA_real_,
-            
-            # 处理bd011为NA，且bd001_w2_4不为12的情况
-            is.na(my_data_manual_filtered$bd011) & !is.na(my_data_manual_filtered$bd001_w2_4) & my_data_manual_filtered$bd001_w2_4 != 12 ~ as.numeric(my_data_manual_filtered$bd001_w2_4),
-            
-            # 处理bd011为NA，且bd001_w2_4为12的情况
-            is.na(my_data_manual_filtered$bd011) & my_data_manual_filtered$bd001_w2_4 == 12 ~ case_when(
-                # 检查2013年数据
-                ID %in% demo_matched_2013$ID & !is.na(demo_matched_2013$bd001_w2_4[match(ID, demo_matched_2013$ID)]) & 
-                demo_matched_2013$bd001_w2_4[match(ID, demo_matched_2013$ID)] != 12 ~ 
-                as.numeric(demo_matched_2013$bd001_w2_4[match(ID, demo_matched_2013$ID)]),
+        education_level = factor(
+            case_when(
+                # 处理bd011为1/2/3且bd001_w2_4<7的情况
+                my_data_manual_filtered$bd011 == 1 & !is.na(my_data_manual_filtered$bd001_w2_4) & my_data_manual_filtered$bd001_w2_4 < 7 ~ 7,
+                my_data_manual_filtered$bd011 == 2 & !is.na(my_data_manual_filtered$bd001_w2_4) & my_data_manual_filtered$bd001_w2_4 < 7 ~ 8,
+                my_data_manual_filtered$bd011 == 3 & !is.na(my_data_manual_filtered$bd001_w2_4) & my_data_manual_filtered$bd001_w2_4 < 7 ~ 9,
                 
-                # 如果2013年数据不满足条件，检查2011年数据
-                ID %in% demo_matched_2011$ID & !is.na(demo_matched_2011$bd001[match(ID, demo_matched_2011$ID)]) ~ 
-                as.numeric(demo_matched_2011$bd001[match(ID, demo_matched_2011$ID)]),
+                # 处理bd011为4或NA，且bd001_w2_4为NA的情况
+                (my_data_manual_filtered$bd011 == 4 | is.na(my_data_manual_filtered$bd011)) & is.na(my_data_manual_filtered$bd001_w2_4) ~ NA_real_,
                 
-                # 如果都不满足，返回NA
+                # 处理bd011为NA，且bd001_w2_4不为12的情况
+                is.na(my_data_manual_filtered$bd011) & !is.na(my_data_manual_filtered$bd001_w2_4) & my_data_manual_filtered$bd001_w2_4 != 12 ~ as.numeric(my_data_manual_filtered$bd001_w2_4),
+                
+                # 处理bd011为NA，且bd001_w2_4为12的情况
+                is.na(my_data_manual_filtered$bd011) & my_data_manual_filtered$bd001_w2_4 == 12 ~ case_when(
+                    # 检查2013年数据
+                    ID %in% demo_matched_2013$ID & !is.na(demo_matched_2013$bd001_w2_4[match(ID, demo_matched_2013$ID)]) & 
+                    demo_matched_2013$bd001_w2_4[match(ID, demo_matched_2013$ID)] != 12 ~ 
+                    as.numeric(demo_matched_2013$bd001_w2_4[match(ID, demo_matched_2013$ID)]),
+                    
+                    # 如果2013年数据不满足条件，检查2011年数据
+                    ID %in% demo_matched_2011$ID & !is.na(demo_matched_2011$bd001[match(ID, demo_matched_2011$ID)]) ~ 
+                    as.numeric(demo_matched_2011$bd001[match(ID, demo_matched_2011$ID)]),
+                    
+                    # 如果都不满足，返回NA
+                    TRUE ~ NA_real_
+                ),
+                
+                # 其他情况返回NA
                 TRUE ~ NA_real_
             ),
-            
-            # 其他情况返回NA
-            TRUE ~ NA_real_
+            ordered = TRUE, # 添加ordered参数使其成为有序因子
+            levels = 1:11,
+            labels = c("文盲", "未读完小学", "私塾毕业", "小学毕业", "初中毕业", 
+                      "高中毕业", "中专毕业", "大专毕业", "本科毕业", 
+                      "硕士毕业", "博士毕业")
         )
     )
 attr(my_data_calculated$education_level, "label") <- "教育水平"
+table(my_data_calculated$education_level, useNA = "always")
 
 # 计算是否识字（没问题）
 my_data_calculated <- my_data_calculated %>%
@@ -1737,24 +1772,6 @@ my_data_calculated <- my_data_calculated %>%
 attr(my_data_calculated$serious_illness_other_insurances, "label") <- "是否有其他重大疾病保险"
 table(my_data_calculated$serious_illness_other_insurances)
 
-## 计算无医疗保险原因（没问题）
-my_data_calculated <- my_data_calculated %>%
-    mutate(
-        reason_no_health_insurance = case_when(
-            is.na(my_data_manual_filtered$ea009) ~ NA_real_,
-            my_data_manual_filtered$ea009 == 1 ~ 1,
-            my_data_manual_filtered$ea009 == 2 ~ 2,
-            my_data_manual_filtered$ea009 == 3 ~ 3,
-            my_data_manual_filtered$ea009 == 4 ~ 4,
-            my_data_manual_filtered$ea009 == 5 ~ 5,
-            my_data_manual_filtered$ea009 == 6 ~ 6,
-            my_data_manual_filtered$ea009 == 7 ~ 7,
-            TRUE ~ NA_real_
-        )
-    )
-attr(my_data_calculated$reason_no_health_insurance, "label") <- "无医疗保险原因"
-table(my_data_calculated$reason_no_health_insurance, useNA = "ifany")
-
 # 计算各类医疗保险（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
@@ -1956,6 +1973,29 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$number_medical_insurance, "label") <- "医疗保险数量"
 table(my_data_calculated$number_medical_insurance, useNA = "ifany")
+
+## 计算无医疗保险原因
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        reason_no_health_insurance = factor(
+            case_when(
+                is.na(my_data_manual_filtered$ea009) ~ NA_real_,
+                my_data_manual_filtered$ea009 == 1 ~ 1,
+                my_data_manual_filtered$ea009 == 2 ~ 2,
+                my_data_manual_filtered$ea009 == 3 ~ 3,
+                my_data_manual_filtered$ea009 == 4 ~ 4,
+                my_data_manual_filtered$ea009 == 5 ~ 5,
+                my_data_manual_filtered$ea009 == 6 ~ 6,
+                my_data_manual_filtered$ea009 == 7 ~ 7,
+                TRUE ~ NA_real_
+            ),
+            levels = 1:7,
+            labels = c("不需要", "负担不起", "不知道获得途径", "不相信机构", 
+                      "没有合适的", "未思考过购买", "其他原因")
+        )
+    )
+attr(my_data_calculated$reason_no_health_insurance, "label") <- "无医疗保险原因"
+table(my_data_calculated$reason_no_health_insurance, useNA = "ifany")
 
 ## 计算过去两年是否体检（没问题）
 my_data_calculated <- my_data_calculated %>%
@@ -2428,14 +2468,22 @@ table(my_data_calculated$amount_self_cost_dentalcare, useNA = "ifany")
 ## 计算就医满意度（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        satisfaction_healthcare = case_when(
-            is.na(my_data_manual_filtered$eh007_w3) ~ NA_real_,
-            my_data_manual_filtered$eh007_w3 == 1 ~ 1,
-            my_data_manual_filtered$eh007_w3 == 2 ~ 2,
-            TRUE ~ NA_real_
+        satisfaction_healthcare = factor(
+            case_when(
+                my_data_manual_filtered$eh007_w3 == 1 ~ 1,  # 非常满意
+                my_data_manual_filtered$eh007_w3 == 2 ~ 2,  # 满意
+                my_data_manual_filtered$eh007_w3 == 3 ~ 3,  # 一般
+                my_data_manual_filtered$eh007_w3 == 4 ~ 4,  # 不满意
+                my_data_manual_filtered$eh007_w3 == 5 ~ 5,  # 非常不满意
+                TRUE ~ NA_real_
+            ),
+            levels = c(1, 2, 3, 4, 5),
+            ordered = TRUE,  # 设置为有序因子，1>2>3>4>5
+            labels = c("非常满意", "满意", "一般", "不满意", "非常不满意")
         )
     )
 attr(my_data_calculated$satisfaction_healthcare, "label") <- "就医满意度"
+table(my_data_calculated$satisfaction_healthcare, useNA = "ifany")
 
 # 导出医疗保险相关数据
 medical_insurance_data <- my_data_calculated %>%
@@ -2844,16 +2892,20 @@ table(my_data_calculated$number_chronic_disease, useNA = "ifany")
 # 计算高血压治疗情况（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        treat_hypertension = case_when(
-            hypertension == 0 ~ 0,  # 如果没有高血压，则为0
-            TRUE ~ case_when(
-                is.na(my_data_manual_filtered$da011s1) &
-                is.na(my_data_manual_filtered$da011s2) &
-                is.na(my_data_manual_filtered$da011s3) ~ 2,  # 如果所有变量都是NA，则为2
-                !is.na(my_data_manual_filtered$da011s1) |
-                !is.na(my_data_manual_filtered$da011s2) |
-                !is.na(my_data_manual_filtered$da011s3) ~ 1,  # 如果任一变量非NA，则为1
-            )
+        treat_hypertension = factor(
+            case_when(
+                hypertension == 0 ~ 0,  # 如果没有高血压，则为0
+                TRUE ~ case_when(
+                    is.na(my_data_manual_filtered$da011s1) &
+                    is.na(my_data_manual_filtered$da011s2) &
+                    is.na(my_data_manual_filtered$da011s3) ~ 2,  # 如果所有变量都是NA，则为2（有高血压不治疗）
+                    !is.na(my_data_manual_filtered$da011s1) |
+                    !is.na(my_data_manual_filtered$da011s2) |
+                    !is.na(my_data_manual_filtered$da011s3) ~ 1,  # 如果任一变量非NA，则为1（有高血压治疗）
+                )
+            ),
+            levels = c(0, 1, 2),
+            labels = c("无高血压", "有高血压治疗", "有高血压不治疗")
         )
     )
 attr(my_data_calculated$treat_hypertension, "label") <- "高血压治疗"
@@ -2862,19 +2914,23 @@ table(my_data_calculated$treat_hypertension, useNA = "ifany")
 # 计算血脂异常治疗情况（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        treat_dyslipidemia = case_when(
-            dyslipidemia == 0 ~ 0,  # 如果没有血脂异常，则为0
-            TRUE ~ case_when(  # 如果有血脂异常，根据da010_2_s1-4判断
-                is.na(my_data_manual_filtered$da010_2_s1) &
-                is.na(my_data_manual_filtered$da010_2_s2) &
-                is.na(my_data_manual_filtered$da010_2_s3) &
-                is.na(my_data_manual_filtered$da010_2_s4) ~ 2,  # 如果所有变量都是NA，则为2
-                !is.na(my_data_manual_filtered$da010_2_s1) |
-                !is.na(my_data_manual_filtered$da010_2_s2) |
-                !is.na(my_data_manual_filtered$da010_2_s3) |
-                !is.na(my_data_manual_filtered$da010_2_s4) ~ 1,  # 如果任一变量非NA，则为1
-                TRUE ~ NA_real_  # 其他情况记为NA
-            )
+        treat_dyslipidemia = factor(
+            case_when(
+                dyslipidemia == 0 ~ 0,  # 如果没有血脂异常，则为0
+                TRUE ~ case_when(  # 如果有血脂异常，根据da010_2_s1-4判断
+                    is.na(my_data_manual_filtered$da010_2_s1) &
+                    is.na(my_data_manual_filtered$da010_2_s2) &
+                    is.na(my_data_manual_filtered$da010_2_s3) &
+                    is.na(my_data_manual_filtered$da010_2_s4) ~ 2,  # 如果所有变量都是NA，则为2
+                    !is.na(my_data_manual_filtered$da010_2_s1) |
+                    !is.na(my_data_manual_filtered$da010_2_s2) |
+                    !is.na(my_data_manual_filtered$da010_2_s3) |
+                    !is.na(my_data_manual_filtered$da010_2_s4) ~ 1,  # 如果任一变量非NA，则为1
+                    TRUE ~ NA_real_  # 其他情况记为NA
+                )
+            ),
+            levels = c(0, 1, 2),
+            labels = c("无血脂异常", "有血脂异常且治疗", "有血脂异常不治疗")
         )
     )
 attr(my_data_calculated$treat_dyslipidemia, "label") <- "血脂异常治疗"
@@ -2883,19 +2939,23 @@ table(my_data_calculated$treat_dyslipidemia, useNA = "ifany")
 # 计算糖尿病治疗情况（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        treat_diabetes = case_when(
-            diabetes == 0 ~ 0,  # 如果没有糖尿病，则为0
-            TRUE ~ case_when(  # 如果有糖尿病，根据da014s1-4判断
-                is.na(my_data_manual_filtered$da014s1) &
-                is.na(my_data_manual_filtered$da014s2) &
-                is.na(my_data_manual_filtered$da014s3) &
-                is.na(my_data_manual_filtered$da014s4) ~ 2,  # 如果所有变量都是NA，则为2
-                !is.na(my_data_manual_filtered$da014s1) |
-                !is.na(my_data_manual_filtered$da014s2) |
-                !is.na(my_data_manual_filtered$da014s3) |
-                !is.na(my_data_manual_filtered$da014s4) ~ 1,  # 如果任一变量非NA，则为1
-                TRUE ~ NA_real_  # 其他情况记为NA
-            )
+        treat_diabetes = factor(
+            case_when(
+                diabetes == 0 ~ 0,  # 如果没有糖尿病，则为0
+                TRUE ~ case_when(  # 如果有糖尿病，根据da014s1-4判断
+                    is.na(my_data_manual_filtered$da014s1) &
+                    is.na(my_data_manual_filtered$da014s2) &
+                    is.na(my_data_manual_filtered$da014s3) &
+                    is.na(my_data_manual_filtered$da014s4) ~ 2,  # 如果所有变量都是NA，则为2
+                    !is.na(my_data_manual_filtered$da014s1) |
+                    !is.na(my_data_manual_filtered$da014s2) |
+                    !is.na(my_data_manual_filtered$da014s3) |
+                    !is.na(my_data_manual_filtered$da014s4) ~ 1,  # 如果任一变量非NA，则为1
+                    TRUE ~ NA_real_  # 其他情况记为NA
+                )
+            ),
+            levels = c(0, 1, 2),
+            labels = c("无糖尿病", "有糖尿病且治疗", "有糖尿病不治疗")
         )
     )
 attr(my_data_calculated$treat_diabetes, "label") <- "糖尿病治疗"
@@ -2904,19 +2964,23 @@ table(my_data_calculated$treat_diabetes, useNA = "ifany")
 # 计算慢性肺病治疗情况（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        treat_chronic_lung_disease = case_when(
-            chronic_lung_disease == 0 ~ 0,  # 如果没有慢性肺病，则为0
-            TRUE ~ case_when(  # 如果有慢性肺病，根据da010_5_s1-4判断
-                is.na(my_data_manual_filtered$da010_5_s1) &
-                is.na(my_data_manual_filtered$da010_5_s2) &
-                is.na(my_data_manual_filtered$da010_5_s3) &
-                is.na(my_data_manual_filtered$da010_5_s4) ~ 2,  # 如果所有变量都是NA，则为2
-                !is.na(my_data_manual_filtered$da010_5_s1) |
-                !is.na(my_data_manual_filtered$da010_5_s2) |
-                !is.na(my_data_manual_filtered$da010_5_s3) |
-                !is.na(my_data_manual_filtered$da010_5_s4) ~ 1,  # 如果任一变量非NA，则为1
-                TRUE ~ NA_real_  # 其他情况记为NA
-            )
+        treat_chronic_lung_disease = factor(
+            case_when(
+                chronic_lung_disease == 0 ~ 0,  # 如果没有慢性肺病，则为0
+                TRUE ~ case_when(  # 如果有慢性肺病，根据da010_5_s1-4判断
+                    is.na(my_data_manual_filtered$da010_5_s1) &
+                    is.na(my_data_manual_filtered$da010_5_s2) &
+                    is.na(my_data_manual_filtered$da010_5_s3) &
+                    is.na(my_data_manual_filtered$da010_5_s4) ~ 2,  # 如果所有变量都是NA，则为2
+                    !is.na(my_data_manual_filtered$da010_5_s1) |
+                    !is.na(my_data_manual_filtered$da010_5_s2) |
+                    !is.na(my_data_manual_filtered$da010_5_s3) |
+                    !is.na(my_data_manual_filtered$da010_5_s4) ~ 1,  # 如果任一变量非NA，则为1
+                    TRUE ~ NA_real_  # 其他情况记为NA
+                )
+            ),
+            levels = c(0, 1, 2),
+            labels = c("无慢性肺病", "有慢性肺病且治疗", "有慢性肺病不治疗")
         )
     )
 attr(my_data_calculated$treat_chronic_lung_disease, "label") <- "慢性肺病治疗"
@@ -2925,19 +2989,23 @@ table(my_data_calculated$treat_chronic_lung_disease, useNA = "ifany")
 # 计算肝病治疗情况（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        treat_liver_disease = case_when(
-            liver_disease == 0 ~ 0,  # 如果没有肝病，则为0
-            TRUE ~ case_when(  # 如果有肝病，根据da010_6_s1-4判断
-                is.na(my_data_manual_filtered$da010_6_s1) &
-                is.na(my_data_manual_filtered$da010_6_s2) &
-                is.na(my_data_manual_filtered$da010_6_s3) &
-                is.na(my_data_manual_filtered$da010_6_s4) ~ 2,  # 如果所有变量都是NA，则为2
-                !is.na(my_data_manual_filtered$da010_6_s1) |
-                !is.na(my_data_manual_filtered$da010_6_s2) |
-                !is.na(my_data_manual_filtered$da010_6_s3) |
-                !is.na(my_data_manual_filtered$da010_6_s4) ~ 1,  # 如果任一变量非NA，则为1
-                TRUE ~ NA_real_  # 其他情况记为NA
-            )
+        treat_liver_disease = factor(
+            case_when(
+                liver_disease == 0 ~ 0,  # 如果没有肝病，则为0
+                TRUE ~ case_when(  # 如果有肝病，根据da010_6_s1-4判断
+                    is.na(my_data_manual_filtered$da010_6_s1) &
+                    is.na(my_data_manual_filtered$da010_6_s2) &
+                    is.na(my_data_manual_filtered$da010_6_s3) &
+                    is.na(my_data_manual_filtered$da010_6_s4) ~ 2,  # 如果所有变量都是NA，则为2
+                    !is.na(my_data_manual_filtered$da010_6_s1) |
+                    !is.na(my_data_manual_filtered$da010_6_s2) |
+                    !is.na(my_data_manual_filtered$da010_6_s3) |
+                    !is.na(my_data_manual_filtered$da010_6_s4) ~ 1,  # 如果任一变量非NA，则为1
+                    TRUE ~ NA_real_  # 其他情况记为NA
+                )
+            ),
+            levels = c(0, 1, 2),
+            labels = c("无肝病", "有肝病且治疗", "有肝病不治疗")
         )
     )
 attr(my_data_calculated$treat_liver_disease, "label") <- "肝病治疗"
@@ -2946,19 +3014,23 @@ table(my_data_calculated$treat_liver_disease, useNA = "ifany")
 # 计算心脏病治疗情况（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        treat_heart_disease = case_when(
-            heart_disease == 0 ~ 0,  # 如果没有心脏病，则为0
-            TRUE ~ case_when(  # 如果有心脏病，根据da010_7_s1-4判断
-                is.na(my_data_manual_filtered$da010_7_s1) &
-                is.na(my_data_manual_filtered$da010_7_s2) &
-                is.na(my_data_manual_filtered$da010_7_s3) &
-                is.na(my_data_manual_filtered$da010_7_s4) ~ 2,  # 如果所有变量都是NA，则为2
-                !is.na(my_data_manual_filtered$da010_7_s1) |
-                !is.na(my_data_manual_filtered$da010_7_s2) |
-                !is.na(my_data_manual_filtered$da010_7_s3) |
-                !is.na(my_data_manual_filtered$da010_7_s4) ~ 1,  # 如果任一变量非NA，则为1
-                TRUE ~ NA_real_  # 其他情况记为NA
-            )
+        treat_heart_disease = factor(
+            case_when(
+                heart_disease == 0 ~ 0,  # 如果没有心脏病，则为0
+                TRUE ~ case_when(  # 如果有心脏病，根据da010_7_s1-4判断
+                    is.na(my_data_manual_filtered$da010_7_s1) &
+                    is.na(my_data_manual_filtered$da010_7_s2) &
+                    is.na(my_data_manual_filtered$da010_7_s3) &
+                    is.na(my_data_manual_filtered$da010_7_s4) ~ 2,  # 如果所有变量都是NA，则为2
+                    !is.na(my_data_manual_filtered$da010_7_s1) |
+                    !is.na(my_data_manual_filtered$da010_7_s2) |
+                    !is.na(my_data_manual_filtered$da010_7_s3) |
+                    !is.na(my_data_manual_filtered$da010_7_s4) ~ 1,  # 如果任一变量非NA，则为1
+                    TRUE ~ NA_real_  # 其他情况记为NA
+                )
+            ),
+            levels = c(0, 1, 2),
+            labels = c("无心脏病", "有心脏病且治疗", "有心脏病不治疗")
         )
     )
 attr(my_data_calculated$treat_heart_disease, "label") <- "心脏病治疗"
@@ -2967,23 +3039,27 @@ table(my_data_calculated$treat_heart_disease, useNA = "ifany")
 # 计算中风治疗情况（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        treat_stroke = case_when(
-            stroke == 0 ~ 0,  # 如果没有中风，则为0
-            TRUE ~ case_when(  # 如果有中风，根据da019s1-6判断
-                is.na(my_data_manual_filtered$da019s1) &
-                is.na(my_data_manual_filtered$da019s2) &
-                is.na(my_data_manual_filtered$da019s3) &
-                is.na(my_data_manual_filtered$da019s4) &
-                is.na(my_data_manual_filtered$da019s5) &
-                is.na(my_data_manual_filtered$da019s6) ~ 2,  # 如果所有变量都是NA，则为2
-                !is.na(my_data_manual_filtered$da019s1) |
-                !is.na(my_data_manual_filtered$da019s2) |
-                !is.na(my_data_manual_filtered$da019s3) |
-                !is.na(my_data_manual_filtered$da019s4) |
-                !is.na(my_data_manual_filtered$da019s5) |
-                !is.na(my_data_manual_filtered$da019s6) ~ 1,  # 如果任一变量非NA，则为1
-                TRUE ~ NA_real_  # 其他情况记为NA
-            )
+        treat_stroke = factor(
+            case_when(
+                stroke == 0 ~ 0,  # 如果没有中风，则为0
+                TRUE ~ case_when(  # 如果有中风，根据da019s1-6判断
+                    is.na(my_data_manual_filtered$da019s1) &
+                    is.na(my_data_manual_filtered$da019s2) &
+                    is.na(my_data_manual_filtered$da019s3) &
+                    is.na(my_data_manual_filtered$da019s4) &
+                    is.na(my_data_manual_filtered$da019s5) &
+                    is.na(my_data_manual_filtered$da019s6) ~ 2,  # 如果所有变量都是NA，则为2
+                    !is.na(my_data_manual_filtered$da019s1) |
+                    !is.na(my_data_manual_filtered$da019s2) |
+                    !is.na(my_data_manual_filtered$da019s3) |
+                    !is.na(my_data_manual_filtered$da019s4) |
+                    !is.na(my_data_manual_filtered$da019s5) |
+                    !is.na(my_data_manual_filtered$da019s6) ~ 1,  # 如果任一变量非NA，则为1
+                    TRUE ~ NA_real_  # 其他情况记为NA
+                )
+            ),
+            levels = c(0, 1, 2),
+            labels = c("无中风", "有中风且治疗", "有中风不治疗")
         )
     )
 attr(my_data_calculated$treat_stroke, "label") <- "中风治疗"
@@ -2992,19 +3068,23 @@ table(my_data_calculated$treat_stroke, useNA = "ifany")
 # 计算肾病治疗情况（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        treat_kidney_disease = case_when(
-            kidney_disease == 0 ~ 0,  # 如果没有肾病，则为0
-            TRUE ~ case_when(  # 如果有肾病，根据da010_9_s1-4判断
-                is.na(my_data_manual_filtered$da010_9_s1) &
-                is.na(my_data_manual_filtered$da010_9_s2) &
-                is.na(my_data_manual_filtered$da010_9_s3) &
-                is.na(my_data_manual_filtered$da010_9_s4) ~ 2,  # 如果所有变量都是NA，则为2
-                !is.na(my_data_manual_filtered$da010_9_s1) |
-                !is.na(my_data_manual_filtered$da010_9_s2) |
-                !is.na(my_data_manual_filtered$da010_9_s3) |
-                !is.na(my_data_manual_filtered$da010_9_s4) ~ 1,  # 如果任一变量非NA，则为1
-                TRUE ~ NA_real_  # 其他情况记为NA
-            )
+        treat_kidney_disease = factor(
+            case_when(
+                kidney_disease == 0 ~ 0,  # 如果没有肾病，则为0
+                TRUE ~ case_when(  # 如果有肾病，根据da010_9_s1-4判断
+                    is.na(my_data_manual_filtered$da010_9_s1) &
+                    is.na(my_data_manual_filtered$da010_9_s2) &
+                    is.na(my_data_manual_filtered$da010_9_s3) &
+                    is.na(my_data_manual_filtered$da010_9_s4) ~ 2,  # 如果所有变量都是NA，则为2
+                    !is.na(my_data_manual_filtered$da010_9_s1) |
+                    !is.na(my_data_manual_filtered$da010_9_s2) |
+                    !is.na(my_data_manual_filtered$da010_9_s3) |
+                    !is.na(my_data_manual_filtered$da010_9_s4) ~ 1,  # 如果任一变量非NA，则为1
+                    TRUE ~ NA_real_  # 其他情况记为NA
+                )
+            ),
+            levels = c(0, 1, 2),
+            labels = c("无肾病", "有肾病且治疗", "有肾病不治疗")
         )
     )
 attr(my_data_calculated$treat_kidney_disease, "label") <- "肾病治疗"
@@ -3013,19 +3093,23 @@ table(my_data_calculated$treat_kidney_disease, useNA = "ifany")
 # 计算消化系统疾病治疗情况（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        treat_digestive_system_disease = case_when(
-            digestive_system_disease == 0 ~ 0,  # 如果没有消化系统疾病，则为0
-            TRUE ~ case_when(  # 如果有消化系统疾病，根据da010_10_s1-4判断
-                is.na(my_data_manual_filtered$da010_10_s1) &
-                is.na(my_data_manual_filtered$da010_10_s2) &
-                is.na(my_data_manual_filtered$da010_10_s3) &
-                is.na(my_data_manual_filtered$da010_10_s4) ~ 2,  # 如果所有变量都是NA，则为2
-                !is.na(my_data_manual_filtered$da010_10_s1) |
-                !is.na(my_data_manual_filtered$da010_10_s2) |
-                !is.na(my_data_manual_filtered$da010_10_s3) |
-                !is.na(my_data_manual_filtered$da010_10_s4) ~ 1,  # 如果任一变量非NA，则为1
-                TRUE ~ NA_real_  # 其他情况记为NA
-            )
+        treat_digestive_system_disease = factor(
+            case_when(
+                digestive_system_disease == 0 ~ 0,  # 如果没有消化系统疾病，则为0
+                TRUE ~ case_when(  # 如果有消化系统疾病，根据da010_10_s1-4判断
+                    is.na(my_data_manual_filtered$da010_10_s1) &
+                    is.na(my_data_manual_filtered$da010_10_s2) &
+                    is.na(my_data_manual_filtered$da010_10_s3) &
+                    is.na(my_data_manual_filtered$da010_10_s4) ~ 2,  # 如果所有变量都是NA，则为2
+                    !is.na(my_data_manual_filtered$da010_10_s1) |
+                    !is.na(my_data_manual_filtered$da010_10_s2) |
+                    !is.na(my_data_manual_filtered$da010_10_s3) |
+                    !is.na(my_data_manual_filtered$da010_10_s4) ~ 1,  # 如果任一变量非NA，则为1
+                    TRUE ~ NA_real_  # 其他情况记为NA
+                )
+            ),
+            levels = c(0, 1, 2),
+            labels = c("无消化系统疾病", "有消化系统疾病且治疗", "有消化系统疾病不治疗")
         )
     )
 attr(my_data_calculated$treat_digestive_system_disease, "label") <- "消化系统疾病治疗"
@@ -3034,19 +3118,23 @@ table(my_data_calculated$treat_digestive_system_disease, useNA = "ifany")
 # 计算情绪精神问题治疗情况（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        treat_emotional_and_mental_issues = case_when(
-            emotional_and_mental_issues == 0 ~ 0,  # 如果没有情绪精神问题，则为0
-            TRUE ~ case_when(  # 如果有情绪精神问题，根据da020s1-4判断
-                is.na(my_data_manual_filtered$da020s1) &
-                is.na(my_data_manual_filtered$da020s2) &
-                is.na(my_data_manual_filtered$da020s3) &
-                is.na(my_data_manual_filtered$da020s4) ~ 2,  # 如果所有变量都是NA，则为2
-                !is.na(my_data_manual_filtered$da020s1) |
-                !is.na(my_data_manual_filtered$da020s2) |
-                !is.na(my_data_manual_filtered$da020s3) |
-                !is.na(my_data_manual_filtered$da020s4) ~ 1,  # 如果任一变量非NA，则为1
-                TRUE ~ NA_real_  # 其他情况记为NA
-            )
+        treat_emotional_and_mental_issues = factor(
+            case_when(
+                emotional_and_mental_issues == 0 ~ 0,  # 如果没有情绪精神问题，则为0
+                TRUE ~ case_when(  # 如果有情绪精神问题，根据da020s1-4判断
+                    is.na(my_data_manual_filtered$da020s1) &
+                    is.na(my_data_manual_filtered$da020s2) &
+                    is.na(my_data_manual_filtered$da020s3) &
+                    is.na(my_data_manual_filtered$da020s4) ~ 2,  # 如果所有变量都是NA，则为2
+                    !is.na(my_data_manual_filtered$da020s1) |
+                    !is.na(my_data_manual_filtered$da020s2) |
+                    !is.na(my_data_manual_filtered$da020s3) |
+                    !is.na(my_data_manual_filtered$da020s4) ~ 1,  # 如果任一变量非NA，则为1
+                    TRUE ~ NA_real_  # 其他情况记为NA
+                )
+            ),
+            levels = c(0, 1, 2),
+            labels = c("无情绪精神问题", "有情绪精神问题且治疗", "有情绪精神问题不治疗")
         )
     )
 attr(my_data_calculated$treat_emotional_and_mental_issues, "label") <- "情绪精神问题治疗"
@@ -3055,19 +3143,23 @@ table(my_data_calculated$treat_emotional_and_mental_issues, useNA = "ifany")
 # 计算记忆相关疾病治疗情况（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        treat_diseases_related_to_memory = case_when(
-            diseases_related_to_memory == 0 ~ 0,  # 如果没有记忆相关疾病，则为0
-            TRUE ~ case_when(  # 如果有记忆相关疾病，根据da010_12_s1-4判断
-                is.na(my_data_manual_filtered$da010_12_s1) &
-                is.na(my_data_manual_filtered$da010_12_s2) &
-                is.na(my_data_manual_filtered$da010_12_s3) &
-                is.na(my_data_manual_filtered$da010_12_s4) ~ 2,  # 如果所有变量都是NA，则为2
-                !is.na(my_data_manual_filtered$da010_12_s1) |
-                !is.na(my_data_manual_filtered$da010_12_s2) |
-                !is.na(my_data_manual_filtered$da010_12_s3) |
-                !is.na(my_data_manual_filtered$da010_12_s4) ~ 1,  # 如果任一变量非NA，则为1
-                TRUE ~ NA_real_  # 其他情况记为NA
-            )
+        treat_diseases_related_to_memory = factor(
+            case_when(
+                diseases_related_to_memory == 0 ~ 0,  # 如果没有记忆相关疾病，则为0
+                TRUE ~ case_when(  # 如果有记忆相关疾病，根据da010_12_s1-4判断
+                    is.na(my_data_manual_filtered$da010_12_s1) &
+                    is.na(my_data_manual_filtered$da010_12_s2) &
+                    is.na(my_data_manual_filtered$da010_12_s3) &
+                    is.na(my_data_manual_filtered$da010_12_s4) ~ 2,  # 如果所有变量都是NA，则为2
+                    !is.na(my_data_manual_filtered$da010_12_s1) |
+                    !is.na(my_data_manual_filtered$da010_12_s2) |
+                    !is.na(my_data_manual_filtered$da010_12_s3) |
+                    !is.na(my_data_manual_filtered$da010_12_s4) ~ 1,  # 如果任一变量非NA，则为1
+                    TRUE ~ NA_real_  # 其他情况记为NA
+                )
+            ),
+            levels = c(0, 1, 2),
+            labels = c("无记忆相关疾病", "有记忆相关疾病且治疗", "有记忆相关疾病不治疗")
         )
     )
 attr(my_data_calculated$treat_diseases_related_to_memory, "label") <- "记忆相关疾病治疗"
@@ -3076,19 +3168,23 @@ table(my_data_calculated$treat_diseases_related_to_memory, useNA = "ifany")
 # 计算关节炎治疗情况（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        treat_diseases_arthritis = case_when(
-            diseases_arthritis == 0 ~ 0,  # 如果没有关节炎，则为0
-            TRUE ~ case_when(  # 如果有关节炎，根据da010_13_s1-4判断
-                is.na(my_data_manual_filtered$da010_13_s1) &
-                is.na(my_data_manual_filtered$da010_13_s2) &
-                is.na(my_data_manual_filtered$da010_13_s3) &
-                is.na(my_data_manual_filtered$da010_13_s4) ~ 2,  # 如果所有变量都是NA，则为2
-                !is.na(my_data_manual_filtered$da010_13_s1) |
-                !is.na(my_data_manual_filtered$da010_13_s2) |
-                !is.na(my_data_manual_filtered$da010_13_s3) |
-                !is.na(my_data_manual_filtered$da010_13_s4) ~ 1,  # 如果任一变量非NA，则为1
-                TRUE ~ NA_real_  # 其他情况记为NA
-            )
+        treat_diseases_arthritis = factor(
+            case_when(
+                diseases_arthritis == 0 ~ 0,  # 如果没有关节炎，则为0
+                TRUE ~ case_when(  # 如果有关节炎，根据da010_13_s1-4判断
+                    is.na(my_data_manual_filtered$da010_13_s1) &
+                    is.na(my_data_manual_filtered$da010_13_s2) &
+                    is.na(my_data_manual_filtered$da010_13_s3) &
+                    is.na(my_data_manual_filtered$da010_13_s4) ~ 2,  # 如果所有变量都是NA，则为2
+                    !is.na(my_data_manual_filtered$da010_13_s1) |
+                    !is.na(my_data_manual_filtered$da010_13_s2) |
+                    !is.na(my_data_manual_filtered$da010_13_s3) |
+                    !is.na(my_data_manual_filtered$da010_13_s4) ~ 1,  # 如果任一变量非NA，则为1
+                    TRUE ~ NA_real_  # 其他情况记为NA
+                )
+            ),
+            levels = c(0, 1, 2),
+            labels = c("无关节炎", "有关节炎且治疗", "有关节炎不治疗")
         )
     )
 attr(my_data_calculated$treat_diseases_arthritis, "label") <- "关节炎治疗"
@@ -3097,23 +3193,27 @@ table(my_data_calculated$treat_diseases_arthritis, useNA = "ifany")
 # 计算癌症治疗情况（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        treat_cancer = case_when(
-            cancer == 0 ~ 0,  # 如果没有癌症，则为0
-            TRUE ~ case_when(  # 如果有癌症，根据da018s1-6判断
-                is.na(my_data_manual_filtered$da018s1) &
-                is.na(my_data_manual_filtered$da018s2) &
-                is.na(my_data_manual_filtered$da018s3) &
-                is.na(my_data_manual_filtered$da018s4) &
-                is.na(my_data_manual_filtered$da018s5) &
-                is.na(my_data_manual_filtered$da018s6) ~ 2,  # 如果所有变量都是NA，则为2
-                !is.na(my_data_manual_filtered$da018s1) |
-                !is.na(my_data_manual_filtered$da018s2) |
-                !is.na(my_data_manual_filtered$da018s3) |
-                !is.na(my_data_manual_filtered$da018s4) |
-                !is.na(my_data_manual_filtered$da018s5) |
-                !is.na(my_data_manual_filtered$da018s6) ~ 1,  # 如果任一变量非NA，则为1
-                TRUE ~ NA_real_  # 其他情况记为NA
-            )
+        treat_cancer = factor(
+            case_when(
+                cancer == 0 ~ 0,  # 如果没有癌症，则为0
+                TRUE ~ case_when(  # 如果有癌症，根据da018s1-6判断
+                    is.na(my_data_manual_filtered$da018s1) &
+                    is.na(my_data_manual_filtered$da018s2) &
+                    is.na(my_data_manual_filtered$da018s3) &
+                    is.na(my_data_manual_filtered$da018s4) &
+                    is.na(my_data_manual_filtered$da018s5) &
+                    is.na(my_data_manual_filtered$da018s6) ~ 2,  # 如果所有变量都是NA，则为2
+                    !is.na(my_data_manual_filtered$da018s1) |
+                    !is.na(my_data_manual_filtered$da018s2) |
+                    !is.na(my_data_manual_filtered$da018s3) |
+                    !is.na(my_data_manual_filtered$da018s4) |
+                    !is.na(my_data_manual_filtered$da018s5) |
+                    !is.na(my_data_manual_filtered$da018s6) ~ 1,  # 如果任一变量非NA，则为1
+                    TRUE ~ NA_real_  # 其他情况记为NA
+                )
+            ),
+            levels = c(0, 1, 2),
+            labels = c("无癌症", "有癌症且治疗", "有癌症不治疗")
         )
     )
 attr(my_data_calculated$treat_cancer, "label") <- "癌症治疗情况"
@@ -3312,11 +3412,16 @@ table(my_data_calculated$year_asthma, useNA = "ifany")
 # 计算健康变化（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        health_compared = case_when(
-            my_data_manual_filtered$da002_w2_1 == 1 ~ 1,
-            my_data_manual_filtered$da002_w2_1 == 2 ~ 2,
-            my_data_manual_filtered$da002_w2_1 == 3 ~ 3,
-            TRUE ~ NA_real_
+        health_compared = factor(
+            case_when(
+                my_data_manual_filtered$da002_w2_1 == 1 ~ 1,  # 更好了
+                my_data_manual_filtered$da002_w2_1 == 2 ~ 2,  # 差不多
+                my_data_manual_filtered$da002_w2_1 == 3 ~ 3,  # 更差了
+                TRUE ~ NA_real_
+            ),
+            levels = c(1, 2, 3),
+            ordered = TRUE,  # 设置为有序因子，1>2>3
+            labels = c("更好了", "差不多", "更差了")
         )
     )
 attr(my_data_calculated$health_compared, "label") <- "健康变化"
@@ -3692,8 +3797,8 @@ table(my_data_calculated$fractured_hip, useNA = "ifany")
 my_data_calculated <- my_data_calculated %>%
     mutate(
         menopause = case_when(
-            gender == 1 ~ 2,  # 男性记为2
-            gender == 2 ~ case_when(  # 女性则继续判断
+            gender == "男" ~ 2,  # 男性记为2
+            gender == "女" ~ case_when(  # 女性则继续判断
                 my_data_manual_filtered$da027 == 1 | my_data_manual_filtered$zda027 == 1 ~ 1,  # 任一为1则记为1（绝经）
                 my_data_manual_filtered$da027 == 2 | my_data_manual_filtered$zda027 == 2 ~ 0,  # 任一为2则记为0（未绝经）
                 TRUE ~ NA_real_  # 其他情况记为NA
@@ -3708,8 +3813,8 @@ table(my_data_calculated$menopause, useNA = "ifany")
 my_data_calculated <- my_data_calculated %>%
     mutate(
         prostate_illness = case_when(
-            gender == 2 ~ 0,  # 女性记为0
-            gender == 1 ~ case_when(  # 男性则继续判断
+            gender == "女" ~ 0,  # 女性记为0
+            gender == "男" ~ case_when(  # 男性则继续判断
                 my_data_manual_filtered$da029 == 1 | my_data_manual_filtered$da029_w2_1 == 1 ~ 1,  # 任一为1则记为1
                 (my_data_manual_filtered$da029 == 2 & my_data_manual_filtered$da029_w2_1 != 1) |
                 (my_data_manual_filtered$da029_w2_1 == 2 & my_data_manual_filtered$da029 != 1) ~ 0,  # 一个是2另一个不是1则记为0
@@ -3744,11 +3849,15 @@ table(my_data_calculated$prostate_illness_age, useNA = "ifany")
 # 计算前列腺疾病治疗情况（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        treat_prostate_illness = case_when(
-            prostate_illness == 0 ~ 0,  # 如果没有前列腺疾病，记为0
-            prostate_illness == 1 & my_data_manual_filtered$da031 == 1 ~ 1,  # 有病且治疗记为1
-            prostate_illness == 1 & my_data_manual_filtered$da031 == 2 ~ 2,  # 有病但未治疗记为2
-            TRUE ~ NA_real_  # 其他情况记为NA
+        treat_prostate_illness = factor(
+            case_when(
+                prostate_illness == 0 ~ 0,  # 如果没有前列腺疾病，记为0
+                prostate_illness == 1 & my_data_manual_filtered$da031 == 1 ~ 1,  # 有病且治疗记为1
+                prostate_illness == 1 & my_data_manual_filtered$da031 == 2 ~ 2,  # 有病但未治疗记为2
+                TRUE ~ NA_real_  # 其他情况记为NA
+            ),
+            levels = c(0, 1, 2),
+            labels = c("无前列腺疾病", "有前列腺疾病且治疗", "有前列腺疾病不治疗")
         )
     )
 attr(my_data_calculated$treat_prostate_illness, "label") <- "前列腺疾病治疗情况"
@@ -4101,27 +4210,30 @@ table(my_data_calculated$number_pain_locations, useNA = "ifany")
 # 计算疼痛治疗情况
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        treat_pain = case_when(
-            pain == 0 ~ 0,  # 如果没有疼痛，则为0
-            pain == 1 ~ case_when(  # 如果有疼痛，则继续判断
-                # 如果所有治疗相关变量都是NA，返回2
-                all(is.na(my_data_manual_filtered$da042_w2_1s1),
-                    is.na(my_data_manual_filtered$da042_w2_1s2),
-                    is.na(my_data_manual_filtered$da042_w2_1s3),
-                    is.na(my_data_manual_filtered$da042_w2_1s4),
-                    is.na(my_data_manual_filtered$da042_w2_1s5),
-                    is.na(my_data_manual_filtered$da042_w2_1s6)) ~ 2,
-                # 如果任一治疗变量为1，返回1
-                !is.na(my_data_manual_filtered$da042_w2_1s1) |
-                !is.na(my_data_manual_filtered$da042_w2_1s2) |
-                !is.na(my_data_manual_filtered$da042_w2_1s3) |
-                !is.na(my_data_manual_filtered$da042_w2_1s4) |
-                !is.na(my_data_manual_filtered$da042_w2_1s5) |
-                !is.na(my_data_manual_filtered$da042_w2_1s6) ~ 1,
-                # 其他情况返回0
-                TRUE ~ 0
+        treat_pain = factor(
+            case_when(
+                pain == 0 ~ 0,  # 如果没有疼痛，则为0
+                pain == 1 ~ case_when(  # 如果有疼痛，则继续判断
+                    # 如果所有治疗相关变量都是NA，返回2
+                    all(is.na(my_data_manual_filtered$da042_w2_1s1),
+                        is.na(my_data_manual_filtered$da042_w2_1s2),
+                        is.na(my_data_manual_filtered$da042_w2_1s3),
+                        is.na(my_data_manual_filtered$da042_w2_1s4),
+                        is.na(my_data_manual_filtered$da042_w2_1s5),
+                        is.na(my_data_manual_filtered$da042_w2_1s6)) ~ 2,
+                    # 如果任一治疗变量不为NA，返回1
+                    !is.na(my_data_manual_filtered$da042_w2_1s1) |
+                    !is.na(my_data_manual_filtered$da042_w2_1s2) |
+                    !is.na(my_data_manual_filtered$da042_w2_1s3) |
+                    !is.na(my_data_manual_filtered$da042_w2_1s4) |
+                    !is.na(my_data_manual_filtered$da042_w2_1s5) |
+                    !is.na(my_data_manual_filtered$da042_w2_1s6) ~ 1,
+                    TRUE ~ NA_real_  # 其他情况返回NA
+                ),
+                TRUE ~ NA_real_  # 其他情况返回NA
             ),
-            TRUE ~ NA_real_  # 其他情况返回NA
+            levels = c(0, 1, 2),
+            labels = c("无疼痛", "有疼痛且治疗", "有疼痛不治疗")
         )
     )
 attr(my_data_calculated$treat_pain, "label") <- "疼痛治疗情况"
@@ -4222,14 +4334,19 @@ write.csv(disease_data, "data_export/data_calculated/csv/data_calculated_disease
 # 计算童年期健康状况(没问题)
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        childhood_health = case_when(
-            is.na(my_data_manual_filtered$da048) ~ NA_real_,
-            my_data_manual_filtered$da048 == 1 ~ 1,
-            my_data_manual_filtered$da048 == 2 ~ 2,
-            my_data_manual_filtered$da048 == 3 ~ 3,
-            my_data_manual_filtered$da048 == 4 ~ 4,
-            my_data_manual_filtered$da048 == 5 ~ 5,
-            TRUE ~ NA_real_
+        childhood_health = factor(
+            case_when(
+                is.na(my_data_manual_filtered$da048) ~ NA_real_,
+                my_data_manual_filtered$da048 == 1 ~ 1,
+                my_data_manual_filtered$da048 == 2 ~ 2,
+                my_data_manual_filtered$da048 == 3 ~ 3,
+                my_data_manual_filtered$da048 == 4 ~ 4,
+                my_data_manual_filtered$da048 == 5 ~ 5,
+                TRUE ~ NA_real_
+            ),
+            levels = c(1, 2, 3, 4, 5),
+            ordered = TRUE,  # 设置为有序因子，1>2>3>4>5
+            labels = c("优秀", "非常好", "良好", "一般", "差")
         )
     )
 attr(my_data_calculated$childhood_health, "label") <- "童年期健康状况"
@@ -4238,14 +4355,19 @@ table(my_data_calculated$childhood_health, useNA = "ifany")
 # 计算自评健康状况-优秀（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        self_assessed_health_status_excellent = case_when(
-            is.na(my_data_manual_filtered$da001) ~ NA_real_,
-            my_data_manual_filtered$da001 == 1 ~ 1,
-            my_data_manual_filtered$da001 == 2 ~ 2,
-            my_data_manual_filtered$da001 == 3 ~ 3,
-            my_data_manual_filtered$da001 == 4 ~ 4,
-            my_data_manual_filtered$da001 == 5 ~ 5,
-            TRUE ~ NA_real_
+        self_assessed_health_status_excellent = factor(
+            case_when(
+                is.na(my_data_manual_filtered$da001) ~ NA_real_,
+                my_data_manual_filtered$da001 == 1 ~ 1,
+                my_data_manual_filtered$da001 == 2 ~ 2,
+                my_data_manual_filtered$da001 == 3 ~ 3,
+                my_data_manual_filtered$da001 == 4 ~ 4,
+                my_data_manual_filtered$da001 == 5 ~ 5,
+                TRUE ~ NA_real_
+            ),
+            levels = c(1, 2, 3, 4, 5),
+            ordered = TRUE,  # 设置为有序因子，1>2>3>4>5
+            labels = c("优秀", "非常好", "良好", "一般", "差")
         )
     )
 attr(my_data_calculated$self_assessed_health_status_excellent, "label") <- "自评健康状况(优秀)"
@@ -4932,11 +5054,15 @@ table(my_data_calculated$type_smoke_water_cigarette, useNA = "ifany")
 # 计算吸烟状态（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        status_smoke = case_when(
-            smoke == 0 ~ 0,  # 不吸烟记为0
-            smoke == 1 & !is.na(my_data_manual_filtered$da062) ~ 1,  # 吸烟已戒记为1
-            smoke == 1 & is.na(my_data_manual_filtered$da062) ~ 2,  # 吸烟未戒记为2
-            TRUE ~ NA_real_  # 其他情况记为NA
+        status_smoke = factor(
+            case_when(
+                smoke == 0 ~ 0,  # 不吸烟记为0
+                smoke == 1 & !is.na(my_data_manual_filtered$da062) ~ 1,  # 吸烟已戒记为1
+                smoke == 1 & is.na(my_data_manual_filtered$da062) ~ 2,  # 吸烟未戒记为2
+                TRUE ~ NA_real_  # 其他情况记为NA
+            ),
+            levels = c(0, 1, 2),
+            labels = c("不吸烟", "吸烟已戒", "吸烟未戒")
         )
     )
 attr(my_data_calculated$status_smoke, "label") <- "吸烟状态"
@@ -5044,11 +5170,15 @@ table(my_data_calculated$type_drink_wine, useNA = "ifany")
 # 计算饮酒状态（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        drink_status = case_when(
-            drink == 0 ~ 0,  # 不喝酒记为0
-            drink %in% c(1,2) & !is.na(my_data_manual_filtered$da070) ~ 1,  # 饮酒已戒记为1
-            drink %in% c(1,2) & is.na(my_data_manual_filtered$da070) ~ 2,  # 饮酒未戒记为2
-            TRUE ~ NA_real_  # 其他情况记为NA
+        drink_status = factor(
+            case_when(
+                drink == 0 ~ 0,  # 不喝酒记为0
+                drink %in% c(1,2) & !is.na(my_data_manual_filtered$da070) ~ 1,  # 饮酒已戒记为1
+                drink %in% c(1,2) & is.na(my_data_manual_filtered$da070) ~ 2,  # 饮酒未戒记为2
+                TRUE ~ NA_real_  # 其他情况记为NA
+            ),
+            levels = c(0, 1, 2),
+            labels = c("不饮酒", "饮酒已戒", "饮酒未戒")
         )
     )
 attr(my_data_calculated$drink_status, "label") <- "饮酒状态"
@@ -5648,7 +5778,6 @@ dim(model_data)
 write_parquet(model_data, "data_export/data_calculated/model_data.parquet")
 write.csv(model_data, "data_export/data_calculated/model_data.csv", row.names = FALSE)
 ```
-
 ## 建模及验证
 ### 数据预处理
 ```{r 数据预处理}
