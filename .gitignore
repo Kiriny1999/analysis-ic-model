@@ -4,4 +4,4 @@
 # 省略xlsx文件
 *.xlsx
 *.RData
-
+!data_export/data_manual_filter/variable_labels_manual_filtered.csv
