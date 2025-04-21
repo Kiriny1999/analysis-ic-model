@@ -1209,6 +1209,17 @@ my_data_calculated <- my_data_calculated %>%
     )
 attr(my_data_calculated$bradycardia, "label") <- "是否为心动过缓"
 
+# 计算是否为异常脉搏并添加标签
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        abnormal_pulse = case_when(
+            tachycardia == 1 | bradycardia == 1 ~ 1,
+            tachycardia == 0 & bradycardia == 0 ~ 0,
+            is.na(tachycardia) & is.na(bradycardia) ~ NA_real_,
+            TRUE ~ NA_real_
+        )
+    )
+attr(my_data_calculated$abnormal_pulse, "label") <- "是否为异常脉搏"
 
 # 计算身高（没问题）
 my_data_calculated <- my_data_calculated %>%
@@ -1502,6 +1513,7 @@ my_data_calculated <- my_data_calculated %>%
         )
     )
 attr(my_data_calculated$total_number_grandchildren, "label") <- "孙子女总数"
+table(my_data_calculated$total_number_grandchildren, useNA = "ifany")
 
 # 计算重孙子女数量（没问题）
 my_data_calculated <- my_data_calculated %>%
@@ -1518,6 +1530,20 @@ my_data_calculated <- my_data_calculated %>%
         )
     )
 attr(my_data_calculated$total_number_great_grandchildren, "label") <- "重孙子女总数"
+table(my_data_calculated$total_number_great_grandchildren, useNA = "ifany")
+
+# 计算孙子女和重孙子女总数
+my_data_calculated <- my_data_calculated %>%
+    mutate(
+        number_grandchildren_great_grandchildren = case_when(
+            # 如果孙子女数量和重孙子女数量都是NA，返回NA
+            is.na(total_number_grandchildren) | is.na(total_number_great_grandchildren) ~ NA_real_,
+            # 否则计算总和
+            TRUE ~ total_number_grandchildren + total_number_great_grandchildren
+        )
+    )
+attr(my_data_calculated$number_grandchildren_great_grandchildren, "label") <- "孙子女和重孙子女总数"
+table(my_data_calculated$number_grandchildren_great_grandchildren, useNA = "ifany")
 
 # 导出家庭结构数据
 # 选择家庭结构变量
@@ -5481,7 +5507,7 @@ preprocessed_data <- my_data_calculated %>%
     # 去掉内在能力五个维度变量和ID、householdID、communityID
     select(-final_physical_score, -cognitive_level, 
            -final_psychological_score, -final_sensory_score, 
-           -final_vitality_score, -ID, -householdID, -communityID) %>% # 个体的ID可以留着
+           -final_vitality_score, -householdID, -communityID) %>% # 个体的ID可以留着
     # 将内在能力总分放在最后
     relocate(ic_total_score, .after = last_col()) %>%
     # 把gender挪到age前面
@@ -5569,8 +5595,6 @@ dim(my_data_na_filtered)
 
 # 导出缺失值筛选后的数据框
 write_parquet(my_data_na_filtered, "data_export/data_calculated/my_data_na_filtered.parquet")
-
-
 ```
 ## 算法筛选
 ```{r Boruta算法筛选}
@@ -5656,7 +5680,7 @@ ic_train  <- training(split)
 ic_test   <- testing(split)
 
 # 特征工程
-blueprint <- recipe(ic_total_score ~ ., data = model_data) %>%
+blueprint <- recipe(ic_total_score ~ . - ID, data = model_data) %>%
   step_nzv(all_nominal()) %>%
   step_integer(matches("Qual|Cond|QC|Qu")) %>%
   step_center(all_numeric(), -all_outcomes()) %>%
