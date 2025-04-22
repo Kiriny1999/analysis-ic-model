@@ -5654,9 +5654,37 @@ write_parquet(my_data_calculated, "data_export/data_calculated/my_data_calculate
 
 # 导出计算后的数据框为csv
 write.csv(my_data_calculated, "data_export/data_calculated/my_data_calculated.csv", row.names = FALSE)
+```
+### 二次手动筛选
+```{r 二次手动筛选}
+# 读取二次手动筛选的变量列表
+variables_secondly_filtered <- read.csv("data_export/data_manual_filter/variables_secondly_filltered.csv", row.names = NULL)
 
-# 生成预处理后数据
-preprocessed_data <- my_data_calculated %>%
+# 去除variable列中每个值后面的空格
+variables_secondly_filtered$variable <- trimws(variables_secondly_filtered$variable)
+
+# 从计算后的数据中提取这些变量，并保留内在能力相关变量
+my_data_secondly_filtered <- my_data_calculated %>%
+    select(all_of(variables_secondly_filtered$variable),
+           # 保留内在能力相关变量
+           final_physical_score,
+           cognitive_level,
+           final_psychological_score,
+           final_sensory_score,
+           final_vitality_score,
+           ic_total_score)
+
+# 查看提取后的数据框的维度
+dim(my_data_secondly_filtered)
+
+# 导出提取后的数据框
+write_parquet(my_data_secondly_filtered, "data_export/data_calculated/my_data_secondly_filtered.parquet")
+write.csv(my_data_secondly_filtered, "data_export/data_calculated/my_data_secondly_filtered.csv", row.names = FALSE)
+```
+### 二次手动筛选后预处理
+```{r 二次手动筛选后预处理}
+# 无关变量清洗和顺序调整
+preprocessed_data <- my_data_secondly_filtered %>%
     # 去掉内在能力五个维度变量和ID、householdID、communityID
     select(-final_physical_score, -cognitive_level, 
            -final_psychological_score, -final_sensory_score, 
@@ -5665,6 +5693,7 @@ preprocessed_data <- my_data_calculated %>%
     relocate(ic_total_score, .after = last_col()) %>%
     # 把gender挪到age前面
     relocate(gender, .before = age)
+
 # 将指定变量转换为因子
 preprocessed_data <- preprocessed_data %>%
   mutate(
@@ -5736,10 +5765,6 @@ write_parquet(preprocessed_data, "data_export/data_calculated/preprocessed_data.
 # 导出预处理后数据为csv
 write.csv(preprocessed_data, "data_export/data_calculated/preprocessed_data.csv", row.names = FALSE)
 ```
-## 二次手动筛选
-```{r 二次手动筛选}
-
-```
 ## 缺失值筛选
 ```{r 缺失值筛选及处理}
 # 计算每个变量的缺失值比例
@@ -5760,31 +5785,25 @@ my_data_na_filtered <- preprocessed_data %>%
 # 查看缺失值筛选后的数据框的维度
 dim(my_data_na_filtered)
 
+# 查看各变量的插补方法
+initial_mice <- mice(my_data_na_filtered, maxit = 0)
+method_vector <- initial_mice$method
+
+# 减少计算负担的设置
+imputed_data <- mice(my_data_na_filtered, 
+                    m = 3,           # 减少插补次数（默认5次）
+                    maxit = 30,      # 减少最大迭代次数（默认50次）
+                    seed = 123,
+                    method = method_vector,
+                    n.core = 1)      # 使用单核运算，避免内存溢出
+
+# 获取完整数据集（使用第一个插补结果）
+my_data_na_filtered <- complete(imputed_data, 1)
+
 # 加载mice包
 library(mice)
 
 # 对连续变量进行mice插补
-continuous_vars <- my_data_na_filtered %>%
-    select_if(is.numeric)
-
-imputed_continuous <- mice(continuous_vars, method = 'pmm', m = 5, maxit = 10, seed = 500) # pmm是不是也能用于分类
-
-# 用插补后的数据替换原始数据
-my_data_na_filtered[ , names(continuous_vars)] <- complete(imputed_continuous)
-
-# 对分类变量进行众数插补（可以人工插补）
-categorical_vars <- my_data_na_filtered %>%
-    select_if(is.factor)
-
-mode_impute <- function(x) {
-    ux <- unique(x)
-    ux[which.max(tabulate(match(x, ux)))]
-}
-
-my_data_na_filtered[ , names(categorical_vars)] <- lapply(categorical_vars, function(x) {
-    x[is.na(x)] <- mode_impute(x)
-    return(x)
-})
 
 # 查看插补后的数据框的维度
 dim(my_data_na_filtered)
