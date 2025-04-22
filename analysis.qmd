@@ -4657,14 +4657,19 @@ write.csv(health_data, "data_export/data_calculated/csv/data_calculated_health.c
 # 计算健康满意度（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        health_satisfaction = case_when(
-            is.na(my_data_manual_filtered$dc042_w3) ~ NA_real_,
-            my_data_manual_filtered$dc042_w3 == 1 ~ 4,
-            my_data_manual_filtered$dc042_w3 == 2 ~ 3, 
-            my_data_manual_filtered$dc042_w3 == 3 ~ 2,
-            my_data_manual_filtered$dc042_w3 == 4 ~ 1,
-            my_data_manual_filtered$dc042_w3 == 5 ~ 0,
-            TRUE ~ NA_real_
+        health_satisfaction = factor(
+            case_when(
+                is.na(my_data_manual_filtered$dc042_w3) ~ NA_real_,
+                my_data_manual_filtered$dc042_w3 == 1 ~ 1,  # 完全满意
+                my_data_manual_filtered$dc042_w3 == 2 ~ 2,  # 非常满意
+                my_data_manual_filtered$dc042_w3 == 3 ~ 3,  # 一般满意
+                my_data_manual_filtered$dc042_w3 == 4 ~ 4,  # 不太满意
+                my_data_manual_filtered$dc042_w3 == 5 ~ 5,  # 完全不满意
+                TRUE ~ NA_real_
+            ),
+            levels = c(1, 2, 3, 4, 5),
+            ordered = TRUE,  # 设置为有序因子，1>2>3>4>5
+            labels = c("完全满意", "非常满意", "一般满意", "不太满意", "完全不满意")
         )
     )
 attr(my_data_calculated$health_satisfaction, "label") <- "健康满意度"
@@ -4705,14 +4710,19 @@ table(my_data_calculated$children_satisfaction, useNA = "ifany")
 # 计算生活满意度（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        life_satisfaction = case_when(
-            is.na(my_data_manual_filtered$dc028) ~ NA_real_,
-            my_data_manual_filtered$dc028 == 1 ~ 4,
-            my_data_manual_filtered$dc028 == 2 ~ 3,
-            my_data_manual_filtered$dc028 == 3 ~ 2,
-            my_data_manual_filtered$dc028 == 4 ~ 1,
-            my_data_manual_filtered$dc028 == 5 ~ 0,
-            TRUE ~ NA_real_
+        life_satisfaction = factor(
+            case_when(
+                is.na(my_data_manual_filtered$dc028) ~ NA_real_,
+                my_data_manual_filtered$dc028 == 1 ~ 1,  # 完全满意
+                my_data_manual_filtered$dc028 == 2 ~ 2,  # 非常满意
+                my_data_manual_filtered$dc028 == 3 ~ 3,  # 一般满意
+                my_data_manual_filtered$dc028 == 4 ~ 4,  # 不太满意
+                my_data_manual_filtered$dc028 == 5 ~ 5,  # 完全不满意
+                TRUE ~ NA_real_
+            ),
+            levels = c(1, 2, 3, 4, 5),
+            ordered = TRUE,  # 设置为有序因子，1>2>3>4>5
+            labels = c("完全满意", "非常满意", "一般满意", "不太满意", "完全不满意")
         )
     )
 attr(my_data_calculated$life_satisfaction, "label") <- "生活满意度"
