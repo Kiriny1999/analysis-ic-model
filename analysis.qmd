@@ -1154,12 +1154,12 @@ table(my_data_calculated$education_level, useNA = "always")
 my_data_calculated <- my_data_calculated %>%
     mutate(
         literate = case_when(
-            # 如果教育水平大于3
-            education_level > 3 ~ 1,
-            # 如果教育水平为2或3
-            education_level %in% c(2, 3) ~ 1,
-            # 如果教育水平为1，则根据bd001_w3_1判断
-            education_level == 1 ~ case_when(
+            # 如果教育水平高于文盲
+            education_level %in% c("未读完小学", "私塾毕业", "小学毕业", "初中毕业", 
+                                 "高中毕业", "中专毕业", "大专毕业", "本科毕业", 
+                                 "硕士毕业", "博士毕业") ~ 1,
+            # 如果是文盲，则根据bd001_w3_1判断
+            education_level == "文盲" ~ case_when(
                 my_data_manual_filtered$bd001_w3_1 == 1 ~ 1,
                 TRUE ~ 0
             ),
@@ -1168,6 +1168,7 @@ my_data_calculated <- my_data_calculated %>%
         )
     )
 attr(my_data_calculated$literate, "label") <- "是否识字"
+table(my_data_calculated$literate, useNA = "always")
 
 # 导出人口学数据
 demographic_data <- my_data_calculated %>%
@@ -1706,6 +1707,7 @@ my_data_calculated <- my_data_calculated %>%
         )
     )
 attr(my_data_calculated$takecare_parents, "label") <- "是否照顾父母"
+table(my_data_calculated$takecare_parents, useNA = "ifany")
 
 # 计算照顾父母总小时数（没问题）
 my_data_calculated <- my_data_calculated %>%
@@ -4678,14 +4680,20 @@ table(my_data_calculated$health_satisfaction, useNA = "ifany")
 # 计算婚姻满意度（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        marriage_satisfaction = case_when(
-            is.na(my_data_manual_filtered$dc043_w3) ~ NA_real_,
-            my_data_manual_filtered$dc043_w3 == 1 ~ 4,
-            my_data_manual_filtered$dc043_w3 == 2 ~ 3,
-            my_data_manual_filtered$dc043_w3 == 3 ~ 2,
-            my_data_manual_filtered$dc043_w3 == 4 ~ 1,
-            my_data_manual_filtered$dc043_w3 == 5 ~ 0,
-            TRUE ~ NA_real_
+        marriage_satisfaction = factor(
+            case_when(
+                is.na(my_data_manual_filtered$dc043_w3) ~ NA_real_,
+                my_data_manual_filtered$dc043_w3 == 1 ~ 1,  # 完全满意
+                my_data_manual_filtered$dc043_w3 == 2 ~ 2,  # 非常满意
+                my_data_manual_filtered$dc043_w3 == 3 ~ 3,  # 一般满意
+                my_data_manual_filtered$dc043_w3 == 4 ~ 4,  # 不太满意
+                my_data_manual_filtered$dc043_w3 == 5 ~ 5,  # 完全不满意
+                my_data_manual_filtered$dc043_w3 == 6 ~ 6,  # 没有配偶
+                TRUE ~ NA_real_
+            ),
+            levels = c(1, 2, 3, 4, 5, 6),
+            ordered = TRUE,  # 设置为有序因子
+            labels = c("完全满意", "非常满意", "一般满意", "不太满意", "完全不满意", "没有配偶")
         )
     )
 attr(my_data_calculated$marriage_satisfaction, "label") <- "婚姻满意度"
@@ -4694,14 +4702,19 @@ table(my_data_calculated$marriage_satisfaction, useNA = "ifany")
 # 计算子女满意度（没问题）
 my_data_calculated <- my_data_calculated %>%
     mutate(
-        children_satisfaction = case_when(
-            is.na(my_data_manual_filtered$dc044_w3) ~ NA_real_,
-            my_data_manual_filtered$dc044_w3 == 1 ~ 4,
-            my_data_manual_filtered$dc044_w3 == 2 ~ 3,
-            my_data_manual_filtered$dc044_w3 == 3 ~ 2,
-            my_data_manual_filtered$dc044_w3 == 4 ~ 1,
-            my_data_manual_filtered$dc044_w3 == 5 ~ 0,
-            TRUE ~ NA_real_
+        children_satisfaction = factor(
+            case_when(
+                is.na(my_data_manual_filtered$dc044_w3) ~ NA_real_,
+                my_data_manual_filtered$dc044_w3 == 1 ~ 1,  # 完全满意
+                my_data_manual_filtered$dc044_w3 == 2 ~ 2,  # 非常满意
+                my_data_manual_filtered$dc044_w3 == 3 ~ 3,  # 一般满意
+                my_data_manual_filtered$dc044_w3 == 4 ~ 4,  # 不太满意
+                my_data_manual_filtered$dc044_w3 == 5 ~ 5,  # 完全不满意
+                my_data_manual_filtered$dc044_w3 == 6 ~ 6  # 没有孩子
+            ),
+            levels = c(1, 2, 3, 4, 5, 6),
+            ordered = TRUE,  # 设置为有序因子
+            labels = c("完全满意", "非常满意", "一般满意", "不太满意", "完全不满意", "没有孩子")
         )
     )
 attr(my_data_calculated$children_satisfaction, "label") <- "子女满意度"
@@ -5652,39 +5665,68 @@ preprocessed_data <- my_data_calculated %>%
     relocate(ic_total_score, .after = last_col()) %>%
     # 把gender挪到age前面
     relocate(gender, .before = age)
-
-# 将所有变量转换为数值型
-preprocessed_data <- preprocessed_data %>%
-    mutate(across(everything(), as.numeric))
-
 # 将指定变量转换为因子
 preprocessed_data <- preprocessed_data %>%
-    mutate(across(c(
-        gender, address_type, address_urban_or_rural, address_province, literate, martial_status, tachycardia, bradycardia, 
-        biological_parents_alive, spouse_biological_parents_alive, parents_divorced, takecare_grandchildren, takecare_parents, 
-        serious_illness_other_insurances, reason_no_health_insurance, urban_employee_medical_insurance, urban_resident_medical_insurance, 
-        hezuoyiliao_medical_insurance, urbanandruralresident_medical_insurance, gongfei_medical_insurance, medicalaid_medical_insurance, 
-        privatemedical_insurance_workunit, privatemedical_insurance_individual, urban_nonemployed_persons_healthinsuran, others_medical_insurance, 
-        undergone_physicalexamination_past_two_years, last_month_outpatient_visit, ill_lastmonth, payfor_outpatient, self_payfor_outpatient, 
-        emergency_outpatient, inpatientcare_pastyear, payfor_inpatientcare_pastyear, self_payfor_inpatientcare, self_treatment, cost_self_treatment, 
-        self_cost_self_treatment, see_dentalcare, payfor_dentalcare, self_cost_dentalcare, physical_disability, intellectual_disability, 
-        blind_partially_blind, deaf_partially_deaf, dumb_severe_stuttering, hypertension, dyslipidemia, diabetes, chronic_lung_disease, liver_disease, 
-        heart_disease, stroke, kidney_disease, digestive_system_disease, emotional_and_mental_issues, diseases_related_to_memory, diseases_arthritis, 
-        asthma, cancer, treat_hypertension, treat_dyslipidemia, treat_diabetes, treat_chronic_lung_disease, treat_liver_disease, treat_heart_disease, 
-        treat_stroke, treat_kidney_disease, treat_digestive_system_disease, treat_emotional_and_mental_issues, treat_diseases_related_to_memory, 
-        treat_diseases_arthritis, treat_cancer, control_hypertension, control_diabetes, exam_bp, blood_glucose_test, heart_attack, cancer_brain, 
-        cancer_mouth, cancer_larynx, cancer_pharynx, cancer_thyroid, cancer_lung, cancer_breast, cancer_esophagus, cancer_stomach, cancer_liver, 
-        cancer_pancreas, cancer_kidney, cancer_prostate, cancer_testis, cancer_ovary, cancer_cervix, cancer_endometrium, cancer_colorectal, 
-        cancer_bladder, cancer_skin, cancer_non_hodgkin_lymphoma, cancer_leukemia, cancer_other, traffic_accident_major_accidental_injury, 
-        injury_limit_daily_activities, fallen_down, fractured_hip, menopause, prostate_illness, treat_prostate_illness, cataract_surgery, 
-        treat_glaucoma, noteeth, glaucoma, re_glaucoma, pain, pain_head, pain_shoulder, pain_arm, pain_wrist, pain_fingers, pain_chest, pain_stomach, 
-        pain_back, pain_waist, pain_buttocks, pain_leg, pain_knees, pain_ankle, pain_toes, pain_neck, pain_other, treat_pain, others_diseases, 
-        high_exercise, moderate_exercise, low_exercise, social_isolation, internet_use, smoke, type_smoke_pipe, type_smoke_self_rolled_cigarette, 
-        type_smoke_filtered_cigarette, type_smoke_unfiltered_cigarette, type_smoke_cigar, type_smoke_water_cigarette, status_smoke, drink, 
-        type_drink_liqor, type_drink_beer, type_drink_wine, drink_status, frequency_drink_liquor, much_drink_liquor, frequency_drink_beer, 
-        much_drink_beer, frequency_drink_wine, much_drink_wine, use_assistive_devices, formal_caregivers, elevator, handicapped_facilities, steps, 
-        toilet_seat, toilet_flushable, running_water, hot_water, gas, heating, telephone, internet, air_cleaner
-    ), as.factor))
+  mutate(
+    literate = factor(literate),
+    abnormal_pulse = factor(abnormal_pulse),
+    top_coding_triglycerides_to_500 = factor(top_coding_triglycerides_to_500),
+    biological_parents_alive = factor(biological_parents_alive),
+    spouse_biological_parents_alive = factor(spouse_biological_parents_alive),
+    takecare_grandchildren = factor(takecare_grandchildren),
+    takecare_parents = factor(takecare_parents),
+    undergone_physicalexamination_past_two_years = factor(undergone_physicalexamination_past_two_years),
+    ill_lastmonth = factor(ill_lastmonth),
+    emergency_outpatient = factor(emergency_outpatient),
+    payfor_inpatientcare_pastyear = factor(payfor_inpatientcare_pastyear),
+    self_payfor_inpatientcare = factor(self_payfor_inpatientcare),
+    self_treatment = factor(self_treatment),
+    physical_disability = factor(physical_disability),
+    dumb_severe_stuttering = factor(dumb_severe_stuttering),
+    control_hypertension = factor(control_hypertension),
+    control_diabetes = factor(control_diabetes),
+    traffic_accident_major_accidental_injury = factor(traffic_accident_major_accidental_injury),
+    injury_limit_daily_activities = factor(injury_limit_daily_activities),
+    fractured_hip = factor(fractured_hip),
+    cataract_surgery = factor(cataract_surgery),
+    treat_glaucoma = factor(treat_glaucoma),
+    noteeth = factor(noteeth),
+    glaucoma = factor(glaucoma),
+    pain = factor(pain),
+    pain_head = factor(pain_head),
+    pain_shoulder = factor(pain_shoulder),
+    pain_arm = factor(pain_arm),
+    pain_wrist = factor(pain_wrist), 
+    pain_fingers = factor(pain_fingers),
+    pain_chest = factor(pain_chest),
+    pain_stomach = factor(pain_stomach),
+    pain_back = factor(pain_back),
+    pain_waist = factor(pain_waist),
+    pain_buttocks = factor(pain_buttocks),
+    pain_leg = factor(pain_leg),
+    pain_knees = factor(pain_knees),
+    pain_ankle = factor(pain_ankle),
+    pain_toes = factor(pain_toes),
+    pain_neck = factor(pain_neck),
+    pain_other = factor(pain_other),
+    others_diseases = factor(others_diseases),
+    internet_use = factor(internet_use),
+    smoke = factor(smoke),
+    drink = factor(drink),
+    use_assistive_devices = factor(use_assistive_devices),
+    formal_caregivers = factor(formal_caregivers),
+    elevator = factor(elevator),
+    handicapped_facilities = factor(handicapped_facilities),
+    steps = factor(steps),
+    toilet_seat = factor(toilet_seat),
+    running_water = factor(running_water),
+    hot_water = factor(hot_water),
+    gas = factor(gas),
+    heating = factor(heating),
+    telephone = factor(telephone),
+    internet = factor(internet),
+    air_cleaner = factor(air_cleaner)
+  )
 
 dim(preprocessed_data)
 
@@ -5694,8 +5736,23 @@ write_parquet(preprocessed_data, "data_export/data_calculated/preprocessed_data.
 # 导出预处理后数据为csv
 write.csv(preprocessed_data, "data_export/data_calculated/preprocessed_data.csv", row.names = FALSE)
 ```
+## 二次手动筛选
+```{r 二次手动筛选}
+
+```
 ## 缺失值筛选
 ```{r 缺失值筛选及处理}
+# 计算每个变量的缺失值比例
+na_proportions <- colMeans(is.na(preprocessed_data))
+
+# 找出缺失值比例超过20%的变量
+high_na_vars <- names(na_proportions[na_proportions > 0.2])
+
+# 打印这些变量及其缺失值比例
+print("缺失值比例超过20%的变量:")
+for(var in high_na_vars) {
+  print(paste(var, ":", round(na_proportions[var] * 100, 2), "%"))}
+
 # 去除缺失值超过20%的变量
 my_data_na_filtered <- preprocessed_data %>%
     select_if(~sum(is.na(.)) / nrow(preprocessed_data) <= 0.2)
@@ -5731,7 +5788,6 @@ my_data_na_filtered[ , names(categorical_vars)] <- lapply(categorical_vars, func
 
 # 查看插补后的数据框的维度
 dim(my_data_na_filtered)
-
 
 # 导出缺失值筛选后的数据框
 write_parquet(my_data_na_filtered, "data_export/data_calculated/my_data_na_filtered.parquet")
