@@ -5825,6 +5825,7 @@ missing_df <- data.frame(
   missing_count = missing_counts_sorted,
   missing_percentage = round(missing_counts_sorted / nrow(my_data_imputed) * 100, 2)
 )
+
 # 对self_payfor_inpatientcare和treat_pain进行二次插补
 # 创建一个新的插补对象
 mice_obj2 <- mice(my_data_imputed[, c("self_payfor_inpatientcare", "treat_pain")], m = 5, maxit = 50, method = "pmm", seed = 123)
@@ -5840,16 +5841,6 @@ my_data_imputed$treat_pain <- imputed_data2$treat_pain
 missing_values <- colSums(is.na(my_data_imputed[, c("self_payfor_inpatientcare", "treat_pain")]))
 print("插补后的缺失值数量：")
 print(missing_values)
-
-# 查看插补后的数据框的维度
-dim(my_data_imputed)
-
-# 导出插补后的数据框为parquet
-write_parquet(my_data_imputed, "data_export/data_calculated/my_data_imputed.parquet")
-# 导出插补后的数据框为csv
-write.csv(my_data_imputed, "data_export/data_calculated/my_data_imputed.csv", row.names = FALSE)
-
-
 
 # 查看插补后的数据框的维度
 dim(my_data_imputed)
@@ -5882,10 +5873,15 @@ dim(my_data_imputed)
 # 使用Boruta算法进行变量筛选（Boruta方法应该用在缺失值处理之后还是之前）
 set.seed(123)
 
-
 # 运行Boruta算法
 boruta_output <- Boruta(ic_total_score ~ . - ID, data = my_data_imputed, doTrace = 2)
+# 保存Boruta算法变量重要性排序图
+svg(filename = "data_export/model_results/boruta_importance.svg", 
+    width = 3000/72,  # 将像素转换为英寸
+    height = 300/72)
 plot(boruta_output, xlab = "变量", ylab = "重要性", main = "Boruta算法变量重要性排序")
+dev.off()
+
 
 # 获取确定纳入的变量
 confirmed_vars <- names(boruta_output$finalDecision[boruta_output$finalDecision == "Confirmed"])
@@ -5959,8 +5955,6 @@ split <- initial_split(model_data, prop = 0.7) # 是否需要分层抽样？
 ic_train  <- training(split)
 ic_test   <- testing(split)
 
-
-
 # 确定交叉验证方法
 cv <- trainControl(
   method = "repeatedcv", 
@@ -5973,15 +5967,15 @@ cv <- trainControl(
 ### 多元线性回归
 ```{r 多元线性回归}
 # 蓝图构建
-blueprint_lm <- recipe(ic_total_score ~ ., data = ic_train)
+ blueprint_lm <- recipe(ic_total_score ~ ., data = ic_train)
 # 构建多元线性回归模型
 lm_fit <- train(
-  blueprint_lm, 
-  data = ic_train, 
+  blueprint_lm,
+  data = ic_train,
   method = "lm", 
   trControl = cv
 )
- 
+  
 # 查看模型的性能
 print(lm_fit)
 
@@ -6028,7 +6022,7 @@ knn_fit <- train(
 
 # 查看KNN模型的结果
 print(knn_fit)
-
+  
 # 查看最佳模型的性能
 best_k <- knn_fit$bestTune$k
 best_model_performance <- knn_fit$results[knn_fit$results$k == best_k, ]
@@ -6057,13 +6051,16 @@ print(paste("KNN模型的测试集MAE:", knn_mae))
 
 ### 随机森林
 ```{r 随机森林}
+# 检查随机森林包是否已安装
+# 加载随机森林包
+library(randomForest)
 # 随机森林蓝图构建
 blueprint_rf <- recipe(ic_total_score ~ ., data = ic_train)
 # 构建随机森林模型
 set.seed(123)
 rf_fit <- train(
   blueprint_rf,
-  data = ic_train, 
+  data = ic_train,
   method = "rf", 
   trControl = cv,
   importance = TRUE
