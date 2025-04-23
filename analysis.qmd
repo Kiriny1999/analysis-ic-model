@@ -6052,6 +6052,7 @@ print(paste("KNN模型的测试集MAE:", knn_mae))
 ### 随机森林
 ```{r 随机森林}
 # 检查随机森林包是否已安装
+if (!require("randomForest")) {install.packages("randomForest")}
 # 加载随机森林包
 library(randomForest)
 # 随机森林蓝图构建
