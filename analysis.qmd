@@ -5658,7 +5658,7 @@ write.csv(my_data_calculated, "data_export/data_second_manual_filter/my_data_cal
 ### 二次手动筛选
 ```{r 二次手动筛选}
 # 读取二次手动筛选的变量列表
-variables_secondly_filtered <- read.csv("data_export/data_manual_filter/variables_secondly_filltered.csv", row.names = NULL)
+variables_secondly_filtered <- read.csv("data_export/data_second_manual_filter/variables_secondly_filltered.csv", row.names = NULL)
 
 # 去除variable列中每个值后面的空格
 variables_secondly_filtered$variable <- trimws(variables_secondly_filtered$variable)
@@ -5815,6 +5815,40 @@ imputed_data <- mice(my_data_na_filtered,
 # 获取完整数据集（使用第一个插补结果）
 # 将插补后的数据存入新的数据框
 my_data_imputed <- complete(imputed_data, 1)
+# 计算每个变量的缺失值数量并按从多到少排序
+missing_counts <- sapply(my_data_imputed, function(x) sum(is.na(x)))
+missing_counts_sorted <- sort(missing_counts, decreasing = TRUE)
+
+# 创建一个包含变量名和缺失值数量的数据框
+missing_df <- data.frame(
+  variable = names(missing_counts_sorted),
+  missing_count = missing_counts_sorted,
+  missing_percentage = round(missing_counts_sorted / nrow(my_data_imputed) * 100, 2)
+)
+# 对self_payfor_inpatientcare和treat_pain进行二次插补
+# 创建一个新的插补对象
+mice_obj2 <- mice(my_data_imputed[, c("self_payfor_inpatientcare", "treat_pain")], m = 5, maxit = 50, method = "pmm", seed = 123)
+
+# 获取插补结果
+imputed_data2 <- complete(mice_obj2)
+
+# 将插补结果更新到原数据框中
+my_data_imputed$self_payfor_inpatientcare <- imputed_data2$self_payfor_inpatientcare
+my_data_imputed$treat_pain <- imputed_data2$treat_pain
+
+# 检查是否还有缺失值
+missing_values <- colSums(is.na(my_data_imputed[, c("self_payfor_inpatientcare", "treat_pain")]))
+print("插补后的缺失值数量：")
+print(missing_values)
+
+# 查看插补后的数据框的维度
+dim(my_data_imputed)
+
+# 导出插补后的数据框为parquet
+write_parquet(my_data_imputed, "data_export/data_calculated/my_data_imputed.parquet")
+# 导出插补后的数据框为csv
+write.csv(my_data_imputed, "data_export/data_calculated/my_data_imputed.csv", row.names = FALSE)
+
 
 
 # 查看插补后的数据框的维度
@@ -5848,10 +5882,7 @@ dim(my_data_imputed)
 # 使用Boruta算法进行变量筛选（Boruta方法应该用在缺失值处理之后还是之前）
 set.seed(123)
 
-# 准备数据
-x <- model.matrix(ic_total_score ~ . - ID, my_data_imputed)[,-1]
-y <- my_data_imputed$ic_total_score
-dim(x)
+
 # 运行Boruta算法
 boruta_output <- Boruta(ic_total_score ~ . - ID, data = my_data_imputed, doTrace = 2)
 plot(boruta_output, xlab = "变量", ylab = "重要性", main = "Boruta算法变量重要性排序")
@@ -5871,6 +5902,7 @@ rejected_vars <- names(boruta_output$finalDecision[boruta_output$finalDecision =
 print("确定排除的变量:")
 print(rejected_vars)
 
+# 从插值后数据框中提取确认纳入和可能纳入的变量
 model_data <- my_data_imputed %>%
     select(
       all_of(confirmed_vars),
@@ -5881,14 +5913,25 @@ model_data <- my_data_imputed %>%
 # 查看建模数据框的维度
 dim(model_data)
 
+# 将数值型变量转换为纯数值
+model_data <- model_data %>%
+  mutate(across(where(is.numeric), ~as.numeric(as.character(.))))
+
+# 将因子变量中的level标签去掉
+model_data <- model_data %>%
+  mutate(across(where(is.factor), ~factor(as.numeric(.))))
+
+# 检查转换后的数据类型
+str(model_data)
+
 # 导出提取后的数据框
 write_parquet(model_data, "data_export/data_calculated/model_data.parquet")
 write.csv(model_data, "data_export/data_calculated/model_data.csv", row.names = FALSE)
 ```
 
 ## 建模及验证
-### 数据预处理
-```{r 数据预处理}
+### 建模前预处理
+```{r 建模前预处理}
 # 检查所需的包是否已安装，如果未安装则安装
 # 检查并安装所需的包
 required_packages <- c("glmnet", "caret", "vip", "recipes", "rsample", "ggplot2")
@@ -5915,12 +5958,7 @@ set.seed(123)
 split <- initial_split(model_data, prop = 0.7) # 是否需要分层抽样？
 ic_train  <- training(split)
 ic_test   <- testing(split)
-# 特征工程
-blueprint <- recipe(ic_total_score ~ ., data = model_data) %>%
-  step_nzv(all_nominal()) %>%
-  step_integer(matches("Qual|Cond|QC|Qu")) %>%
-  step_center(all_numeric(), -all_outcomes()) %>%
-  step_scale(all_numeric(), -all_outcomes())
+
 
 
 # 确定交叉验证方法
@@ -5934,14 +5972,16 @@ cv <- trainControl(
 
 ### 多元线性回归
 ```{r 多元线性回归}
+# 蓝图构建
+blueprint_lm <- recipe(ic_total_score ~ ., data = ic_train)
 # 构建多元线性回归模型
 lm_fit <- train(
-  blueprint, 
+  blueprint_lm, 
   data = ic_train, 
   method = "lm", 
   trControl = cv
 )
-
+ 
 # 查看模型的性能
 print(lm_fit)
 
@@ -5966,17 +6006,19 @@ print(paste("多元线性回归模型的测试集RMSE:", lm_rmse))
 # 计算平均绝对误差（MAE）
 lm_mae <- mean(abs(lm_predictions - ic_test$ic_total_score))
 print(paste("多元线性回归模型的测试集MAE:", lm_mae))
-
 ```
 
 ### KNN
 ```{r KNN}
+# KNN蓝图构建
+blueprint_knn <- recipe(ic_total_score ~ ., data = ic_train)
+
 # 构建KNN模型
 hyper_grid <- expand.grid(k = seq(2, 25, by = 1))
 
 # 调试KNN模型
 knn_fit <- train(
-  blueprint, 
+  blueprint_knn, 
   data = ic_train, 
   method = "knn", 
   trControl = cv, 
@@ -6015,10 +6057,12 @@ print(paste("KNN模型的测试集MAE:", knn_mae))
 
 ### 随机森林
 ```{r 随机森林}
+# 随机森林蓝图构建
+blueprint_rf <- recipe(ic_total_score ~ ., data = ic_train)
 # 构建随机森林模型
 set.seed(123)
 rf_fit <- train(
-  blueprint,
+  blueprint_rf,
   data = ic_train, 
   method = "rf", 
   trControl = cv,
@@ -6056,12 +6100,11 @@ library(kernlab)
 # 构建SVM模型
 set.seed(123)
 svm_fit <- train(
-  blueprint,
+  blueprint_svm,
   data = ic_train,
   method = "svmRadial",
   trControl = cv,
   tuneLength = 10,  # 自动生成10组超参数组合
-  preProcess = c("center", "scale")  # 数据预处理
 )
 
 # 查看模型的性能
@@ -6092,6 +6135,8 @@ print(paste("SVM模型的测试集MAE:", svm_mae))
 ```
 ### ANN
 ```{r ANN}
+# ANN蓝图构建
+blueprint_ann <- recipe(ic_total_score ~ ., data = ic_train)
 # 加载nnet包
 if (!require(nnet)) install.packages("nnet")
 library(nnet)
@@ -6099,7 +6144,7 @@ library(nnet)
 # 构建ANN模型
 set.seed(123)
 ann_fit <- train(
-  blueprint,
+  blueprint_ann,
   data = ic_train,
   method = "nnet",
   trControl = cv,
@@ -6111,7 +6156,7 @@ ann_fit <- train(
   # 其他参数设置
   maxit = 1000,  # 最大迭代次数
   linout = TRUE,  # 线性输出层
-  trace = FALSE  # 不显示训练过程
+  trace = TRUE  # 不显示训练过程
 )
 
 # 查看模型的性能
@@ -6155,6 +6200,8 @@ print(paste("ANN模型的测试集MAE:", ann_mae))
 ```
 ### XGBoost
 ```{r XGBoost}
+# XGBoost蓝图构建
+blueprint_xgboost <- recipe(ic_total_score ~ ., data = ic_train)
 # 加载xgboost包
 if (!require(xgboost)) install.packages("xgboost")
 library(xgboost)
@@ -6162,7 +6209,7 @@ library(xgboost)
 # 构建XGBoost模型
 set.seed(123)
 xgb_fit <- train(
-  blueprint,
+  blueprint_xgboost,
   data = ic_train,
   method = "xgbTree",
   trControl = cv,
