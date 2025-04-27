@@ -92,22 +92,31 @@ format: "pptx"
 # 代码
 ## 安装并加载需要的包
 ```{r 安装并加载需要的包}
-# 安装并加载所需要的包
+# 安装基础包
 if (!requireNamespace("haven", quietly = TRUE)) install.packages("haven")
 if (!requireNamespace("dplyr", quietly = TRUE)) install.packages("dplyr") 
 if (!requireNamespace("ggplot2", quietly = TRUE)) install.packages("ggplot2")
 if (!requireNamespace("openxlsx", quietly = TRUE)) install.packages("openxlsx")
 if (!requireNamespace("arrow", quietly = TRUE)) install.packages("arrow")
-if (!requireNamespace("Boruta", quietly = TRUE)) install.packages("Boruta")
-if (!requireNamespace("mice", quietly = TRUE)) install.packages("mice")
+if (!requireNamespace("tidyr", quietly = TRUE)) install.packages("tidyr")
 
+# 加载基础包
 library(haven)
 library(dplyr)
 library(ggplot2)
 library(openxlsx)
 library(arrow)
-library(Boruta)
+library(tidyr)
+
+# 安装变量筛选的包
+if (!requireNamespace("mice", quietly = TRUE)) install.packages("mice")
+if (!requireNamespace("Boruta", quietly = TRUE)) install.packages("Boruta")
+if (!requireNamespace("car", quietly = TRUE)) install.packages("car")
+
+# 加载变量筛选的包
 library(mice)
+library(Boruta)
+library(car)
 ```
 ## 读取并合并数据
 ```{r 读取并合并数据}
@@ -875,6 +884,7 @@ write.csv(final_ic_scores, "data_export/data_ic/final_ic_scores.csv", row.names 
 # 计算覆盖百分之百内在能力变量的个体
 covered_individuals <- final_ic_scores %>%
     filter(!is.na(final_physical_score) & !is.na(cognitive_level) & !is.na(final_psychological_score) & !is.na(final_sensory_score) & !is.na(final_vitality_score))
+
 
 # 导出覆盖百分之百内在能力个体的内在能力数据
 write.csv(covered_individuals, "data_export/data_ic/covered_individuals.csv", row.names = FALSE)
@@ -5849,6 +5859,60 @@ dim(my_data_imputed)
 write_parquet(my_data_imputed, "data_export/data_calculated/my_data_imputed.parquet")
 # 导出插补后的数据框为csv
 write.csv(my_data_imputed, "data_export/data_calculated/my_data_imputed.csv", row.names = FALSE)
+
+```
+### 描述性统计结果导出
+```{r 描述性统计结果导出}
+# 加载table1包
+if (!requireNamespace("table1", quietly = TRUE)) install.packages("table1")
+
+# 定义标签
+label(my_data_imputed$age) <- "年龄"
+label(my_data_imputed$gender) <- "性别"
+label(my_data_imputed$address_type) <- "地址类型"
+label(my_data_imputed$address_urban_or_rural) <- "城乡类型"
+label(my_data_imputed$literate) <- "识字情况"
+label(my_data_imputed$martial_status) <- "婚姻状况"
+label(my_data_imputed$education_level) <- "教育水平"
+label(my_data_imputed$num_children_married) <- "已婚子女数"
+label(my_data_imputed$number_grandchildren_great_grandchildren) <- "孙子女/重孙数量"
+label(my_data_imputed$number_medical_insurance) <- "医疗保险数量"
+label(my_data_imputed$number_chronic_disease) <- "慢性病数量"
+label(my_data_imputed$health_compared) <- "健康状况比较"
+label(my_data_imputed$number_pain_locations) <- "疼痛部位数量"
+
+# 创建描述性统计表格
+tbl1 <- table1(~ age + gender + address_type + address_urban_or_rural + 
+               literate + martial_status + education_level + 
+               num_children + num_children_married + 
+               number_grandchildren_great_grandchildren + number_medical_insurance + 
+               number_chronic_disease + health_compared + number_pain_locations, 
+               data = my_data_imputed)
+print(tbl1)
+
+# 确保分类变量被正确识别为因子类型
+covered_individuals$final_physical_score <- as.factor(covered_individuals$final_physical_score)
+covered_individuals$cognitive_level <- as.factor(covered_individuals$cognitive_level)
+covered_individuals$final_psychological_score <- as.factor(covered_individuals$final_psychological_score)
+covered_individuals$final_sensory_score <- as.factor(covered_individuals$final_sensory_score)
+covered_individuals$final_vitality_score <- as.factor(covered_individuals$final_vitality_score)
+
+# 定义标签，使表格更易读（可选）
+label(covered_individuals$final_physical_score) <- "最终身体评分"
+label(covered_individuals$cognitive_level) <- "认知水平"
+label(covered_individuals$final_psychological_score) <- "最终心理评分"
+label(covered_individuals$final_sensory_score) <- "最终感官评分"
+label(covered_individuals$final_vitality_score) <- "最终活力评分"
+label(covered_individuals$ic_total_score) <- "IC总分"
+
+# 创建描述性统计表格
+result_table <- table1(~ final_physical_score + cognitive_level + 
+                      final_psychological_score + final_sensory_score + 
+                      final_vitality_score + ic_total_score, 
+                    data = covered_individuals)
+
+# 显示表格
+print(result_table)
 ```
 ## 算法筛选
 ```{r Boruta算法筛选}
@@ -5899,10 +5963,59 @@ print("确定排除的变量:")
 print(rejected_vars)
 
 # 从插值后数据框中提取确认纳入和可能纳入的变量
-model_data <- my_data_imputed %>%
+# 创建一个数据框来存储变量信息
+vars_info <- data.frame(
+  variable_name = c(confirmed_vars, tentative_vars),
+  status = c(rep("确认纳入", length(confirmed_vars)), 
+             rep("可能纳入", length(tentative_vars)))
+)
+
+# 导出变量信息到CSV文件
+write.csv(vars_info, 
+          "data_export/data_auto_filter/variables_boruta_filter.csv", 
+          row.names = FALSE,
+          fileEncoding = "UTF-8")
+
+# 从插值后数据框中提取boruta筛选后的变量
+boruta_data <- my_data_imputed %>%
     select(
       all_of(confirmed_vars),
       all_of(tentative_vars),
+      ic_total_score
+    )
+
+# 导出提取后的数据框
+write_parquet(boruta_data, "data_export/data_auto_filter/my_data_boruta.parquet")
+write.csv(boruta_data, "data_export/data_auto_filter/my_data_boruta.csv", row.names = FALSE)
+
+
+# 构建模型公式，去掉所有pain_开头的变量和其他不需要的变量
+model_vif <- lm(ic_total_score ~ . - ic_total_score - literate - number_grandchildren_great_grandchildren - menopause - pain - pain_head - pain_shoulder - pain_arm - pain_wrist - pain_fingers - pain_chest - pain_back - pain_waist - pain_leg - pain_knees - pain_ankle - pain_toes - pain_neck, data = boruta_data)
+
+# 计算VIF值
+vif_results <- vif(model_vif)
+
+# 打印VIF结果
+print(vif_results)
+
+# 将vif_results转换为数据框
+vif_df <- as.data.frame(vif_results)
+
+# 添加变量名称列
+vif_df$variable <- rownames(vif_df)
+
+# 重新排列列顺序
+vif_df <- vif_df %>%
+    select(variable, GVIF, Df, `GVIF^(1/(2*Df))`)
+
+# vif结果导出为CSV文件
+write.csv(vif_df, "data_export/data_auto_filter/variables_vif_filter.csv", row.names = FALSE)
+
+
+# 从boruta筛选后数据框中提取确认纳入和可能纳入的变量
+model_data <- boruta_data %>%
+    select(
+      all_of(vif_df$variable),
       ic_total_score
     )
 
@@ -5961,19 +6074,27 @@ cv <- trainControl(
   number = 10, 
   repeats = 5
 )
-
+str(ic_train)
 ```
 
 ### 多元线性回归
 ```{r 多元线性回归}
 # 蓝图构建
- blueprint_lm <- recipe(ic_total_score ~ ., data = ic_train)
+blueprint_lm <- recipe(ic_total_score ~ ., data = ic_train)
+
+# 设置交叉验证参数
+ctrl_lm <- trainControl(
+    method = "repeatedcv", 
+    number = 10, 
+    repeats = 5,
+    verboseIter = TRUE     
+)
 # 构建多元线性回归模型
 lm_fit <- train(
   blueprint_lm,
   data = ic_train,
   method = "lm", 
-  trControl = cv
+  trControl = ctrl_lm
 )
   
 # 查看模型的性能
@@ -5981,10 +6102,6 @@ print(lm_fit)
 
 # 查看多元线性回归模型的详细信息
 summary(lm_fit$finalModel)
-
-# 使用vip包可视化多元线性回归模型的变量重要性
-vip(lm_fit, num_features = 10, geom = "point") + 
-  ggtitle("多元线性回归模型的变量重要性")
 
 # 使用多元线性回归模型进行预测（需要考虑一下如何解释）
 lm_predictions <- predict(lm_fit, newdata = ic_test)
@@ -6007,19 +6124,23 @@ print(paste("多元线性回归模型的测试集MAE:", lm_mae))
 # KNN蓝图构建
 blueprint_knn <- recipe(ic_total_score ~ ., data = ic_train)
 
-# 构建KNN模型
-hyper_grid <- expand.grid(k = seq(2, 25, by = 1))
-
-# 调试KNN模型
-knn_fit <- train(
-  blueprint_knn, 
-  data = ic_train, 
-  method = "knn", 
-  trControl = cv, 
-  tuneGrid = hyper_grid,
-  metric = "RMSE"
+# 创建KNN训练控制参数
+ctrl_knn <- trainControl(
+    method = "repeatedcv",    # 重复交叉验证
+    number = 10,              # 5折
+    repeats = 5,            # 重复10次
+    search = "grid"         # 网格搜索
 )
 
+# 调试KNN模型
+knn_model <- train(
+    blueprint_knn, 
+    data = ic_train,   # 训练数据
+    method = "knn",         # 使用KNN方法
+    trControl = ctrl_knn,       # 使用上面定义的控制参数
+    tuneGrid = expand.grid(k = 1:25)  # 设置k值范围
+)
+ 
 # 查看KNN模型的结果
 print(knn_fit)
   
@@ -6028,10 +6149,6 @@ best_k <- knn_fit$bestTune$k
 best_model_performance <- knn_fit$results[knn_fit$results$k == best_k, ]
 print("最佳模型的性能:")
 print(best_model_performance)
-
-# 使用vip包可视化变量重要性
-vip(knn_fit, num_features = 10, geom = "point") + 
-  ggtitle("KNN模型的变量重要性")
 
 # 使用KNN模型进行预测
 knn_predictions <- predict(knn_fit, newdata = ic_test)
@@ -6057,25 +6174,39 @@ if (!require("randomForest")) {install.packages("randomForest")}
 library(randomForest)
 # 随机森林蓝图构建
 blueprint_rf <- recipe(ic_total_score ~ ., data = ic_train)
+# 设置随机森林的控制参数
+set.seed(123)  # 设置随机种子以确保结果可重复
+
+# 构建随机森林的蓝图
+blueprint_rf <- recipe(ic_total_score ~ ., data = ic_train)
+
+# 设置调优网格
+rf_grid <- expand.grid(
+    mtry = seq(floor(sqrt(ncol(ic_train))), ncol(ic_train), by = 2)
+)
+# 设置交叉验证参数
+ctrl_rf <- trainControl(
+    method = "repeatedcv",
+    number = 10,
+    repeats = 5,
+    verboseIter = TRUE,
+    returnResamp = "all"
+)
+
 # 构建随机森林模型
 set.seed(123)
 rf_fit <- train(
-  blueprint_rf,
-  data = ic_train,
-  method = "rf", 
-  trControl = cv,
-  importance = TRUE
+    blueprint_rf,
+    data = ic_train,
+    method = "rf", 
+    trControl = ctrl_rf,
+    tuneGrid = rf_grid, 
+    importance = TRUE
 )
 
-# 查看模型的重要性
-varImpPlot(rf_fit$finalModel)
 
 # 查看模型的性能
 print(rf_fit)
-
-# 使用vip包可视化随机森林模型的变量重要性
-vip(rf_fit, num_features = 10, geom = "point") +
-  ggtitle("随机森林模型的变量重要性")
 
 # 使用随机森林模型进行预测
 rf_predictions <- predict(rf_fit, newdata = ic_test)
@@ -6095,14 +6226,32 @@ print(paste("随机森林模型的测试集MAE:", rf_mae))
 if (!require(kernlab)) install.packages("kernlab")
 library(kernlab)
 
+# SVM蓝图构建
+blueprint_svm <- recipe(ic_total_score ~., data = ic_train) %>%
+  step_nzv(all_nominal())
+# SVM的控制参数
+ctrl_svm <- trainControl(
+    method = "repeatedcv",
+    number = 10,
+    repeats = 5,
+    verboseIter = TRUE,
+    returnResamp = "all"
+)
+
+# 定义SVM的参数网格
+svm_grid <- expand.grid(
+  C = c(0.1, 1, 10),  # 调整正则化参数范围
+  sigma = c(0.01, 0.1)  # 调整RBF核的gamma参数范围
+)
+
 # 构建SVM模型
 set.seed(123)
 svm_fit <- train(
   blueprint_svm,
   data = ic_train,
   method = "svmRadial",
-  trControl = cv,
-  tuneLength = 10,  # 自动生成10组超参数组合
+  tuneGrid = svm_grid,  # 参数网格
+  trControl = ctrl_svm
 )
 
 # 查看模型的性能
@@ -6111,10 +6260,6 @@ print(svm_fit)
 # 查看最佳模型的参数
 print("最佳模型参数：")
 print(svm_fit$bestTune)
-
-# 使用vip包可视化SVM模型的变量重要性
-vip(svm_fit, num_features = 10, geom = "point") +
-  ggtitle("SVM模型的变量重要性")
 
 # 使用SVM模型进行预测
 svm_predictions <- predict(svm_fit, newdata = ic_test)
@@ -6133,11 +6278,23 @@ print(paste("SVM模型的测试集MAE:", svm_mae))
 ```
 ### ANN
 ```{r ANN}
-# ANN蓝图构建
-blueprint_ann <- recipe(ic_total_score ~ ., data = ic_train)
 # 加载nnet包
 if (!require(nnet)) install.packages("nnet")
 library(nnet)
+
+# ANN蓝图构建
+blueprint_ann <- recipe(ic_total_score ~ ., data = ic_train) %>%
+  step_nzv(all_nominal()) %>%
+  step_dummy(all_nominal(), -all_outcomes(), one_hot = TRUE)
+
+# 设置交叉验证的控制参数
+ctrl_ann <- trainControl(
+    method = "repeatedcv",
+    number = 10,
+    repeats = 5,
+    verboseIter = TRUE,
+    returnResamp = "all"
+)
 
 # 构建ANN模型
 set.seed(123)
@@ -6145,16 +6302,18 @@ ann_fit <- train(
   blueprint_ann,
   data = ic_train,
   method = "nnet",
-  trControl = cv,
+  trControl = ctrl_ann,
   # 设置神经网络参数
   tuneGrid = expand.grid(
-    size = seq(2, 10, by = 2),  # 隐藏层神经元数量
-    decay = seq(0.1, 0.5, by = 0.1)  # 权重衰减参数
+    size = c(3, 5),  # 减少隐藏层神经元数量的选项
+    decay = c(0.1, 0.3)  # 减少权重衰减参数的选项
   ),
   # 其他参数设置
-  maxit = 1000,  # 最大迭代次数
+  maxit = 200,  # 减少最大迭代次数
   linout = TRUE,  # 线性输出层
-  trace = TRUE  # 不显示训练过程
+  trace = FALSE,  # 关闭训练过程显示以加快速度
+  # 添加额外参数来提高效率
+  MaxNWts = 1000  # 限制权重数量
 )
 
 # 查看模型的性能
@@ -6167,18 +6326,6 @@ print(ann_fit$bestTune)
 # 使用vip包可视化ANN模型的变量重要性
 vip(ann_fit, num_features = 10, geom = "point") +
   ggtitle("ANN模型的变量重要性")
-
-# 加载神经网络可视化包
-if (!require(NeuralNetTools)) install.packages("NeuralNetTools")
-library(NeuralNetTools)
-
-# 保存神经网络结构图
-plotnet(ann_fit$finalModel, 
-        circle_col = "lightblue",  # 节点颜色
-        circle_cex = 6,  # 节点大小
-        rel_rsc = c(1, 1),  # 相对大小调整
-        cex_val = 0.8)  # 文字大小
-dev.off()
 
 # 使用ANN模型进行预测
 ann_predictions <- predict(ann_fit, newdata = ic_test)
@@ -6198,19 +6345,27 @@ print(paste("ANN模型的测试集MAE:", ann_mae))
 ```
 ### XGBoost
 ```{r XGBoost}
-# XGBoost蓝图构建
-blueprint_xgboost <- recipe(ic_total_score ~ ., data = ic_train)
 # 加载xgboost包
 if (!require(xgboost)) install.packages("xgboost")
 library(xgboost)
-
+# XGBoost蓝图构建
+blueprint_xgboost <- recipe(ic_total_score ~ ., data = ic_train) %>%
+  step_dummy(all_nominal(), -all_outcomes(), one_hot = TRUE)
+# XGBoost的控制参数
+ctrl_xgboost <- trainControl(
+    method = "repeatedcv",
+    number = 10,
+    repeats = 5,
+    verboseIter = TRUE,
+    returnResamp = "all"
+)
 # 构建XGBoost模型
 set.seed(123)
 xgb_fit <- train(
   blueprint_xgboost,
   data = ic_train,
   method = "xgbTree",
-  trControl = cv,
+  trControl = ctrl_xgboost,
   tuneGrid = expand.grid(
     nrounds = c(100, 200),
     max_depth = c(3, 6),
@@ -6248,7 +6403,8 @@ print(paste("XGBoost模型的测试集RMSE:", xgb_rmse))
 xgb_mae <- mean(abs(xgb_predictions - ic_test$ic_total_score))
 print(paste("XGBoost模型的测试集MAE:", xgb_mae))
 ```
-## 建模结果导出
+
+### 模型结果导出
 ```{r 建模结果导出}
 # 加载所需的包
 if (!require(openxlsx)) install.packages("openxlsx")
@@ -6356,7 +6512,6 @@ rf_imp <- head(get_importance_scores(rf_fit, "Random Forest"), 20)
 svm_imp <- head(get_importance_scores(svm_fit, "SVM"), 20)
 ann_imp <- head(get_importance_scores(ann_fit, "ANN"), 20)
 xgb_imp <- head(get_importance_scores(xgb_fit, "XGBoost"), 20)
-
 # 合并所有模型的变量重要性
 all_imp <- rbind(lm_imp, knn_imp, rf_imp, svm_imp, ann_imp, xgb_imp)
 
@@ -6381,7 +6536,7 @@ print(ggplot(all_imp, aes(x = reorder(Variable, Importance), y = Importance)) +
 
 # 保存图片为SVG格式
 ggsave("data_export/model_results/variable_importance_comparison.svg", 
-       width = 12, height = 8, device = "svg")
+       width = 16, height = 8, device = "svg")
 
 
 ```  
