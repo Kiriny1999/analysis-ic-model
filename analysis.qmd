@@ -117,6 +117,27 @@ if (!requireNamespace("car", quietly = TRUE)) install.packages("car")
 library(mice)
 library(Boruta)
 library(car)
+
+# 安装描述性统计包
+if (!requireNamespace("table1", quietly = TRUE)) install.packages("table1")
+
+# 加载描述性统计包
+library(table1)
+
+# 安装建模包
+# 安装建模包
+if (!requireNamespace("glmnet", quietly = TRUE)) install.packages("glmnet")
+if (!requireNamespace("caret", quietly = TRUE)) install.packages("caret")
+if (!requireNamespace("vip", quietly = TRUE)) install.packages("vip")
+if (!requireNamespace("recipes", quietly = TRUE)) install.packages("recipes")
+if (!requireNamespace("rsample", quietly = TRUE)) install.packages("rsample")
+
+# 加载建模包
+library(glmnet)  
+library(caret)   
+library(vip)
+library(recipes)
+library(rsample)
 ```
 ## 读取并合并数据
 ```{r 读取并合并数据}
@@ -338,6 +359,31 @@ my_data_wash <- my_data_wash %>%
                 walk_test_aid %in% c(2, 3, 4, 97) ~ 0,
                 TRUE ~ NA_real_
             )
+        )
+    )
+
+# 计算步行速度
+my_data_wash <- my_data_wash %>%
+    mutate(
+        walking_speed = case_when(
+            walk_time_first == 993 & walk_time_second == 993 ~ 0,
+            (is.na(walk_time_first) & is.na(walk_time_second)) | (walk_time_first == 999 & walk_time_second == 999) | (is.na(walk_time_first) & walk_time_second == 999) | (walk_time_first == 999 & is.na(walk_time_second)) ~ case_when(
+                rowSums(select(., starts_with("walk_test_reason_")) == 4, na.rm = TRUE) > 0 ~ 0,
+                rowSums(select(., starts_with("walk_test_reason_")) == 6, na.rm = TRUE) > 0 ~ 0,
+                TRUE ~ NA_real_
+            ),
+            TRUE ~ 2.5 / pmin(walk_time_first, walk_time_second, na.rm = TRUE)
+        )
+    )
+
+# 计算最终步行得分
+my_data_wash <- my_data_wash %>%
+    mutate(
+        final_walk_time = case_when(
+            is.na(walking_speed) ~ NA_real_,
+            walk_test_aid == 1 ~ if_else(walking_speed >= 1, 1, 0),
+            walk_test_aid %in% c(2, 3, 4, 97) ~ 0,
+            TRUE ~ NA_real_
         )
     )
 
@@ -5692,10 +5738,26 @@ write_parquet(my_data_secondly_filtered, "data_export/data_second_manual_filter/
 write.csv(my_data_secondly_filtered, "data_export/data_second_manual_filter/my_data_secondly_filtered.csv", row.names = FALSE)
 ```
 
+### 数字生物标志物添加
+```{r 数字生物标志物添加}
+# 将额外变量添加到二次筛选后的数据框中
+my_data_biomarker_filtered <- my_data_secondly_filtered %>%
+  left_join(
+    my_data_wash %>% 
+      select(ID, total_sleep_time, final_left_hand_grip, 
+             final_right_hand_grip, walking_speed),
+    by = "ID"
+  )
+table(my_data_biomarker_filtered$total_sleep_time, useNA = "ifany")
+table(my_data_biomarker_filtered$final_left_hand_grip, useNA = "ifany")
+table(my_data_biomarker_filtered$final_right_hand_grip, useNA = "ifany")
+table(my_data_biomarker_filtered$walking_speed, useNA = "ifany")
+```
+
 ### 二次手动筛选后预处理
 ```{r 二次手动筛选后预处理}
 # 无关变量清洗和顺序调整
-preprocessed_data <- my_data_secondly_filtered %>%
+preprocessed_data <- my_data_biomarker_filtered %>%
     # 去掉内在能力五个维度变量和ID、householdID、communityID
     select(-final_physical_score, -cognitive_level, 
            -final_psychological_score, -final_sensory_score, 
@@ -5776,13 +5838,9 @@ write_parquet(preprocessed_data, "data_export/data_calculated/preprocessed_data.
 # 导出预处理后数据为csv
 write.csv(preprocessed_data, "data_export/data_calculated/preprocessed_data.csv", row.names = FALSE)
 ```
+
 ## 缺失值筛选
 ```{r 缺失值筛选及处理}
-# 检查mice包是否已安装
-if (!require("mice")) {install.packages("mice")}
-# 加载mice包
-library(mice)
-
 # 计算每个变量的缺失值比例
 na_proportions <- colMeans(is.na(preprocessed_data))
 
@@ -5825,17 +5883,17 @@ imputed_data <- mice(my_data_na_filtered,
 # 获取完整数据集（使用第一个插补结果）
 # 将插补后的数据存入新的数据框
 my_data_imputed <- complete(imputed_data, 1)
+
 # 计算每个变量的缺失值数量并按从多到少排序
 missing_counts <- sapply(my_data_imputed, function(x) sum(is.na(x)))
 missing_counts_sorted <- sort(missing_counts, decreasing = TRUE)
-
 # 创建一个包含变量名和缺失值数量的数据框
 missing_df <- data.frame(
   variable = names(missing_counts_sorted),
   missing_count = missing_counts_sorted,
   missing_percentage = round(missing_counts_sorted / nrow(my_data_imputed) * 100, 2)
 )
-
+missing_df
 # 对self_payfor_inpatientcare和treat_pain进行二次插补
 # 创建一个新的插补对象
 mice_obj2 <- mice(my_data_imputed[, c("self_payfor_inpatientcare", "treat_pain")], m = 5, maxit = 50, method = "pmm", seed = 123)
@@ -5859,13 +5917,11 @@ dim(my_data_imputed)
 write_parquet(my_data_imputed, "data_export/data_calculated/my_data_imputed.parquet")
 # 导出插补后的数据框为csv
 write.csv(my_data_imputed, "data_export/data_calculated/my_data_imputed.csv", row.names = FALSE)
+str(my_data_imputed)
 
 ```
 ### 描述性统计结果导出
 ```{r 描述性统计结果导出}
-# 加载table1包
-if (!requireNamespace("table1", quietly = TRUE)) install.packages("table1")
-
 # 定义标签
 label(my_data_imputed$age) <- "年龄"
 label(my_data_imputed$gender) <- "性别"
@@ -5883,8 +5939,7 @@ label(my_data_imputed$number_pain_locations) <- "疼痛部位数量"
 
 # 创建描述性统计表格
 tbl1 <- table1(~ age + gender + address_type + address_urban_or_rural + 
-               literate + martial_status + education_level + 
-               num_children + num_children_married + 
+               literate + martial_status + education_level + num_children_married + 
                number_grandchildren_great_grandchildren + number_medical_insurance + 
                number_chronic_disease + health_compared + number_pain_locations, 
                data = my_data_imputed)
@@ -5916,11 +5971,6 @@ print(result_table)
 ```
 ## 算法筛选
 ```{r Boruta算法筛选}
-# 检查Boruta包是否已安装
-if (!require("Boruta")) {install.packages("Boruta")}
-# 加载Boruta包
-library(Boruta)
-
 # 检查因子变量的水平数量
 single_level_factors <- sapply(my_data_imputed, function(x) {
   if (is.factor(x)) length(levels(x)) == 1 else FALSE
@@ -5934,11 +5984,12 @@ my_data_imputed <- my_data_imputed %>%
   select(-all_of(names(single_level_factors[single_level_factors])))
 dim(my_data_imputed)
 
-# 使用Boruta算法进行变量筛选（Boruta方法应该用在缺失值处理之后还是之前）
+# 使用Boruta算法进行变量筛选
 set.seed(123)
 
 # 运行Boruta算法
 boruta_output <- Boruta(ic_total_score ~ . - ID, data = my_data_imputed, doTrace = 2)
+
 # 保存Boruta算法变量重要性排序图
 svg(filename = "data_export/model_results/boruta_importance.svg", 
     width = 3000/72,  # 将像素转换为英寸
@@ -5952,11 +6003,13 @@ confirmed_vars <- names(boruta_output$finalDecision[boruta_output$finalDecision 
 print("确定纳入的变量:")
 print(confirmed_vars)
 length(confirmed_vars)
+
 # 获取可能纳入的变量
 tentative_vars <- names(boruta_output$finalDecision[boruta_output$finalDecision == "Tentative"])
 print("可能纳入的变量:")
 print(tentative_vars)
 length(tentative_vars)
+
 # 获取确定排除的变量
 rejected_vars <- names(boruta_output$finalDecision[boruta_output$finalDecision == "Rejected"])
 print("确定排除的变量:")
@@ -5984,13 +6037,22 @@ boruta_data <- my_data_imputed %>%
       ic_total_score
     )
 
+# 将数值型变量转换为纯数值
+boruta_data <- boruta_data %>%
+  mutate(across(where(is.numeric), ~as.numeric(as.character(.))))
+
+# 将因子变量中的level标签去掉
+boruta_data <- boruta_data %>%
+  mutate(across(where(is.factor), ~factor(as.numeric(.))))
 # 导出提取后的数据框
 write_parquet(boruta_data, "data_export/data_auto_filter/my_data_boruta.parquet")
 write.csv(boruta_data, "data_export/data_auto_filter/my_data_boruta.csv", row.names = FALSE)
-
-
+str(boruta_data)
+```
+### 多重共线性筛选
+```{r 多重共线性筛选}
 # 构建模型公式，去掉所有pain_开头的变量和其他不需要的变量
-model_vif <- lm(ic_total_score ~ . - ic_total_score - literate - number_grandchildren_great_grandchildren - menopause - pain - pain_head - pain_shoulder - pain_arm - pain_wrist - pain_fingers - pain_chest - pain_back - pain_waist - pain_leg - pain_knees - pain_ankle - pain_toes - pain_neck, data = boruta_data)
+model_vif <- lm(ic_total_score ~ . - ic_total_score - gender - smoke - num_children_married - pain - pain_head - pain_shoulder - pain_arm -  pain_wrist - pain_fingers - pain_chest - pain_stomach - pain_back - pain_waist - pain_leg - pain_knees - pain_ankle - pain_toes - pain_neck - literate - year_smoke, data = boruta_data)
 
 # 计算VIF值
 vif_results <- vif(model_vif)
@@ -6022,14 +6084,6 @@ model_data <- boruta_data %>%
 # 查看建模数据框的维度
 dim(model_data)
 
-# 将数值型变量转换为纯数值
-model_data <- model_data %>%
-  mutate(across(where(is.numeric), ~as.numeric(as.character(.))))
-
-# 将因子变量中的level标签去掉
-model_data <- model_data %>%
-  mutate(across(where(is.factor), ~factor(as.numeric(.))))
-
 # 检查转换后的数据类型
 str(model_data)
 
@@ -6041,39 +6095,13 @@ write.csv(model_data, "data_export/data_calculated/model_data.csv", row.names = 
 ## 建模及验证
 ### 建模前预处理
 ```{r 建模前预处理}
-# 检查所需的包是否已安装，如果未安装则安装
-# 检查并安装所需的包
-required_packages <- c("glmnet", "caret", "vip", "recipes", "rsample", "ggplot2")
-
-# 检查每个包是否已安装，如果未安装则进行安装
-for (pkg in required_packages) {
-  if (!require(pkg, character.only = TRUE)) {
-    install.packages(pkg)
-    library(pkg, character.only = TRUE)
-  }
-}
-
-# 加载所需的包
-library(glmnet)  
-library(caret)   
-library(vip)
-library(recipes)
-library(rsample)
-library(ggplot2)
-library(caret)
-
 # 数据拆分
 set.seed(123)
 split <- initial_split(model_data, prop = 0.7) # 是否需要分层抽样？
 ic_train  <- training(split)
 ic_test   <- testing(split)
 
-# 确定交叉验证方法
-cv <- trainControl(
-  method = "repeatedcv", 
-  number = 10, 
-  repeats = 5
-)
+
 str(ic_train)
 ```
 
@@ -6102,6 +6130,41 @@ print(lm_fit)
 
 # 查看多元线性回归模型的详细信息
 summary(lm_fit$finalModel)
+
+# 可视化线性回归模型的变量重要性
+# 提取线性回归模型的变量重要性
+lm_importance <- vip(lm_fit, num_features = 20, geom = "point")
+
+# 设置中文字体
+if (!require(showtext)) install.packages("showtext")
+library(showtext)
+showtext_auto()
+font_add("SimHei", "/System/Library/Fonts/STHeiti Light.ttc")
+
+# 创建变量重要性可视化
+lm_plot <- lm_importance + 
+  theme_minimal() +
+  labs(
+    title = "线性回归模型变量重要性",
+    x = "变量",
+    y = "重要性得分"
+  ) +
+  theme(
+    text = element_text(family = "SimHei", size = 12),
+    axis.text.y = element_text(size = 10),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(size = 14, face = "bold")
+  )
+
+# 显示图形
+print(lm_plot)
+
+# 保存图形
+ggsave("data_export/model_results/linear_regression_importance.svg", 
+       lm_plot, 
+       width = 10, 
+       height = 8, 
+       device = "svg")
 
 # 使用多元线性回归模型进行预测（需要考虑一下如何解释）
 lm_predictions <- predict(lm_fit, newdata = ic_test)
