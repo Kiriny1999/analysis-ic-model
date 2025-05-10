@@ -66,29 +66,24 @@ format: "pptx"
 ### 自变量计算
 1. 按照纳入的每个指标附属条目计算出每个指标的最终分数（其中仔细考虑NA和非空0值的意义）
 2. 将计算的自变量重新命名
+   
+
 ### 缺失值变量筛选
 1. 如果某个变量缺失值大于20%，则删除该变量
    
 ### 算法筛选
 
 1. 采用boruta方法进行算法筛选（可boruta方法需要进行筛选，）
-
-
-### 连续自变量处理
-- 标准化
-- 缩放和中心化
-
-### 分类变量处理
-- 转化为连续变量
-- 转化为哑变量
-- 标签编码（适合于等级变量）
+2. 计算多重共线性筛选
 
 ## 模型选择
 1. 多元线性回归
 2. KNN
 3. 随机森林
-4. 神经网络
-- 
+4. 支持向量机
+5. 神经网络
+6. 极端梯度提升树
+  
 # 代码
 ## 安装并加载需要的包
 ```{r 安装并加载需要的包}
@@ -112,11 +107,17 @@ library(tidyr)
 if (!requireNamespace("mice", quietly = TRUE)) install.packages("mice")
 if (!requireNamespace("Boruta", quietly = TRUE)) install.packages("Boruta")
 if (!requireNamespace("car", quietly = TRUE)) install.packages("car")
+if (!requireNamespace("caret", quietly = TRUE)) install.packages("caret")
+if (!requireNamespace("ranger", quietly = TRUE)) install.packages("ranger")
+if (!requireNamespace("infotheo", quietly = TRUE)) install.packages("infotheo")
 
 # 加载变量筛选的包
 library(mice)
 library(Boruta)
 library(car)
+library(caret)
+library(ranger)
+library(infotheo)
 
 # 安装描述性统计包
 if (!requireNamespace("table1", quietly = TRUE)) install.packages("table1")
@@ -125,19 +126,23 @@ if (!requireNamespace("table1", quietly = TRUE)) install.packages("table1")
 library(table1)
 
 # 安装建模包
-# 安装建模包
 if (!requireNamespace("glmnet", quietly = TRUE)) install.packages("glmnet")
 if (!requireNamespace("caret", quietly = TRUE)) install.packages("caret")
 if (!requireNamespace("vip", quietly = TRUE)) install.packages("vip")
 if (!requireNamespace("recipes", quietly = TRUE)) install.packages("recipes")
 if (!requireNamespace("rsample", quietly = TRUE)) install.packages("rsample")
+if (!requireNamespace("randomForest", quietly = TRUE)) install.packages("randomForest")
+if (!require(nnet)) install.packages("nnet")
 
+# 加载随机森林包
 # 加载建模包
 library(glmnet)  
 library(caret)   
 library(vip)
 library(recipes)
 library(rsample)
+library(randomForest)
+library(nnet)
 ```
 ## 读取并合并数据
 ```{r 读取并合并数据}
@@ -5970,6 +5975,124 @@ result_table <- table1(~ final_physical_score + cognitive_level +
 print(result_table)
 ```
 ## 算法筛选
+### RFE算法筛选
+```{r RFE算法筛选}
+# 设置RFE控制参数
+set.seed(123) # 设置随机种子以确保结果可重复
+rfeControl <- rfeControl(
+    functions = rfFuncs, # 使用随机森林作为基础模型
+    method = "cv",       # 使用交叉验证
+    number = 5,         # 5折交叉验证
+    verbose = FALSE
+)
+
+# 准备数据
+# 假设我们的目标变量是内在能力总分，自变量是其他所有变量
+# 移除不需要的列（如ID等）并处理缺失值
+predictors <- my_data_imputed %>%
+    select(-c(ic_total_score, ID)) # 移除目标变量
+
+# 执行RFE
+rfe_result <- rfe(
+    x = predictors,
+    y = my_data_imputed$ic_total_score,
+    sizes = c(5:30), # 尝试不同数量的特征
+    rfeControl = rfeControl
+)
+
+# 查看结果
+print(rfe_result)
+
+# 获取最佳特征子集
+variables_rfe_filter <- predictors[, rfe_result$optVariables]
+
+# 将结果保存到CSV文件
+write.csv(
+  data.frame(
+    Variable = rfe_result$optVariables
+  ),
+  "data_export/data_auto_filter/variables_rfe_filter.csv",
+  row.names = FALSE
+)
+```
+### ETC算法筛选
+```{r ETC算法筛选}
+# 使用ranger包实现ETC算法
+etc_model <- ranger(
+  formula = ic_total_score ~ . - ID, # 需要替换target_variable为实际的目标变量
+  data = my_data_imputed,
+  importance = 'impurity',
+  num.trees = 500,
+  mtry = floor(sqrt(ncol(my_data_imputed) - 1))
+)
+
+# 获取变量重要性得分
+var_importance <- importance(etc_model)
+var_importance_df <- data.frame(
+  Variable = names(var_importance),
+  Importance = var_importance
+)
+
+# 按重要性排序
+var_importance_df <- var_importance_df[order(var_importance_df$Importance, decreasing = TRUE), ]
+
+# 选择重要性得分大于平均值的变量
+mean_importance <- mean(var_importance_df$Importance)
+selected_vars <- var_importance_df$Variable[var_importance_df$Importance > mean_importance]
+
+# 输出筛选后的变量
+print("Selected variables:")
+print(selected_vars)
+# 创建仅包含选定变量的数据集
+my_data_etc <- my_data_imputed[, c(selected_vars, "target_variable")]
+
+# 将选定的变量列表导出为CSV文件
+selected_vars_df <- data.frame(
+  Variable_Name = selected_vars,
+  stringsAsFactors = FALSE
+)
+
+# 导出变量列表到csv
+write.csv(selected_vars_df, 
+          "data_export/data_auto_filter/variables_etc_filter.csv", 
+          row.names = FALSE,
+          fileEncoding = "UTF-8")
+
+```
+### MI算法进行筛选
+```{r MI算法筛选}
+# 准备数据：移除ID列并处理数据
+data_for_mi <- my_data_imputed %>%
+    select(-ID) %>%
+    mutate(across(where(is.numeric), ~discretize(., nbins = 10)))  # 对数值变量进行离散化
+
+# 计算每个变量与总分之间的互信息
+mi_scores <- sapply(names(data_for_mi), function(x) {
+    if(x != "ic_total_score") {
+        mutinformation(data_for_mi[[x]], data_for_mi$ic_total_score)
+    } else {
+        NA
+    }
+})
+
+# 创建变量重要性数据框
+var_importance_df <- data.frame(
+    Variable = names(data_for_mi),
+    MI_Score = mi_scores
+) %>%
+    filter(!is.na(MI_Score)) %>%
+    arrange(desc(MI_Score))
+
+# 选择互信息得分大于平均值的变量
+mean_mi_score <- mean(var_importance_df$MI_Score)
+selected_vars <- var_importance_df$Variable[var_importance_df$MI_Score > mean_mi_score]
+
+# 输出筛选后的变量
+print("使用互信息方法筛选后的变量：")
+print(selected_vars)
+
+```
+### Boruta算法筛选
 ```{r Boruta算法筛选}
 # 检查因子变量的水平数量
 single_level_factors <- sapply(my_data_imputed, function(x) {
@@ -6040,10 +6163,14 @@ boruta_data <- my_data_imputed %>%
 # 将数值型变量转换为纯数值
 boruta_data <- boruta_data %>%
   mutate(across(where(is.numeric), ~as.numeric(as.character(.))))
+str(boruta_data)
 
 # 将因子变量中的level标签去掉
 boruta_data <- boruta_data %>%
   mutate(across(where(is.factor), ~factor(as.numeric(.))))
+
+str(boruta_data)
+
 # 导出提取后的数据框
 write_parquet(boruta_data, "data_export/data_auto_filter/my_data_boruta.parquet")
 write.csv(boruta_data, "data_export/data_auto_filter/my_data_boruta.csv", row.names = FALSE)
@@ -6095,20 +6222,53 @@ write.csv(model_data, "data_export/data_calculated/model_data.csv", row.names = 
 ## 建模及验证
 ### 建模前预处理
 ```{r 建模前预处理}
+# 进一步筛选数字生物标记物
 # 数据拆分
-set.seed(123)
-split <- initial_split(model_data, prop = 0.7) # 是否需要分层抽样？
-ic_train  <- training(split)
-ic_test   <- testing(split)
+# 筛选建模所需变量
+model_data_1 <- model_data %>%
+  select(
+    age,
+    address_urban_or_rural,
+    martial_status,
+    education_level, 
+    bmi,
+    waist_circumference,
+    hematocrit,
+    triglycerides,
+    creatinine,
+    uric_acid, 
+    cystatin_c,
+    number_grandchildren_great_grandchildren,
+    physical_disability,
+    number_chronic_disease,
+    times_fallen_down,
+    menopause,
+    noteeth,
+    number_pain_locations,
+    treat_pain,
+    status_smoke,
+    walking_speed,
+    total_sleep_time,
+    final_left_hand_grip,
+    final_right_hand_grip,
+    ic_total_score
+  )
 
+# 设置随机种子并分割数据
+set.seed(123)
+split <- initial_split(model_data_1, prop = 0.7)
+ic_train <- training(split)
+ic_test <- testing(split)
 
 str(ic_train)
+str(ic_test)
 ```
 
 ### 多元线性回归
 ```{r 多元线性回归}
 # 蓝图构建
-blueprint_lm <- recipe(ic_total_score ~ ., data = ic_train)
+blueprint_lm <- recipe(ic_total_score ~ ., data = ic_train) %>%
+  step_nzv(all_nominal())
 
 # 设置交叉验证参数
 ctrl_lm <- trainControl(
@@ -6124,7 +6284,7 @@ lm_fit <- train(
   method = "lm", 
   trControl = ctrl_lm
 )
-  
+
 # 查看模型的性能
 print(lm_fit)
 
@@ -6159,13 +6319,6 @@ lm_plot <- lm_importance +
 # 显示图形
 print(lm_plot)
 
-# 保存图形
-ggsave("data_export/model_results/linear_regression_importance.svg", 
-       lm_plot, 
-       width = 10, 
-       height = 8, 
-       device = "svg")
-
 # 使用多元线性回归模型进行预测（需要考虑一下如何解释）
 lm_predictions <- predict(lm_fit, newdata = ic_test)
 
@@ -6182,7 +6335,7 @@ lm_mae <- mean(abs(lm_predictions - ic_test$ic_total_score))
 print(paste("多元线性回归模型的测试集MAE:", lm_mae))
 ```
 
-### KNN
+### 最小邻近值算法
 ```{r KNN}
 # KNN蓝图构建
 blueprint_knn <- recipe(ic_total_score ~ ., data = ic_train)
@@ -6196,7 +6349,7 @@ ctrl_knn <- trainControl(
 )
 
 # 调试KNN模型
-knn_model <- train(
+knn_fit <- train(
     blueprint_knn, 
     data = ic_train,   # 训练数据
     method = "knn",         # 使用KNN方法
@@ -6206,13 +6359,24 @@ knn_model <- train(
  
 # 查看KNN模型的结果
 print(knn_fit)
-  
+
+# 可视化KNN模型的变量重要性
+vip(knn_fit, num_features = 20, geom = "point") +
+  ggtitle("KNN Model Variable Importance") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14),
+    axis.text = element_text(size = 10),
+    axis.title = element_text(size = 12)
+  )
+
 # 查看最佳模型的性能
 best_k <- knn_fit$bestTune$k
 best_model_performance <- knn_fit$results[knn_fit$results$k == best_k, ]
 print("最佳模型的性能:")
 print(best_model_performance)
 
+str(ic_test)
 # 使用KNN模型进行预测
 knn_predictions <- predict(knn_fit, newdata = ic_test)
 
@@ -6231,12 +6395,9 @@ print(paste("KNN模型的测试集MAE:", knn_mae))
 
 ### 随机森林
 ```{r 随机森林}
-# 检查随机森林包是否已安装
-if (!require("randomForest")) {install.packages("randomForest")}
-# 加载随机森林包
-library(randomForest)
 # 随机森林蓝图构建
 blueprint_rf <- recipe(ic_total_score ~ ., data = ic_train)
+
 # 设置随机森林的控制参数
 set.seed(123)  # 设置随机种子以确保结果可重复
 
@@ -6247,6 +6408,7 @@ blueprint_rf <- recipe(ic_total_score ~ ., data = ic_train)
 rf_grid <- expand.grid(
     mtry = seq(floor(sqrt(ncol(ic_train))), ncol(ic_train), by = 2)
 )
+
 # 设置交叉验证参数
 ctrl_rf <- trainControl(
     method = "repeatedcv",
@@ -6266,7 +6428,6 @@ rf_fit <- train(
     tuneGrid = rf_grid, 
     importance = TRUE
 )
-
 
 # 查看模型的性能
 print(rf_fit)
@@ -6291,7 +6452,8 @@ library(kernlab)
 
 # SVM蓝图构建
 blueprint_svm <- recipe(ic_total_score ~., data = ic_train) %>%
-  step_nzv(all_nominal())
+  step_nzv(all_nominal()) %>%
+  step_dummy(all_nominal(), -all_outcomes(), one_hot = TRUE)
 # SVM的控制参数
 ctrl_svm <- trainControl(
     method = "repeatedcv",
@@ -6339,12 +6501,8 @@ print(paste("SVM模型的测试集RMSE:", svm_rmse))
 svm_mae <- mean(abs(svm_predictions - ic_test$ic_total_score))
 print(paste("SVM模型的测试集MAE:", svm_mae))
 ```
-### ANN
+### 人工神经网络
 ```{r ANN}
-# 加载nnet包
-if (!require(nnet)) install.packages("nnet")
-library(nnet)
-
 # ANN蓝图构建
 blueprint_ann <- recipe(ic_total_score ~ ., data = ic_train) %>%
   step_nzv(all_nominal()) %>%
