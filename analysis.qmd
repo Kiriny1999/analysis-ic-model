@@ -133,6 +133,7 @@ if (!requireNamespace("recipes", quietly = TRUE)) install.packages("recipes")
 if (!requireNamespace("rsample", quietly = TRUE)) install.packages("rsample")
 if (!requireNamespace("randomForest", quietly = TRUE)) install.packages("randomForest")
 if (!require(nnet)) install.packages("nnet")
+if (!require(kernlab)) install.packages("kernlab")
 
 # 加载随机森林包
 # 加载建模包
@@ -143,6 +144,7 @@ library(recipes)
 library(rsample)
 library(randomForest)
 library(nnet)
+library(kernlab)
 ```
 ## 读取并合并数据
 ```{r 读取并合并数据}
@@ -5743,7 +5745,7 @@ write_parquet(my_data_secondly_filtered, "data_export/data_second_manual_filter/
 write.csv(my_data_secondly_filtered, "data_export/data_second_manual_filter/my_data_secondly_filtered.csv", row.names = FALSE)
 ```
 
-### 数字生物标志物添加
+### 数字生物标志物添加（暂时不要）
 ```{r 数字生物标志物添加}
 # 将额外变量添加到二次筛选后的数据框中
 my_data_biomarker_filtered <- my_data_secondly_filtered %>%
@@ -5762,7 +5764,7 @@ table(my_data_biomarker_filtered$walking_speed, useNA = "ifany")
 ### 二次手动筛选后预处理
 ```{r 二次手动筛选后预处理}
 # 无关变量清洗和顺序调整
-preprocessed_data <- my_data_biomarker_filtered %>%
+preprocessed_data <- my_data_secondly_filtered %>%
     # 去掉内在能力五个维度变量和ID、householdID、communityID
     select(-final_physical_score, -cognitive_level, 
            -final_psychological_score, -final_sensory_score, 
@@ -5885,7 +5887,6 @@ imputed_data <- mice(my_data_na_filtered,
                     seed = 123,
                     method = method_vector)     
 
-# 获取完整数据集（使用第一个插补结果）
 # 将插补后的数据存入新的数据框
 my_data_imputed <- complete(imputed_data, 1)
 
@@ -5899,7 +5900,8 @@ missing_df <- data.frame(
   missing_percentage = round(missing_counts_sorted / nrow(my_data_imputed) * 100, 2)
 )
 missing_df
-# 对self_payfor_inpatientcare和treat_pain进行二次插补
+
+# 对self_payfor_inpatientcare、treat_pain和self_treatment进行二次插补
 # 创建一个新的插补对象
 mice_obj2 <- mice(my_data_imputed[, c("self_payfor_inpatientcare", "treat_pain")], m = 5, maxit = 50, method = "pmm", seed = 123)
 
@@ -5910,19 +5912,17 @@ imputed_data2 <- complete(mice_obj2)
 my_data_imputed$self_payfor_inpatientcare <- imputed_data2$self_payfor_inpatientcare
 my_data_imputed$treat_pain <- imputed_data2$treat_pain
 
+# 将self_treatment的缺失值赋值为1
+my_data_imputed$self_treatment[is.na(my_data_imputed$self_treatment)] <- 1
+
 # 检查是否还有缺失值
-missing_values <- colSums(is.na(my_data_imputed[, c("self_payfor_inpatientcare", "treat_pain")]))
+missing_values <- colSums(is.na(my_data_imputed[, c("self_payfor_inpatientcare", "treat_pain", "self_treatment")]))
 print("插补后的缺失值数量：")
 print(missing_values)
-
-# 查看插补后的数据框的维度
-dim(my_data_imputed)
-
 # 导出插补后的数据框为parquet
 write_parquet(my_data_imputed, "data_export/data_calculated/my_data_imputed.parquet")
 # 导出插补后的数据框为csv
 write.csv(my_data_imputed, "data_export/data_calculated/my_data_imputed.csv", row.names = FALSE)
-str(my_data_imputed)
 
 ```
 ### 描述性统计结果导出
@@ -5977,34 +5977,32 @@ print(result_table)
 ## 算法筛选
 ### RFE算法筛选
 ```{r RFE算法筛选}
+my_data_imputed
 # 设置RFE控制参数
 set.seed(123) # 设置随机种子以确保结果可重复
 rfeControl <- rfeControl(
     functions = rfFuncs, # 使用随机森林作为基础模型
     method = "cv",       # 使用交叉验证
     number = 5,         # 5折交叉验证
-    verbose = FALSE
+    verbose = TRUE      # 输出详细信息
 )
 
 # 准备数据
-# 假设我们的目标变量是内在能力总分，自变量是其他所有变量
 # 移除不需要的列（如ID等）并处理缺失值
-predictors <- my_data_imputed %>%
-    select(-c(ic_total_score, ID)) # 移除目标变量
-
 # 执行RFE
 rfe_result <- rfe(
     x = predictors,
     y = my_data_imputed$ic_total_score,
-    sizes = c(5:30), # 尝试不同数量的特征
+    sizes = seq(5, ncol(predictors), by = 5), # 尝试不同数量的特征
     rfeControl = rfeControl
 )
 
 # 查看结果
 print(rfe_result)
+str(rfe_result)
 
 # 获取最佳特征子集
-variables_rfe_filter <- predictors[, rfe_result$optVariables]
+rfe_result$optVariables
 
 # 将结果保存到CSV文件
 write.csv(
@@ -6019,12 +6017,13 @@ write.csv(
 ```{r ETC算法筛选}
 # 使用ranger包实现ETC算法
 etc_model <- ranger(
-  formula = ic_total_score ~ . - ID, # 需要替换target_variable为实际的目标变量
+  formula = ic_total_score ~ . - ID, 
   data = my_data_imputed,
   importance = 'impurity',
   num.trees = 500,
   mtry = floor(sqrt(ncol(my_data_imputed) - 1))
 )
+str(etc_model)
 
 # 获取变量重要性得分
 var_importance <- importance(etc_model)
@@ -6043,11 +6042,9 @@ selected_vars <- var_importance_df$Variable[var_importance_df$Importance > mean_
 # 输出筛选后的变量
 print("Selected variables:")
 print(selected_vars)
-# 创建仅包含选定变量的数据集
-my_data_etc <- my_data_imputed[, c(selected_vars, "target_variable")]
 
 # 将选定的变量列表导出为CSV文件
-selected_vars_df <- data.frame(
+variables_etc_filter <- data.frame(
   Variable_Name = selected_vars,
   stringsAsFactors = FALSE
 )
@@ -6063,9 +6060,16 @@ write.csv(selected_vars_df,
 ```{r MI算法筛选}
 # 准备数据：移除ID列并处理数据
 data_for_mi <- my_data_imputed %>%
-    select(-ID) %>%
-    mutate(across(where(is.numeric), ~discretize(., nbins = 10)))  # 对数值变量进行离散化
-
+  select(-ID) %>%  # 去掉ID列
+  mutate(across(where(is.numeric), function(x) {
+    # 排除ID列和其他不需要离散化的特殊列
+    if(all(x %in% c(0, 1, NA))) {
+      return(x)  # 如果是二值变量，保持原样
+    } else {
+      # 使用cut函数进行离散化，分成10个等宽区间
+      cut(x, breaks = 10, labels = FALSE, include.lowest = TRUE)
+    }
+  }))
 # 计算每个变量与总分之间的互信息
 mi_scores <- sapply(names(data_for_mi), function(x) {
     if(x != "ic_total_score") {
@@ -6085,12 +6089,11 @@ var_importance_df <- data.frame(
 
 # 选择互信息得分大于平均值的变量
 mean_mi_score <- mean(var_importance_df$MI_Score)
-selected_vars <- var_importance_df$Variable[var_importance_df$MI_Score > mean_mi_score]
+variables_mi_filter <- var_importance_df$Variable[var_importance_df$MI_Score > mean_mi_score]
+print(variables_mi_filter)
 
-# 输出筛选后的变量
-print("使用互信息方法筛选后的变量：")
-print(selected_vars)
-
+# 将筛选结果导出到csv文件
+write.csv(variables_mi_filter, "data_export/data_auto_filter/variables_mi_filter.csv", row.names = FALSE)
 ```
 ### Boruta算法筛选
 ```{r Boruta算法筛选}
@@ -6160,26 +6163,50 @@ boruta_data <- my_data_imputed %>%
       ic_total_score
     )
 
-# 将数值型变量转换为纯数值
-boruta_data <- boruta_data %>%
-  mutate(across(where(is.numeric), ~as.numeric(as.character(.))))
-str(boruta_data)
-
-# 将因子变量中的level标签去掉
-boruta_data <- boruta_data %>%
-  mutate(across(where(is.factor), ~factor(as.numeric(.))))
-
-str(boruta_data)
-
 # 导出提取后的数据框
 write_parquet(boruta_data, "data_export/data_auto_filter/my_data_boruta.parquet")
 write.csv(boruta_data, "data_export/data_auto_filter/my_data_boruta.csv", row.names = FALSE)
 str(boruta_data)
 ```
+### 不同筛选方法取交集
+```{r 不同筛选方法取交集}
+# 读取四个CSV文件
+etc_vars <- read.csv("/Users/kiriny/Desktop/analysis-ic-model/data_export/data_auto_filter/variables_etc_filter.csv")
+boruta_vars <- read.csv("/Users/kiriny/Desktop/analysis-ic-model/data_export/data_auto_filter/variables_boruta_filter.csv")
+rfe_vars <- read.csv("/Users/kiriny/Desktop/analysis-ic-model/data_export/data_auto_filter/variables_rfe_filter.csv")
+mi_vars <- read.csv("/Users/kiriny/Desktop/analysis-ic-model/data_export/data_auto_filter/variables_mi_filter.csv")
+
+# 获取每个文件的第一列（假设变量名在第一列）
+etc_names <- etc_vars[,1]
+boruta_names <- boruta_vars[,1]
+rfe_names <- rfe_vars[,1]
+mi_names <- mi_vars[,1]
+
+# 使用Reduce和intersect函数获取所有变量的交集
+common_vars <- Reduce(intersect, list(etc_names, boruta_names, rfe_names, mi_names))
+
+# 打印交集结果
+print("共同变量数量：")
+print(length(common_vars))
+print("共同变量列表：")
+print(common_vars)
+
+# 输出交集变量
+write.csv(data.frame(variable_name = common_vars), 
+          "/Users/kiriny/Desktop/analysis-ic-model/data_export/data_auto_filter/common_variables.csv", 
+          row.names = FALSE)
+
+# 从插值后数据框中提取共同变量
+common_data <- my_data_imputed %>%
+    select(
+      all_of(common_vars),
+      ic_total_score
+    )
+```
 ### 多重共线性筛选
 ```{r 多重共线性筛选}
 # 构建模型公式，去掉所有pain_开头的变量和其他不需要的变量
-model_vif <- lm(ic_total_score ~ . - ic_total_score - gender - smoke - num_children_married - pain - pain_head - pain_shoulder - pain_arm -  pain_wrist - pain_fingers - pain_chest - pain_stomach - pain_back - pain_waist - pain_leg - pain_knees - pain_ankle - pain_toes - pain_neck - literate - year_smoke, data = boruta_data)
+model_vif <- lm(ic_total_score ~ . - ic_total_score - pain - pain_head - pain_shoulder - pain_arm -  pain_wrist - pain_fingers - pain_chest - pain_stomach - pain_back - pain_waist - pain_leg - pain_knees - pain_ankle - pain_toes - pain_neck - num_children_married, data = common_data)
 
 # 计算VIF值
 vif_results <- vif(model_vif)
@@ -6201,8 +6228,8 @@ vif_df <- vif_df %>%
 write.csv(vif_df, "data_export/data_auto_filter/variables_vif_filter.csv", row.names = FALSE)
 
 
-# 从boruta筛选后数据框中提取确认纳入和可能纳入的变量
-model_data <- boruta_data %>%
+# 从common_data数据中筛选VIF筛选后的变量
+model_data <- common_data %>%
     select(
       all_of(vif_df$variable),
       ic_total_score
@@ -6218,45 +6245,24 @@ str(model_data)
 write_parquet(model_data, "data_export/data_calculated/model_data.parquet")
 write.csv(model_data, "data_export/data_calculated/model_data.csv", row.names = FALSE)
 ```
-
 ## 建模及验证
-### 建模前预处理
+### 建模前预处理（暂时不需要）
 ```{r 建模前预处理}
-# 进一步筛选数字生物标记物
-# 数据拆分
-# 筛选建模所需变量
-model_data_1 <- model_data %>%
-  select(
-    age,
-    address_urban_or_rural,
-    martial_status,
-    education_level, 
-    bmi,
-    waist_circumference,
-    hematocrit,
-    triglycerides,
-    creatinine,
-    uric_acid, 
-    cystatin_c,
-    number_grandchildren_great_grandchildren,
-    physical_disability,
-    number_chronic_disease,
-    times_fallen_down,
-    menopause,
-    noteeth,
-    number_pain_locations,
-    treat_pain,
-    status_smoke,
-    walking_speed,
-    total_sleep_time,
-    final_left_hand_grip,
-    final_right_hand_grip,
-    ic_total_score
-  )
+# 去除所有变量标签
+model_data <- model_data %>%
+  mutate(across(everything(), ~{
+    attr(.x, "label") <- NULL
+    .x
+  }))
+attributes(model_data$hematocrit)$format.stata <- NULL
+attributes(model_data$waist_circumference)$format.stata <- NULL
+
+str(model_data)
+str(model_data$hematocrit)
 
 # 设置随机种子并分割数据
 set.seed(123)
-split <- initial_split(model_data_1, prop = 0.7)
+split <- initial_split(model_data, prop = 0.7)
 ic_train <- training(split)
 ic_test <- testing(split)
 
@@ -6338,7 +6344,8 @@ print(paste("多元线性回归模型的测试集MAE:", lm_mae))
 ### 最小邻近值算法
 ```{r KNN}
 # KNN蓝图构建
-blueprint_knn <- recipe(ic_total_score ~ ., data = ic_train)
+blueprint_knn <- recipe(ic_total_score ~ ., data = ic_train) %>%
+  step_nzv(all_nominal())
 
 # 创建KNN训练控制参数
 ctrl_knn <- trainControl(
@@ -6396,13 +6403,11 @@ print(paste("KNN模型的测试集MAE:", knn_mae))
 ### 随机森林
 ```{r 随机森林}
 # 随机森林蓝图构建
-blueprint_rf <- recipe(ic_total_score ~ ., data = ic_train)
+blueprint_rf <- recipe(ic_total_score ~ ., data = ic_train) %>%
+  step_nzv(all_nominal())
 
 # 设置随机森林的控制参数
 set.seed(123)  # 设置随机种子以确保结果可重复
-
-# 构建随机森林的蓝图
-blueprint_rf <- recipe(ic_total_score ~ ., data = ic_train)
 
 # 设置调优网格
 rf_grid <- expand.grid(
@@ -6446,14 +6451,11 @@ print(paste("随机森林模型的测试集MAE:", rf_mae))
 ```
 ### 支持向量机
 ```{r 支持向量机}
-# 加载kernlab包
-if (!require(kernlab)) install.packages("kernlab")
-library(kernlab)
-
 # SVM蓝图构建
 blueprint_svm <- recipe(ic_total_score ~., data = ic_train) %>%
   step_nzv(all_nominal()) %>%
   step_dummy(all_nominal(), -all_outcomes(), one_hot = TRUE)
+
 # SVM的控制参数
 ctrl_svm <- trainControl(
     method = "repeatedcv",
