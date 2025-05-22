@@ -134,8 +134,9 @@ if (!requireNamespace("rsample", quietly = TRUE)) install.packages("rsample")
 if (!requireNamespace("randomForest", quietly = TRUE)) install.packages("randomForest")
 if (!require(nnet)) install.packages("nnet")
 if (!require(kernlab)) install.packages("kernlab")
+if (!require(xgboost)) install.packages("xgboost")
 
-# 加载随机森林包
+
 # 加载建模包
 library(glmnet)  
 library(caret)   
@@ -145,6 +146,7 @@ library(rsample)
 library(randomForest)
 library(nnet)
 library(kernlab)
+library(xgboost)
 ```
 ## 读取并合并数据
 ```{r 读取并合并数据}
@@ -6345,7 +6347,8 @@ print(paste("多元线性回归模型的测试集MAE:", lm_mae))
 ```{r KNN}
 # KNN蓝图构建
 blueprint_knn <- recipe(ic_total_score ~ ., data = ic_train) %>%
-  step_nzv(all_nominal())
+  step_nzv(all_nominal()) %>%
+  step_dummy(all_nominal(), -all_outcomes(), one_hot = TRUE)
 
 # 创建KNN训练控制参数
 ctrl_knn <- trainControl(
@@ -6455,6 +6458,7 @@ print(paste("随机森林模型的测试集MAE:", rf_mae))
 blueprint_svm <- recipe(ic_total_score ~., data = ic_train) %>%
   step_nzv(all_nominal()) %>%
   step_dummy(all_nominal(), -all_outcomes(), one_hot = TRUE)
+  
 
 # SVM的控制参数
 ctrl_svm <- trainControl(
@@ -6566,11 +6570,8 @@ ann_mae <- mean(abs(ann_predictions - ic_test$ic_total_score))
 print(paste("ANN模型的测试集MAE:", ann_mae))
 
 ```
-### XGBoost
+### XGBoost建模
 ```{r XGBoost}
-# 加载xgboost包
-if (!require(xgboost)) install.packages("xgboost")
-library(xgboost)
 # XGBoost蓝图构建
 blueprint_xgboost <- recipe(ic_total_score ~ ., data = ic_train) %>%
   step_dummy(all_nominal(), -all_outcomes(), one_hot = TRUE)
@@ -6702,6 +6703,7 @@ setColWidths(wb, "Model Performance", cols = 1:7, widths = c(15, 12, 12, 12, 12,
 # 保存工作簿
 saveWorkbook(wb, "data_export/model_results/model_comparison.xlsx", overwrite = TRUE)
 
+# 绘制变量重要性图
 # 设置中文字体
 if (!require(showtext)) install.packages("showtext")
 library(showtext)
@@ -6760,6 +6762,8 @@ print(ggplot(all_imp, aes(x = reorder(Variable, Importance), y = Importance)) +
 # 保存图片为SVG格式
 ggsave("data_export/model_results/variable_importance_comparison.svg", 
        width = 16, height = 8, device = "svg")
-
-
 ```  
+### BIC变量筛选
+```{r BIC变量筛选}
+
+```
