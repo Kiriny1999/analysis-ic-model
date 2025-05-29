@@ -2,7 +2,6 @@
 title: "内在能力建模"
 author: "Ruifu Kang & Yirou Niu"
 date: "2024-12-26"
-format: "pptx"
 ---
 
 # 建模步骤
@@ -94,6 +93,7 @@ if (!requireNamespace("ggplot2", quietly = TRUE)) install.packages("ggplot2")
 if (!requireNamespace("openxlsx", quietly = TRUE)) install.packages("openxlsx")
 if (!requireNamespace("arrow", quietly = TRUE)) install.packages("arrow")
 if (!requireNamespace("tidyr", quietly = TRUE)) install.packages("tidyr")
+if (!require(showtext)) install.packages("showtext")
 
 # 加载基础包
 library(haven)
@@ -102,6 +102,7 @@ library(ggplot2)
 library(openxlsx)
 library(arrow)
 library(tidyr)
+library(showtext)
 
 # 安装变量筛选的包
 if (!requireNamespace("mice", quietly = TRUE)) install.packages("mice")
@@ -121,13 +122,17 @@ library(infotheo)
 
 # 安装描述性统计包
 if (!requireNamespace("table1", quietly = TRUE)) install.packages("table1")
+if (!require(knitr)) install.packages("knitr")
+if (!require(kableExtra)) install.packages("kableExtra")
 
 # 加载描述性统计包
 library(table1)
+library(knitr)
+library(kableExtra)
 
 # 安装建模包
+if (!requireNamespace("tidymodels", quietly = TRUE)) install.packages("tidymodels")
 if (!requireNamespace("glmnet", quietly = TRUE)) install.packages("glmnet")
-if (!requireNamespace("caret", quietly = TRUE)) install.packages("caret")
 if (!requireNamespace("vip", quietly = TRUE)) install.packages("vip")
 if (!requireNamespace("recipes", quietly = TRUE)) install.packages("recipes")
 if (!requireNamespace("rsample", quietly = TRUE)) install.packages("rsample")
@@ -138,6 +143,8 @@ if (!require(xgboost)) install.packages("xgboost")
 
 
 # 加载建模包
+
+library(tidymodels)
 library(glmnet)  
 library(caret)   
 library(vip)
@@ -5927,7 +5934,7 @@ write_parquet(my_data_imputed, "data_export/data_calculated/my_data_imputed.parq
 write.csv(my_data_imputed, "data_export/data_calculated/my_data_imputed.csv", row.names = FALSE)
 
 ```
-### 描述性统计结果导出
+## 描述性统计结果导出
 ```{r 描述性统计结果导出}
 # 定义标签
 label(my_data_imputed$age) <- "年龄"
@@ -5945,12 +5952,21 @@ label(my_data_imputed$health_compared) <- "健康状况比较"
 label(my_data_imputed$number_pain_locations) <- "疼痛部位数量"
 
 # 创建描述性统计表格
-tbl1 <- table1(~ age + gender + address_type + address_urban_or_rural + 
+# 将变量命名为一般资料表格的英文形式 General Information Table
+general_info_table <- table1(~ age + gender + address_type + address_urban_or_rural +
                literate + martial_status + education_level + num_children_married + 
                number_grandchildren_great_grandchildren + number_medical_insurance + 
                number_chronic_disease + health_compared + number_pain_locations, 
                data = my_data_imputed)
-print(tbl1)
+print(general_info_table)
+
+# 将表格转换为 HTML 格式
+html_table_general_info <- general_info_table %>%
+  kable("html") %>%
+  kable_styling()
+
+# 导出为 HTML 文件
+cat(general_info_table, file = "data_export/descriptive_stats/general_info_table.html")
 
 # 确保分类变量被正确识别为因子类型
 covered_individuals$final_physical_score <- as.factor(covered_individuals$final_physical_score)
@@ -5968,18 +5984,25 @@ label(covered_individuals$final_vitality_score) <- "最终活力评分"
 label(covered_individuals$ic_total_score) <- "IC总分"
 
 # 创建描述性统计表格
-result_table <- table1(~ final_physical_score + cognitive_level + 
+ic_table <- table1(~ final_physical_score + cognitive_level + 
                       final_psychological_score + final_sensory_score + 
                       final_vitality_score + ic_total_score, 
                     data = covered_individuals)
 
 # 显示表格
-print(result_table)
+print(ic_table)
+
+# 将表格转换为 HTML 格式
+html_table_ic <- ic_table %>%
+  kable("html") %>%
+  kable_styling()
+
+# 导出为 HTML 文件
+cat(html_table_ic, file = "data_export/descriptive_stats/ic_table.html")
 ```
 ## 算法筛选
 ### RFE算法筛选
 ```{r RFE算法筛选}
-my_data_imputed
 # 设置RFE控制参数
 set.seed(123) # 设置随机种子以确保结果可重复
 rfeControl <- rfeControl(
@@ -5988,7 +6011,9 @@ rfeControl <- rfeControl(
     number = 5,         # 5折交叉验证
     verbose = TRUE      # 输出详细信息
 )
-
+# 定义预测变量
+predictors <- my_data_imputed %>%
+    select(-ic_total_score, -ID)
 # 准备数据
 # 移除不需要的列（如ID等）并处理缺失值
 # 执行RFE
@@ -5998,22 +6023,15 @@ rfe_result <- rfe(
     sizes = seq(5, ncol(predictors), by = 5), # 尝试不同数量的特征
     rfeControl = rfeControl
 )
-
 # 查看结果
 print(rfe_result)
 str(rfe_result)
 
 # 获取最佳特征子集
-rfe_result$optVariables
+variables_rfe_filter <- data.frame(Variables = rfe_result$optVariables)
 
 # 将结果保存到CSV文件
-write.csv(
-  data.frame(
-    Variable = rfe_result$optVariables
-  ),
-  "data_export/data_auto_filter/variables_rfe_filter.csv",
-  row.names = FALSE
-)
+write.csv(variables_rfe_filter, "data_export/data_auto_filter/variables_rfe_filter.csv",row.names = FALSE)
 ```
 ### ETC算法筛选
 ```{r ETC算法筛选}
@@ -6028,7 +6046,7 @@ etc_model <- ranger(
 str(etc_model)
 
 # 获取变量重要性得分
-var_importance <- importance(etc_model)
+var_importance <- etc_model$variable.importance  # 直接从模型对象中获取变量重要性
 var_importance_df <- data.frame(
   Variable = names(var_importance),
   Importance = var_importance
@@ -6052,7 +6070,7 @@ variables_etc_filter <- data.frame(
 )
 
 # 导出变量列表到csv
-write.csv(selected_vars_df, 
+write.csv(variables_etc_filter, 
           "data_export/data_auto_filter/variables_etc_filter.csv", 
           row.names = FALSE,
           fileEncoding = "UTF-8")
@@ -6091,9 +6109,7 @@ var_importance_df <- data.frame(
 
 # 选择互信息得分大于平均值的变量
 mean_mi_score <- mean(var_importance_df$MI_Score)
-variables_mi_filter <- var_importance_df$Variable[var_importance_df$MI_Score > mean_mi_score]
-print(variables_mi_filter)
-
+variables_mi_filter <- data.frame(Variable_Name = var_importance_df$Variable[var_importance_df$MI_Score > mean_mi_score])
 # 将筛选结果导出到csv文件
 write.csv(variables_mi_filter, "data_export/data_auto_filter/variables_mi_filter.csv", row.names = FALSE)
 ```
@@ -6118,14 +6134,6 @@ set.seed(123)
 # 运行Boruta算法
 boruta_output <- Boruta(ic_total_score ~ . - ID, data = my_data_imputed, doTrace = 2)
 
-# 保存Boruta算法变量重要性排序图
-svg(filename = "data_export/model_results/boruta_importance.svg", 
-    width = 3000/72,  # 将像素转换为英寸
-    height = 300/72)
-plot(boruta_output, xlab = "变量", ylab = "重要性", main = "Boruta算法变量重要性排序")
-dev.off()
-
-
 # 获取确定纳入的变量
 confirmed_vars <- names(boruta_output$finalDecision[boruta_output$finalDecision == "Confirmed"])
 print("确定纳入的变量:")
@@ -6145,7 +6153,7 @@ print(rejected_vars)
 
 # 从插值后数据框中提取确认纳入和可能纳入的变量
 # 创建一个数据框来存储变量信息
-vars_info <- data.frame(
+variables_boruta_filter <- data.frame(
   variable_name = c(confirmed_vars, tentative_vars),
   status = c(rep("确认纳入", length(confirmed_vars)), 
              rep("可能纳入", length(tentative_vars)))
@@ -6157,33 +6165,14 @@ write.csv(vars_info,
           row.names = FALSE,
           fileEncoding = "UTF-8")
 
-# 从插值后数据框中提取boruta筛选后的变量
-boruta_data <- my_data_imputed %>%
-    select(
-      all_of(confirmed_vars),
-      all_of(tentative_vars),
-      ic_total_score
-    )
-
-# 导出提取后的数据框
-write_parquet(boruta_data, "data_export/data_auto_filter/my_data_boruta.parquet")
-write.csv(boruta_data, "data_export/data_auto_filter/my_data_boruta.csv", row.names = FALSE)
-str(boruta_data)
 ```
 ### 不同筛选方法取交集
 ```{r 不同筛选方法取交集}
-# 读取四个CSV文件
-etc_vars <- read.csv("/Users/kiriny/Desktop/analysis-ic-model/data_export/data_auto_filter/variables_etc_filter.csv")
-boruta_vars <- read.csv("/Users/kiriny/Desktop/analysis-ic-model/data_export/data_auto_filter/variables_boruta_filter.csv")
-rfe_vars <- read.csv("/Users/kiriny/Desktop/analysis-ic-model/data_export/data_auto_filter/variables_rfe_filter.csv")
-mi_vars <- read.csv("/Users/kiriny/Desktop/analysis-ic-model/data_export/data_auto_filter/variables_mi_filter.csv")
-
-# 获取每个文件的第一列（假设变量名在第一列）
-etc_names <- etc_vars[,1]
-boruta_names <- boruta_vars[,1]
-rfe_names <- rfe_vars[,1]
-mi_names <- mi_vars[,1]
-
+# 获取四种方法的第一列
+etc_names <- variables_etc_filter[,1]
+boruta_names <- variables_boruta_filter[,1]
+rfe_names <- variables_rfe_filter[,1]
+mi_names <- variables_mi_filter[,1]
 # 使用Reduce和intersect函数获取所有变量的交集
 common_vars <- Reduce(intersect, list(etc_names, boruta_names, rfe_names, mi_names))
 
@@ -6208,48 +6197,49 @@ common_data <- my_data_imputed %>%
 ### 多重共线性筛选
 ```{r 多重共线性筛选}
 # 构建模型公式，去掉所有pain_开头的变量和其他不需要的变量
-model_vif <- lm(ic_total_score ~ . - ic_total_score - pain - pain_head - pain_shoulder - pain_arm -  pain_wrist - pain_fingers - pain_chest - pain_stomach - pain_back - pain_waist - pain_leg - pain_knees - pain_ankle - pain_toes - pain_neck - num_children_married, data = common_data)
+model_vif_before_filter <- lm(ic_total_score ~ . - ic_total_score, data = common_data)
 
 # 计算VIF值
-vif_results <- vif(model_vif)
+vif_results_before_filter <- vif(model_vif)
 
-# 打印VIF结果
-print(vif_results)
+# 打印筛选前VIF结果
+print(vif_results_before_filter)
 
-# 将vif_results转换为数据框
-vif_df <- as.data.frame(vif_results)
+# 将筛选前VIF结果导出为csv
+write.csv(vif_results_before_filter, file = "data_export/data_auto_filter/vif_results_before_filter.csv", row.names = TRUE)
 
-# 添加变量名称列
-vif_df$variable <- rownames(vif_df)
+# 构建筛选后模型公式
+model_vif_after_filter <- lm(ic_total_score ~. - ic_total_score - num_children_married - pain_knees - pain_head - pain_leg - pain, data = common_data)
 
-# 重新排列列顺序
-vif_df <- vif_df %>%
-    select(variable, GVIF, Df, `GVIF^(1/(2*Df))`)
+# 计算筛选后VIF值
+vif_results_after_filter <- vif(model_vif_after_filter)
 
-# vif结果导出为CSV文件
-write.csv(vif_df, "data_export/data_auto_filter/variables_vif_filter.csv", row.names = FALSE)
+# 打印筛选后VIF结果
+print(vif_results_after_filter)
 
-
+# 将筛选后VIF结果导出为csv
+write.csv(vif_results_after_filter, file = "data_export/data_auto_filter/vif_results_after_filter.csv", row.names = TRUE)
+```
+## 建模及验证
+### 建模前预处理
+```{r 建模前预处理}
 # 从common_data数据中筛选VIF筛选后的变量
 model_data <- common_data %>%
     select(
-      all_of(vif_df$variable),
-      ic_total_score
+        all_of(rownames(as.data.frame(vif_results_after_filter))),
+        ic_total_score
     )
 
 # 查看建模数据框的维度
 dim(model_data)
 
-# 检查转换后的数据类型
+# 去除变量标签
+for(col in names(model_data)) {
+    attr(model_data[[col]], "label") <- NULL
+}
+
 str(model_data)
 
-# 导出提取后的数据框
-write_parquet(model_data, "data_export/data_calculated/model_data.parquet")
-write.csv(model_data, "data_export/data_calculated/model_data.csv", row.names = FALSE)
-```
-## 建模及验证
-### 建模前预处理（暂时不需要）
-```{r 建模前预处理}
 # 去除所有变量标签
 model_data <- model_data %>%
   mutate(across(everything(), ~{
@@ -6258,25 +6248,37 @@ model_data <- model_data %>%
   }))
 attributes(model_data$hematocrit)$format.stata <- NULL
 attributes(model_data$waist_circumference)$format.stata <- NULL
+attributes(model_data$triglycerides)$format.stata <- NULL
+attributes(model_data$uric_acid)$format.stata <- NULL
 
 str(model_data)
-str(model_data$hematocrit)
+
+order_vars <- names(model_data)[sapply(model_data, is.ordered)]
+order_vars
+# 或者使用across函数（推荐）label encoding
+# 使用mutate_at转换指定的变量
+model_data <- model_data %>%
+    mutate_at(vars(all_of(order_vars)), as.numeric)
+str(model_data)
 
 # 设置随机种子并分割数据
 set.seed(123)
 split <- initial_split(model_data, prop = 0.7)
 ic_train <- training(split)
 ic_test <- testing(split)
-
-str(ic_train)
 str(ic_test)
+levels(ic_train$martial_status)
+str(ic_test$martial_status)
 ```
 
 ### 多元线性回归
 ```{r 多元线性回归}
+# 把测试集同居替换成未婚
+ic_test$martial_status[ic_test$martial_status == "同居"] <- "从未结婚"
+
 # 蓝图构建
 blueprint_lm <- recipe(ic_total_score ~ ., data = ic_train) %>%
-  step_nzv(all_nominal())
+  step_nzv(all_nominal()) 
 
 # 设置交叉验证参数
 ctrl_lm <- trainControl(
@@ -6299,35 +6301,7 @@ print(lm_fit)
 # 查看多元线性回归模型的详细信息
 summary(lm_fit$finalModel)
 
-# 可视化线性回归模型的变量重要性
-# 提取线性回归模型的变量重要性
-lm_importance <- vip(lm_fit, num_features = 20, geom = "point")
-
-# 设置中文字体
-if (!require(showtext)) install.packages("showtext")
-library(showtext)
-showtext_auto()
-font_add("SimHei", "/System/Library/Fonts/STHeiti Light.ttc")
-
-# 创建变量重要性可视化
-lm_plot <- lm_importance + 
-  theme_minimal() +
-  labs(
-    title = "线性回归模型变量重要性",
-    x = "变量",
-    y = "重要性得分"
-  ) +
-  theme(
-    text = element_text(family = "SimHei", size = 12),
-    axis.text.y = element_text(size = 10),
-    axis.text.x = element_text(angle = 45, hjust = 1),
-    plot.title = element_text(size = 14, face = "bold")
-  )
-
-# 显示图形
-print(lm_plot)
-
-# 使用多元线性回归模型进行预测（需要考虑一下如何解释）
+# 使用多元线性回归模型进行预测
 lm_predictions <- predict(lm_fit, newdata = ic_test)
 
 # 计算均方误差（MSE）
@@ -6355,10 +6329,11 @@ ctrl_knn <- trainControl(
     method = "repeatedcv",    # 重复交叉验证
     number = 10,              # 5折
     repeats = 5,            # 重复10次
-    search = "grid"         # 网格搜索
+    search = "grid", 
+    verboseIter = TRUE,
+    returnResamp = "all"
 )
 
-# 调试KNN模型
 knn_fit <- train(
     blueprint_knn, 
     data = ic_train,   # 训练数据
@@ -6370,23 +6345,13 @@ knn_fit <- train(
 # 查看KNN模型的结果
 print(knn_fit)
 
-# 可视化KNN模型的变量重要性
-vip(knn_fit, num_features = 20, geom = "point") +
-  ggtitle("KNN Model Variable Importance") +
-  theme_minimal() +
-  theme(
-    plot.title = element_text(size = 14),
-    axis.text = element_text(size = 10),
-    axis.title = element_text(size = 12)
-  )
-
 # 查看最佳模型的性能
 best_k <- knn_fit$bestTune$k
 best_model_performance <- knn_fit$results[knn_fit$results$k == best_k, ]
 print("最佳模型的性能:")
 print(best_model_performance)
 
-str(ic_test)
+
 # 使用KNN模型进行预测
 knn_predictions <- predict(knn_fit, newdata = ic_test)
 
@@ -6401,13 +6366,17 @@ print(paste("KNN模型的测试集RMSE:", knn_rmse))
 # 计算平均绝对误差（MAE）
 knn_mae <- mean(abs(knn_predictions - ic_test$ic_total_score))
 print(paste("KNN模型的测试集MAE:", knn_mae))
+
+# 绘制knn在ic_test中预测值和真实值的散点图
+# 使用knn模型进行预测
+knn_predictions <- predict(knn_fit, newdata = ic_test)
 ```
 
 ### 随机森林
 ```{r 随机森林}
 # 随机森林蓝图构建
 blueprint_rf <- recipe(ic_total_score ~ ., data = ic_train) %>%
-  step_nzv(all_nominal())
+  step_nzv(all_nominal()) 
 
 # 设置随机森林的控制参数
 set.seed(123)  # 设置随机种子以确保结果可重复
@@ -6550,10 +6519,6 @@ print(ann_fit)
 print("最佳模型参数：")
 print(ann_fit$bestTune)
 
-# 使用vip包可视化ANN模型的变量重要性
-vip(ann_fit, num_features = 10, geom = "point") +
-  ggtitle("ANN模型的变量重要性")
-
 # 使用ANN模型进行预测
 ann_predictions <- predict(ann_fit, newdata = ic_test)
 
@@ -6568,13 +6533,16 @@ print(paste("ANN模型的测试集RMSE:", ann_rmse))
 # 计算平均绝对误差（MAE）
 ann_mae <- mean(abs(ann_predictions - ic_test$ic_total_score))
 print(paste("ANN模型的测试集MAE:", ann_mae))
-
 ```
 ### XGBoost建模
 ```{r XGBoost}
 # XGBoost蓝图构建
 blueprint_xgboost <- recipe(ic_total_score ~ ., data = ic_train) %>%
+  # 移除零方差预测变量
+  step_nzv(all_nominal()) %>%
+  # 对分类变量进行虚拟编码（必须步骤，XGBoost需要数值输入）
   step_dummy(all_nominal(), -all_outcomes(), one_hot = TRUE)
+
 # XGBoost的控制参数
 ctrl_xgboost <- trainControl(
     method = "repeatedcv",
@@ -6608,10 +6576,6 @@ print(xgb_fit)
 print("最佳模型参数：")
 print(xgb_fit$bestTune)
 
-# 使用vip包可视化XGBoost模型的变量重要性
-vip(xgb_fit, num_features = 10, geom = "point") +
-  ggtitle("XGBoost模型的变量重要性")
-
 # 使用XGBoost模型进行预测
 xgb_predictions <- predict(xgb_fit, newdata = ic_test)
 
@@ -6627,13 +6591,8 @@ print(paste("XGBoost模型的测试集RMSE:", xgb_rmse))
 xgb_mae <- mean(abs(xgb_predictions - ic_test$ic_total_score))
 print(paste("XGBoost模型的测试集MAE:", xgb_mae))
 ```
-
-### 模型结果导出
+### 所有模型结果导出
 ```{r 建模结果导出}
-# 加载所需的包
-if (!require(openxlsx)) install.packages("openxlsx")
-library(openxlsx)
-
 # 创建一个新的工作簿
 wb <- createWorkbook()
 
@@ -6692,6 +6651,7 @@ model_performance <- data.frame(
     Test_RMSE = c(lm_rmse, knn_rmse, rf_rmse, svm_rmse, ann_rmse, xgb_rmse),
     Test_MAE = c(lm_mae, knn_mae, rf_mae, svm_mae, ann_mae, xgb_mae)
 )
+print(model_performance)
 
 # 写入模型性能
 writeData(wb, "Model Performance", model_performance)
@@ -6701,7 +6661,8 @@ setColWidths(wb, "Model Parameters", cols = 1:2, widths = c(15, 50))
 setColWidths(wb, "Model Performance", cols = 1:7, widths = c(15, 12, 12, 12, 12, 12, 12))
 
 # 保存工作簿
-saveWorkbook(wb, "data_export/model_results/model_comparison.xlsx", overwrite = TRUE)
+saveWorkbook(wb, "data_export/model_results/tables/model_comparison.xlsx", overwrite = TRUE)
+
 
 # 绘制变量重要性图
 # 设置中文字体
@@ -6731,12 +6692,14 @@ process_importance <- function(imp_data, model_name) {
 }
 
 # 获取每个模型的变量重要性
-lm_imp <- head(get_importance_scores(lm_fit, "Linear Regression"), 20)
-knn_imp <- head(get_importance_scores(knn_fit, "KNN"), 20)
-rf_imp <- head(get_importance_scores(rf_fit, "Random Forest"), 20)
-svm_imp <- head(get_importance_scores(svm_fit, "SVM"), 20)
-ann_imp <- head(get_importance_scores(ann_fit, "ANN"), 20)
-xgb_imp <- head(get_importance_scores(xgb_fit, "XGBoost"), 20)
+lm_imp <- head(get_importance_scores(lm_fit, "Linear Regression"), 30)
+knn_imp <- head(get_importance_scores(knn_fit, "KNN"), 30)
+rf_imp <- head(get_importance_scores(rf_fit, "Random Forest"), 30)
+svm_imp <- head(get_importance_scores(svm_fit, "SVM"), 30)
+ann_imp <- head(get_importance_scores(ann_fit, "ANN"), 30)
+xgb_imp <- head(get_importance_scores(xgb_fit, "XGBoost"), 30)
+
+
 # 合并所有模型的变量重要性
 all_imp <- rbind(lm_imp, knn_imp, rf_imp, svm_imp, ann_imp, xgb_imp)
 
@@ -6760,10 +6723,57 @@ print(ggplot(all_imp, aes(x = reorder(Variable, Importance), y = Importance)) +
   ))
 
 # 保存图片为SVG格式
-ggsave("data_export/model_results/variable_importance_comparison.svg", 
+ggsave("data_export/model_results/figures/variable_importance_comparison.svg", 
        width = 16, height = 8, device = "svg")
+
+# 创建预测值与真实值的散点图
+# 准备数据
+plot_data <- data.frame(
+  Actual = ic_test$ic_total_score,
+  LM = predict(lm_fit, newdata = ic_test),
+  KNN = predict(knn_fit, newdata = ic_test),
+  RF = predict(rf_fit, newdata = ic_test),
+  SVM = predict(svm_fit, newdata = ic_test),
+  ANN = predict(ann_fit, newdata = ic_test),
+  XGB = predict(xgb_fit, newdata = ic_test)
+)
+
+# 转换为长格式
+plot_data_long <- tidyr::pivot_longer(
+  plot_data, 
+  cols = c(LM, KNN, RF, SVM, ANN, XGB),
+  names_to = "Model",
+  values_to = "Predicted"
+)
+
+# 设置中文字体
+showtext_auto()
+font_add("SimHei", "/System/Library/Fonts/STHeiti Light.ttc")
+
+# 创建散点图
+ggplot(plot_data_long, aes(x = Actual, y = Predicted)) +
+  geom_point(alpha = 0.5, color = "#4477AA") +
+  geom_abline(intercept = 0, slope = 1, color = "red", linetype = "dashed") +
+  facet_wrap(~Model, scales = "free") +
+  labs(
+    title = "各模型预测值与真实值的对比",
+    x = "真实值",
+    y = "预测值"
+  ) +
+  theme_minimal() +
+  theme(
+    text = element_text(family = "SimHei"),
+    plot.title = element_text(size = 14, hjust = 0.5),
+    strip.text = element_text(size = 12),
+    axis.title = element_text(size = 10),
+    axis.text = element_text(size = 8)
+  )
+
+# 保存图片为SVG
+ggsave("data_export/model_results/figures/prediction_vs_actual_comparison.svg",
+       width = 16, height = 8, device = "svg", bg = "white")
 ```  
-### BIC变量筛选
-```{r BIC变量筛选}
+### 最佳模型导出
+```{r 最佳模型导出}
 
 ```
