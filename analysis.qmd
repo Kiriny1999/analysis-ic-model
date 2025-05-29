@@ -6774,6 +6774,18 @@ ggsave("data_export/model_results/figures/prediction_vs_actual_comparison.svg",
        width = 16, height = 8, device = "svg", bg = "white")
 ```  
 ### 最佳模型导出
-```{r 最佳模型导出}
+```{r 最佳模型结果导出}
+# 导出最佳模型变量重要性排序
+# 加载字体
+showtext_auto()
+font_add("SimHei", "/System/Library/Fonts/STHeiti Light.ttc")
 
+vip(xgb_fit, geom = "col", aesthetics = list(fill = "skyblue"), num_features = 40) +
+  labs(title = "XGBoost 变量重要性排序",
+       x = "变量",
+       y = "重要性") +
+  theme(text = element_text(family = "SimHei"))
+# 将这个图导出为svg
+ggsave("data_export/model_results/figures/best_model_variable_importance.svg",
+       width = 16, height = 8, device = "svg", bg = "white")
 ```
