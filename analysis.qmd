@@ -5928,6 +5928,8 @@ my_data_imputed$self_treatment[is.na(my_data_imputed$self_treatment)] <- 1
 missing_values <- colSums(is.na(my_data_imputed[, c("self_payfor_inpatientcare", "treat_pain", "self_treatment")]))
 print("插补后的缺失值数量：")
 print(missing_values)
+
+str(my_data_imputed)
 # 导出插补后的数据框为parquet
 write_parquet(my_data_imputed, "data_export/data_calculated/my_data_imputed.parquet")
 # 导出插补后的数据框为csv
@@ -6351,6 +6353,13 @@ best_model_performance <- knn_fit$results[knn_fit$results$k == best_k, ]
 print("最佳模型的性能:")
 print(best_model_performance)
 
+# 查看KNN模型的最佳参数
+print("KNN模型最佳参数：")
+print(knn_fit$bestTune)
+
+# 使用knn模型进行预测
+knn_predictions <- predict(knn_fit, newdata = ic_test)
+
 
 # 使用KNN模型进行预测
 knn_predictions <- predict(knn_fit, newdata = ic_test)
@@ -6409,6 +6418,10 @@ rf_fit <- train(
 # 查看模型的性能
 print(rf_fit)
 
+# 查看最佳模型的参数
+print("最佳模型参数：")
+print(rf_fit$bestTune)
+
 # 使用随机森林模型进行预测
 rf_predictions <- predict(rf_fit, newdata = ic_test)
 # 计算均方误差（MSE）
@@ -6440,8 +6453,8 @@ ctrl_svm <- trainControl(
 
 # 定义SVM的参数网格
 svm_grid <- expand.grid(
-  C = c(0.1, 1, 10),  # 调整正则化参数范围
-  sigma = c(0.01, 0.1)  # 调整RBF核的gamma参数范围
+  C = seq(0.1,10, 0.5),  # 调整正则化参数范围
+  sigma = seq(0.01, 0.1, 0.01)  # 调整RBF核的gamma参数范围
 )
 
 # 构建SVM模型
@@ -6501,8 +6514,8 @@ ann_fit <- train(
   trControl = ctrl_ann,
   # 设置神经网络参数
   tuneGrid = expand.grid(
-    size = c(3, 5),  # 减少隐藏层神经元数量的选项
-    decay = c(0.1, 0.3)  # 减少权重衰减参数的选项
+    size = seq(1, 19, 1),  
+    decay = seq(0.1, 0.9, 0.1)
   ),
   # 其他参数设置
   maxit = 200,  # 减少最大迭代次数
@@ -6518,6 +6531,7 @@ print(ann_fit)
 # 查看最佳模型的参数
 print("最佳模型参数：")
 print(ann_fit$bestTune)
+ann_fit
 
 # 使用ANN模型进行预测
 ann_predictions <- predict(ann_fit, newdata = ic_test)
@@ -6594,31 +6608,10 @@ print(paste("XGBoost模型的测试集MAE:", xgb_mae))
 ### 所有模型结果导出
 ```{r 建模结果导出}
 # 创建一个新的工作簿
-wb <- createWorkbook()
-
-# 添加模型参数工作表
-addWorksheet(wb, "Model Parameters")
-
-# 创建模型参数数据框
-model_params <- data.frame(
-    Model = c("Linear Regression", "KNN", "Random Forest", "SVM", "ANN", "XGBoost"),
-    Parameters = c(
-        "N/A",
-        paste("k =", best_k),
-        paste("mtry =", rf_fit$bestTune$mtry),
-        paste("sigma =", round(svm_fit$bestTune$sigma, 4), ", C =", round(svm_fit$bestTune$C, 4)),
-        paste("size =", ann_fit$bestTune$size, ", decay =", ann_fit$bestTune$decay),
-        paste("nrounds =", xgb_fit$bestTune$nrounds, 
-              ", max_depth =", xgb_fit$bestTune$max_depth,
-              ", eta =", xgb_fit$bestTune$eta)
-    )
-)
-
-# 写入模型参数
-writeData(wb, "Model Parameters", model_params)
+wb_performance <- createWorkbook()
 
 # 添加模型性能工作表
-addWorksheet(wb, "Model Performance")
+addWorksheet(wb_performance, "Model Performance")
 
 # 创建模型性能数据框
 model_performance <- data.frame(
@@ -6654,15 +6647,13 @@ model_performance <- data.frame(
 print(model_performance)
 
 # 写入模型性能
-writeData(wb, "Model Performance", model_performance)
+writeData(wb_performance, "Model Performance", model_performance)
 
 # 设置列宽
-setColWidths(wb, "Model Parameters", cols = 1:2, widths = c(15, 50))
-setColWidths(wb, "Model Performance", cols = 1:7, widths = c(15, 12, 12, 12, 12, 12, 12))
+setColWidths(wb_performance, "Model Performance", cols = 1:7, widths = c(15, 12, 12, 12, 12, 12, 12))
 
 # 保存工作簿
-saveWorkbook(wb, "data_export/model_results/tables/model_comparison.xlsx", overwrite = TRUE)
-
+saveWorkbook(wb_performance, "data_export/model_results/tables/model_performance.xlsx", overwrite = TRUE)
 
 # 绘制变量重要性图
 # 设置中文字体
@@ -6692,12 +6683,30 @@ process_importance <- function(imp_data, model_name) {
 }
 
 # 获取每个模型的变量重要性
-lm_imp <- head(get_importance_scores(lm_fit, "Linear Regression"), 30)
-knn_imp <- head(get_importance_scores(knn_fit, "KNN"), 30)
-rf_imp <- head(get_importance_scores(rf_fit, "Random Forest"), 30)
-svm_imp <- head(get_importance_scores(svm_fit, "SVM"), 30)
-ann_imp <- head(get_importance_scores(ann_fit, "ANN"), 30)
-xgb_imp <- head(get_importance_scores(xgb_fit, "XGBoost"), 30)
+# 获取每个模型的变量重要性并按重要性排序
+lm_imp <- get_importance_scores(lm_fit, "Linear Regression") %>%
+  arrange(desc(Importance)) %>%
+  head(30)
+
+knn_imp <- get_importance_scores(knn_fit, "KNN") %>%
+  arrange(desc(Importance)) %>%
+  head(30)
+
+rf_imp <- get_importance_scores(rf_fit, "Random Forest") %>%
+  arrange(desc(Importance)) %>%
+  head(30)
+
+svm_imp <- get_importance_scores(svm_fit, "SVM") %>%
+  arrange(desc(Importance)) %>%
+  head(30)
+
+ann_imp <- get_importance_scores(ann_fit, "ANN") %>%
+  arrange(desc(Importance)) %>%
+  head(30)
+
+xgb_imp <- get_importance_scores(xgb_fit, "XGBoost") %>%
+  arrange(desc(Importance)) %>%
+  head(30)
 
 
 # 合并所有模型的变量重要性
@@ -6788,4 +6797,29 @@ vip(xgb_fit, geom = "col", aesthetics = list(fill = "skyblue"), num_features = 4
 # 将这个图导出为svg
 ggsave("data_export/model_results/figures/best_model_variable_importance.svg",
        width = 16, height = 8, device = "svg", bg = "white")
+
+xgb_booster <- xgb_fit %>%
+  extract_fit_engine()
+importance_matrix <- xgb.importance(model = xgb_fit)
+
+xgb_booster <- xgb_fit$finalModel
+xgboost_importance_matrix <- xgb.importance(model = xgb_booster)
+print(xgboost_importance_matrix)
+
+# 导出XGBoost模型的变量重要性参数
+write.xlsx(xgboost_importance_matrix, "data_export/model_results/tables/xgboost_importance_matrix.xlsx")
+
+# 导出XGBoost模型的变量重要性分数
+xgboost_importance_table <- vi(xgb_fit)
+print(xgboost_importance_table)
+write.xlsx(xgboost_importance_table, "data_export/model_results/tables/xgboost_importance_table.xlsx")
+
+# 合并重要性参数和重要性分数并导出为excel
+merged_data <- merge(xgboost_importance_table, importance_matrix, 
+                    by.x = "Variable", by.y = "Feature") %>%
+  arrange(desc(Importance))
+
+# 导出到Excel
+write.xlsx(merged_data, "data_export/model_results/tables/xgboost_importance_merged.xlsx")
+
 ```
