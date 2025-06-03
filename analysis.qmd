@@ -5934,73 +5934,6 @@ str(my_data_imputed)
 write_parquet(my_data_imputed, "data_export/data_calculated/my_data_imputed.parquet")
 # 导出插补后的数据框为csv
 write.csv(my_data_imputed, "data_export/data_calculated/my_data_imputed.csv", row.names = FALSE)
-
-```
-## 描述性统计结果导出
-```{r 描述性统计结果导出}
-# 定义标签
-label(my_data_imputed$age) <- "年龄"
-label(my_data_imputed$gender) <- "性别"
-label(my_data_imputed$address_type) <- "地址类型"
-label(my_data_imputed$address_urban_or_rural) <- "城乡类型"
-label(my_data_imputed$literate) <- "识字情况"
-label(my_data_imputed$martial_status) <- "婚姻状况"
-label(my_data_imputed$education_level) <- "教育水平"
-label(my_data_imputed$num_children_married) <- "已婚子女数"
-label(my_data_imputed$number_grandchildren_great_grandchildren) <- "孙子女/重孙数量"
-label(my_data_imputed$number_medical_insurance) <- "医疗保险数量"
-label(my_data_imputed$number_chronic_disease) <- "慢性病数量"
-label(my_data_imputed$health_compared) <- "健康状况比较"
-label(my_data_imputed$number_pain_locations) <- "疼痛部位数量"
-
-# 创建描述性统计表格
-# 将变量命名为一般资料表格的英文形式 General Information Table
-general_info_table <- table1(~ age + gender + address_type + address_urban_or_rural +
-               literate + martial_status + education_level + num_children_married + 
-               number_grandchildren_great_grandchildren + number_medical_insurance + 
-               number_chronic_disease + health_compared + number_pain_locations, 
-               data = my_data_imputed)
-print(general_info_table)
-
-# 将表格转换为 HTML 格式
-html_table_general_info <- general_info_table %>%
-  kable("html") %>%
-  kable_styling()
-
-# 导出为 HTML 文件
-cat(general_info_table, file = "data_export/descriptive_stats/general_info_table.html")
-
-# 确保分类变量被正确识别为因子类型
-covered_individuals$final_physical_score <- as.factor(covered_individuals$final_physical_score)
-covered_individuals$cognitive_level <- as.factor(covered_individuals$cognitive_level)
-covered_individuals$final_psychological_score <- as.factor(covered_individuals$final_psychological_score)
-covered_individuals$final_sensory_score <- as.factor(covered_individuals$final_sensory_score)
-covered_individuals$final_vitality_score <- as.factor(covered_individuals$final_vitality_score)
-
-# 定义标签，使表格更易读（可选）
-label(covered_individuals$final_physical_score) <- "最终身体评分"
-label(covered_individuals$cognitive_level) <- "认知水平"
-label(covered_individuals$final_psychological_score) <- "最终心理评分"
-label(covered_individuals$final_sensory_score) <- "最终感官评分"
-label(covered_individuals$final_vitality_score) <- "最终活力评分"
-label(covered_individuals$ic_total_score) <- "IC总分"
-
-# 创建描述性统计表格
-ic_table <- table1(~ final_physical_score + cognitive_level + 
-                      final_psychological_score + final_sensory_score + 
-                      final_vitality_score + ic_total_score, 
-                    data = covered_individuals)
-
-# 显示表格
-print(ic_table)
-
-# 将表格转换为 HTML 格式
-html_table_ic <- ic_table %>%
-  kable("html") %>%
-  kable_styling()
-
-# 导出为 HTML 文件
-cat(html_table_ic, file = "data_export/descriptive_stats/ic_table.html")
 ```
 ## 算法筛选
 ### RFE算法筛选
@@ -6232,22 +6165,19 @@ model_data <- common_data %>%
         ic_total_score
     )
 
-# 查看建模数据框的维度
+# 查看建模前数据框的维度
 dim(model_data)
+str(model_data)
+
+# 给识字变量不同分类添加标签
+model_data$literate <- factor(model_data$literate, levels = c(0, 1), labels = c("不识字", "识字"))
 
 # 去除变量标签
 for(col in names(model_data)) {
     attr(model_data[[col]], "label") <- NULL
 }
 
-str(model_data)
-
-# 去除所有变量标签
-model_data <- model_data %>%
-  mutate(across(everything(), ~{
-    attr(.x, "label") <- NULL
-    .x
-  }))
+# 去除变量的stata标签
 attributes(model_data$hematocrit)$format.stata <- NULL
 attributes(model_data$waist_circumference)$format.stata <- NULL
 attributes(model_data$triglycerides)$format.stata <- NULL
@@ -6255,13 +6185,15 @@ attributes(model_data$uric_acid)$format.stata <- NULL
 
 str(model_data)
 
+# 对建模前数据进行label encoding
 order_vars <- names(model_data)[sapply(model_data, is.ordered)]
-order_vars
-# 或者使用across函数（推荐）label encoding
+
 # 使用mutate_at转换指定的变量
 model_data <- model_data %>%
     mutate_at(vars(all_of(order_vars)), as.numeric)
-str(model_data)
+
+# 将建模数据导出为parquet格式
+write_parquet(model_data, "data_export/model_data/model_data.parquet")
 
 # 设置随机种子并分割数据
 set.seed(123)
@@ -6280,7 +6212,8 @@ ic_test$martial_status[ic_test$martial_status == "同居"] <- "从未结婚"
 
 # 蓝图构建
 blueprint_lm <- recipe(ic_total_score ~ ., data = ic_train) %>%
-  step_nzv(all_nominal()) 
+  step_nzv(all_nominal()) %>%
+  step_dummy(all_nominal(), -all_outcomes(), one_hot = TRUE)
 
 # 设置交叉验证参数
 ctrl_lm <- trainControl(
@@ -6341,7 +6274,7 @@ knn_fit <- train(
     data = ic_train,   # 训练数据
     method = "knn",         # 使用KNN方法
     trControl = ctrl_knn,       # 使用上面定义的控制参数
-    tuneGrid = expand.grid(k = 1:25)  # 设置k值范围
+    tuneGrid = expand.grid(k = 1:30)  # 设置k值范围
 )
  
 # 查看KNN模型的结果
@@ -6550,8 +6483,9 @@ print(paste("ANN模型的测试集MAE:", ann_mae))
 ```
 ### XGBoost建模
 ```{r XGBoost}
+# caret建模
 # XGBoost蓝图构建
-blueprint_xgboost <- recipe(ic_total_score ~ ., data = ic_train) %>%
+blueprint_xgb <- recipe(ic_total_score ~ ., data = ic_train) %>%
   # 移除零方差预测变量
   step_nzv(all_nominal()) %>%
   # 对分类变量进行虚拟编码（必须步骤，XGBoost需要数值输入）
@@ -6568,7 +6502,7 @@ ctrl_xgboost <- trainControl(
 # 构建XGBoost模型
 set.seed(123)
 xgb_fit <- train(
-  blueprint_xgboost,
+  blueprint_xgb,
   data = ic_train,
   method = "xgbTree",
   trControl = ctrl_xgboost,
@@ -6604,6 +6538,167 @@ print(paste("XGBoost模型的测试集RMSE:", xgb_rmse))
 # 计算平均绝对误差（MAE）
 xgb_mae <- mean(abs(xgb_predictions - ic_test$ic_total_score))
 print(paste("XGBoost模型的测试集MAE:", xgb_mae))
+
+# tidymodels建模
+# 1. 数据预处理recipe
+xgb_recipe <- recipe(ic_total_score ~ ., data = ic_train) %>%
+  # 移除零方差预测变量
+  step_nzv(all_nominal()) %>%
+  # 对分类变量进行虚拟编码
+  step_dummy(all_nominal(), -all_outcomes(), one_hot = TRUE)
+
+# 2. 定义模型规格
+xgb_spec <- boost_tree(
+  trees = tune(),
+  tree_depth = tune(),
+  learn_rate = tune(),
+  loss_reduction = tune(),
+  min_n = tune(),
+  sample_size = tune(),
+  mtry = tune()
+) %>%
+  set_engine("xgboost") %>%
+  set_mode("regression")
+
+# 3. 创建workflow
+xgb_workflow <- workflow() %>%
+  add_recipe(xgb_recipe) %>%
+  add_model(xgb_spec)
+
+# 4. 设置交叉验证
+set.seed(123)
+cv_folds <- vfold_cv(ic_train, v = 10, repeats = 5)
+
+# 5. 设置参数网格
+xgb_grid <- grid_regular(
+  trees(range = c(50, 300)),           # nrounds
+  tree_depth(range = c(3, 6)),         # max_depth  
+  learn_rate(range = c(0.01, 0.1)),    # eta
+  loss_reduction(range = c(0, 20)),    # gamma
+  min_n(range = c(1, 7)),              # min_child_weight
+  sample_size(range = c(1, 1)),        # subsample
+  mtry(range = c(ncol(ic_train)-1, ncol(ic_train)-1)), # colsample_bytree
+  levels = c(6, 2, 2, 5, 4, 1, 1)     # 控制网格大小
+)
+
+# 6. 执行调参
+set.seed(123)
+xgb_tune_results <- tune_grid(
+  xgb_workflow,
+  resamples = cv_folds,
+  grid = xgb_grid,
+  metrics = metric_set(rmse, mae, rsq),
+  control = control_grid(verbose = TRUE)
+)
+
+# 7. 查看最佳参数
+best_xgb <- select_best(xgb_tune_results, metric = "rmse")
+
+print("最佳模型参数：")
+print(best_xgb)
+
+# 8. 最终化workflow
+final_xgb_workflow <- finalize_workflow(xgb_workflow, best_xgb)
+
+# 9. 训练最终模型
+set.seed(123)
+final_xgb_fit <- fit(final_xgb_workflow, data = ic_train)
+
+# 10. 模型预测
+xgb_predictions <- predict(final_xgb_fit, new_data = ic_test)$.pred
+
+# 11. 模型评估
+# 计算均方误差（MSE）
+xgb_mse <- mean((xgb_predictions - ic_test$ic_total_score)^2)
+print(paste("XGBoost模型的测试集MSE:", xgb_mse))
+
+# 计算均方根误差（RMSE）
+xgb_rmse <- sqrt(xgb_mse)
+print(paste("XGBoost模型的测试集RMSE:", xgb_rmse))
+
+# 计算平均绝对误差（MAE）
+xgb_mae <- mean(abs(xgb_predictions - ic_test$ic_total_score))
+print(paste("XGBoost模型的测试集MAE:", xgb_mae))
+
+# 12. 变量重要性
+# 提取最终模型
+final_xgb_model <- extract_fit_parsnip(final_xgb_fit)
+
+# 使用vip包生成变量重要性图
+vip(final_xgb_model, geom = "col", aesthetics = list(fill = "skyblue"), num_features = 40) +
+  labs(title = "XGBoost变量重要性") +
+  theme_minimal()
+
+# 获取变量重要性数据框
+xgboost_importance_table <- vi(final_xgb_model)
+print(xgboost_importance_table)
+```
+## 结果导出
+### 描述性统计结果导出
+```{r 描述性统计结果导出}
+# 定义标签
+label(my_data_imputed$age) <- "年龄"
+label(my_data_imputed$gender) <- "性别"
+label(my_data_imputed$address_type) <- "地址类型"
+label(my_data_imputed$address_urban_or_rural) <- "城乡类型"
+label(my_data_imputed$literate) <- "识字情况"
+label(my_data_imputed$martial_status) <- "婚姻状况"
+label(my_data_imputed$education_level) <- "教育水平"
+label(my_data_imputed$num_children_married) <- "已婚子女数"
+label(my_data_imputed$number_grandchildren_great_grandchildren) <- "孙子女/重孙数量"
+label(my_data_imputed$number_medical_insurance) <- "医疗保险数量"
+label(my_data_imputed$number_chronic_disease) <- "慢性病数量"
+label(my_data_imputed$health_compared) <- "健康状况比较"
+label(my_data_imputed$number_pain_locations) <- "疼痛部位数量"
+
+# 创建描述性统计表格
+# 将变量命名为一般资料表格的英文形式 General Information Table
+general_info_table <- table1(~ age + gender + address_type + address_urban_or_rural +
+               literate + martial_status + education_level + num_children_married + 
+               number_grandchildren_great_grandchildren + number_medical_insurance + 
+               number_chronic_disease + health_compared + number_pain_locations, 
+               data = my_data_imputed)
+print(general_info_table)
+
+# 将表格转换为 HTML 格式
+html_table_general_info <- general_info_table %>%
+  kable("html") %>%
+  kable_styling()
+
+# 导出为 HTML 文件
+cat(general_info_table, file = "data_export/descriptive_stats/general_info_table.html")
+
+# 确保分类变量被正确识别为因子类型
+covered_individuals$final_physical_score <- as.factor(covered_individuals$final_physical_score)
+covered_individuals$cognitive_level <- as.factor(covered_individuals$cognitive_level)
+covered_individuals$final_psychological_score <- as.factor(covered_individuals$final_psychological_score)
+covered_individuals$final_sensory_score <- as.factor(covered_individuals$final_sensory_score)
+covered_individuals$final_vitality_score <- as.factor(covered_individuals$final_vitality_score)
+
+# 定义标签，使表格更易读（可选）
+label(covered_individuals$final_physical_score) <- "最终身体评分"
+label(covered_individuals$cognitive_level) <- "认知水平"
+label(covered_individuals$final_psychological_score) <- "最终心理评分"
+label(covered_individuals$final_sensory_score) <- "最终感官评分"
+label(covered_individuals$final_vitality_score) <- "最终活力评分"
+label(covered_individuals$ic_total_score) <- "IC总分"
+
+# 创建描述性统计表格
+ic_table <- table1(~ final_physical_score + cognitive_level + 
+                      final_psychological_score + final_sensory_score + 
+                      final_vitality_score + ic_total_score, 
+                    data = covered_individuals)
+
+# 显示表格
+print(ic_table)
+
+# 将表格转换为 HTML 格式
+html_table_ic <- ic_table %>%
+  kable("html") %>%
+  kable_styling()
+
+# 导出为 HTML 文件
+cat(html_table_ic, file = "data_export/descriptive_stats/ic_table.html")
 ```
 ### 所有模型结果导出
 ```{r 建模结果导出}
@@ -6655,7 +6750,7 @@ setColWidths(wb_performance, "Model Performance", cols = 1:7, widths = c(15, 12,
 # 保存工作簿
 saveWorkbook(wb_performance, "data_export/model_results/tables/model_performance.xlsx", overwrite = TRUE)
 
-# 绘制变量重要性图
+# 绘制6个模型的变量重要性图
 # 设置中文字体
 if (!require(showtext)) install.packages("showtext")
 library(showtext)
@@ -6772,17 +6867,18 @@ ggplot(plot_data_long, aes(x = Actual, y = Predicted)) +
   theme_minimal() +
   theme(
     text = element_text(family = "SimHei"),
-    plot.title = element_text(size = 14, hjust = 0.5),
-    strip.text = element_text(size = 12),
-    axis.title = element_text(size = 10),
-    axis.text = element_text(size = 8)
+    plot.title = element_text(size = 18, hjust = 0.5, face = "bold"),
+    strip.text = element_text(size = 16, face = "bold"),
+    axis.title = element_text(size = 16),
+    axis.text = element_text(size = 16),
+    # 添加边框
+    panel.border = element_rect(color = "black", fill = NA),
   )
-
 # 保存图片为SVG
 ggsave("data_export/model_results/figures/prediction_vs_actual_comparison.svg",
        width = 16, height = 8, device = "svg", bg = "white")
 ```  
-### 最佳模型导出
+### 最佳模型结果导出
 ```{r 最佳模型结果导出}
 # 导出最佳模型变量重要性排序
 # 加载字体
@@ -6821,5 +6917,100 @@ merged_data <- merge(xgboost_importance_table, importance_matrix,
 
 # 导出到Excel
 write.xlsx(merged_data, "data_export/model_results/tables/xgboost_importance_merged.xlsx")
+```
+### 计算最佳模型SHAP
+```{r 计算最佳模型SHAP}
+# 从caret中计算
+xgb_model_from_caret <- xgb_fit$finalModel
 
+processed_test <- blueprint_xgb %>% 
+  prep() %>% 
+  bake(new_data = ic_test)
+
+# 转换为矩阵格式
+X_test_matrix <- processed_test %>% 
+  select(-ic_total_score) %>% 
+  as.matrix()
+
+# 创建DMatrix对象
+test_dmatrix <- xgb.DMatrix(X_test_matrix)
+
+# 创建shapviz对象
+shv_caret <- shapviz(
+  object = shap_contrib_caret[, -ncol(shap_contrib_caret)],
+  X = X_test_matrix,
+  baseline = mean(shap_contrib_caret[, ncol(shap_contrib_caret)])
+)
+
+# 生成可视化
+p1 <- sv_importance(shv_caret, kind = "bee", max_display = 15) +
+  labs(title = "SHAP重要性图（蜂群图）")
+
+p2 <- sv_importance(shv_caret, kind = "bar", max_display = 15) +
+  labs(title = "SHAP重要性条形图")
+
+p3 <- sv_waterfall(shv_caret, row_id = 1, max_display = 20) +
+  labs(title = "第1个观测的SHAP瀑布图")
+
+print(p1)
+print(p2)
+print(p3)
+# 计算SHAP值
+shap_contrib_caret <- predict(xgb_model_from_caret, 
+                             newdata = test_dmatrix, 
+                             predcontrib = TRUE)
+
+# 建立对象
+processed_test <- blueprint_xgb %>% 
+  prep() %>% 
+  bake(new_data = ic_test)
+X_test <- processed_test %>% 
+  select(-ic_total_score) %>% 
+  as.matrix()
+
+xgb_model <- extract_fit_engine(final_xgb_fit)
+
+# 2. 计算SHAP值
+shap_contrib <- predict(
+  xgb_model,
+  newdata = xgb.DMatrix(X_test),
+  predcontrib = TRUE
+)
+
+# 3. 创建shapviz对象
+shv <- shapviz(
+  object = shap_contrib[, -ncol(shap_contrib)],
+  X = X_test,
+  baseline = mean(shap_contrib[, ncol(shap_contrib)])
+)
+
+# 4. 生成各种可视化
+# 重要性图
+p1 <- sv_importance(shv, kind = "bee", max_display = 15) +
+  labs(title = "SHAP重要性图（蜂群图）")
+
+# 条形图
+p2 <- sv_importance(shv, kind = "bar", max_display = 15) +
+  labs(title = "SHAP重要性条形图")
+
+# 瀑布图
+p3 <- sv_waterfall(shv, row_id = 30, max_display = 20) +
+  labs(title = "第1个观测的SHAP瀑布图")
+
+
+# 依赖图（选择重要特征）
+top_features <- sv_importance(shv, kind = "bar", max_display = 5)$data$feature
+# 确保转换为字符串
+top_feature_name <- as.character(top_features[1])
+p4 <- sv_dependence(shv, v = top_feature_name) +
+  labs(title = paste("特征", top_feature_name, "的SHAP依赖图"))
+print(p4)
+
+# 5. 保存SHAP值数据
+shap_data <- as.data.frame(shap_contrib[, -ncol(shap_contrib)])
+write.csv(shap_data, "shap_values.csv", row.names = FALSE)
+
+# 6. 创建SHAP重要性表格
+shap_importance <- sv_importance(shv, kind = "bar")$data
+write.csv(shap_importance, "shap_importance.csv", row.names = FALSE)
 ```
