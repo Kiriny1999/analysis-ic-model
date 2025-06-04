@@ -6200,16 +6200,13 @@ set.seed(123)
 split <- initial_split(model_data, prop = 0.7)
 ic_train <- training(split)
 ic_test <- testing(split)
-str(ic_test)
-levels(ic_train$martial_status)
-str(ic_test$martial_status)
+ic_test$martial_status[ic_test$martial_status == "同居"] <- "从未结婚"
+write.csv(ic_train, "data_export/model_data/ic_train.csv", row.names = FALSE)
+write.csv(ic_test, "data_export/model_data/ic_test.csv", row.names = FALSE)
 ```
 
 ### 多元线性回归
 ```{r 多元线性回归}
-# 把测试集同居替换成未婚
-ic_test$martial_status[ic_test$martial_status == "同居"] <- "从未结婚"
-
 # 蓝图构建
 blueprint_lm <- recipe(ic_total_score ~ ., data = ic_train) %>%
   step_nzv(all_nominal()) %>%
@@ -6318,7 +6315,7 @@ knn_predictions <- predict(knn_fit, newdata = ic_test)
 ```{r 随机森林}
 # 随机森林蓝图构建
 blueprint_rf <- recipe(ic_total_score ~ ., data = ic_train) %>%
-  step_nzv(all_nominal()) 
+  step_nzv(all_nominal())
 
 # 设置随机森林的控制参数
 set.seed(123)  # 设置随机种子以确保结果可重复
@@ -6374,7 +6371,6 @@ blueprint_svm <- recipe(ic_total_score ~., data = ic_train) %>%
   step_nzv(all_nominal()) %>%
   step_dummy(all_nominal(), -all_outcomes(), one_hot = TRUE)
   
-
 # SVM的控制参数
 ctrl_svm <- trainControl(
     method = "repeatedcv",
@@ -6386,8 +6382,8 @@ ctrl_svm <- trainControl(
 
 # 定义SVM的参数网格
 svm_grid <- expand.grid(
-  C = seq(0.1,10, 0.5),  # 调整正则化参数范围
-  sigma = seq(0.01, 0.1, 0.01)  # 调整RBF核的gamma参数范围
+  C = 2^seq(-5, 10, 1),  # 调整正则化参数范围
+  sigma = 2^seq(-10, 3, 1)  # 调整RBF核的gamma参数范围
 )
 
 # 构建SVM模型
@@ -6492,12 +6488,25 @@ blueprint_xgb <- recipe(ic_total_score ~ ., data = ic_train) %>%
   step_dummy(all_nominal(), -all_outcomes(), one_hot = TRUE)
 
 # XGBoost的控制参数
-ctrl_xgboost <- trainControl(
+ctrl_xgb <- trainControl(
     method = "repeatedcv",
     number = 10,
     repeats = 5,
     verboseIter = TRUE,
-    returnResamp = "all"
+    returnResamp = "all", 
+    early_stopping_rounds = 10,
+    maximize = FALSE
+)
+
+# 定义XGBoost的参数网格
+grid_xgb <- expand.grid(
+    nrounds = c(100, 200, 300),
+    max_depth = c(2, 3, 4),
+    eta = c(0.01, 0.03, 0.05),
+    gamma = c(1, 3),
+    min_child_weight = c(3, 5),
+    subsample = c(0.6, 0.7), 
+    colsample_bytree = c(0.6, 0.7, 0.8)
 )
 # 构建XGBoost模型
 set.seed(123)
@@ -6505,16 +6514,8 @@ xgb_fit <- train(
   blueprint_xgb,
   data = ic_train,
   method = "xgbTree",
-  trControl = ctrl_xgboost,
-  tuneGrid = expand.grid(
-    nrounds = c(100, 200),
-    max_depth = c(3, 6),
-    eta = c(0.01, 0.1),
-    gamma = 0,
-    colsample_bytree = 1,
-    min_child_weight = 1,
-    subsample = 1
-  )
+  trControl = ctrl_xgb,
+  tuneGrid = grid_xgb
 )
 
 # 查看模型的性能
@@ -6538,100 +6539,6 @@ print(paste("XGBoost模型的测试集RMSE:", xgb_rmse))
 # 计算平均绝对误差（MAE）
 xgb_mae <- mean(abs(xgb_predictions - ic_test$ic_total_score))
 print(paste("XGBoost模型的测试集MAE:", xgb_mae))
-
-# tidymodels建模
-# 1. 数据预处理recipe
-xgb_recipe <- recipe(ic_total_score ~ ., data = ic_train) %>%
-  # 移除零方差预测变量
-  step_nzv(all_nominal()) %>%
-  # 对分类变量进行虚拟编码
-  step_dummy(all_nominal(), -all_outcomes(), one_hot = TRUE)
-
-# 2. 定义模型规格
-xgb_spec <- boost_tree(
-  trees = tune(),
-  tree_depth = tune(),
-  learn_rate = tune(),
-  loss_reduction = tune(),
-  min_n = tune(),
-  sample_size = tune(),
-  mtry = tune()
-) %>%
-  set_engine("xgboost") %>%
-  set_mode("regression")
-
-# 3. 创建workflow
-xgb_workflow <- workflow() %>%
-  add_recipe(xgb_recipe) %>%
-  add_model(xgb_spec)
-
-# 4. 设置交叉验证
-set.seed(123)
-cv_folds <- vfold_cv(ic_train, v = 10, repeats = 5)
-
-# 5. 设置参数网格
-xgb_grid <- grid_regular(
-  trees(range = c(50, 300)),           # nrounds
-  tree_depth(range = c(3, 6)),         # max_depth  
-  learn_rate(range = c(0.01, 0.1)),    # eta
-  loss_reduction(range = c(0, 20)),    # gamma
-  min_n(range = c(1, 7)),              # min_child_weight
-  sample_size(range = c(1, 1)),        # subsample
-  mtry(range = c(ncol(ic_train)-1, ncol(ic_train)-1)), # colsample_bytree
-  levels = c(6, 2, 2, 5, 4, 1, 1)     # 控制网格大小
-)
-
-# 6. 执行调参
-set.seed(123)
-xgb_tune_results <- tune_grid(
-  xgb_workflow,
-  resamples = cv_folds,
-  grid = xgb_grid,
-  metrics = metric_set(rmse, mae, rsq),
-  control = control_grid(verbose = TRUE)
-)
-
-# 7. 查看最佳参数
-best_xgb <- select_best(xgb_tune_results, metric = "rmse")
-
-print("最佳模型参数：")
-print(best_xgb)
-
-# 8. 最终化workflow
-final_xgb_workflow <- finalize_workflow(xgb_workflow, best_xgb)
-
-# 9. 训练最终模型
-set.seed(123)
-final_xgb_fit <- fit(final_xgb_workflow, data = ic_train)
-
-# 10. 模型预测
-xgb_predictions <- predict(final_xgb_fit, new_data = ic_test)$.pred
-
-# 11. 模型评估
-# 计算均方误差（MSE）
-xgb_mse <- mean((xgb_predictions - ic_test$ic_total_score)^2)
-print(paste("XGBoost模型的测试集MSE:", xgb_mse))
-
-# 计算均方根误差（RMSE）
-xgb_rmse <- sqrt(xgb_mse)
-print(paste("XGBoost模型的测试集RMSE:", xgb_rmse))
-
-# 计算平均绝对误差（MAE）
-xgb_mae <- mean(abs(xgb_predictions - ic_test$ic_total_score))
-print(paste("XGBoost模型的测试集MAE:", xgb_mae))
-
-# 12. 变量重要性
-# 提取最终模型
-final_xgb_model <- extract_fit_parsnip(final_xgb_fit)
-
-# 使用vip包生成变量重要性图
-vip(final_xgb_model, geom = "col", aesthetics = list(fill = "skyblue"), num_features = 40) +
-  labs(title = "XGBoost变量重要性") +
-  theme_minimal()
-
-# 获取变量重要性数据框
-xgboost_importance_table <- vi(final_xgb_model)
-print(xgboost_importance_table)
 ```
 ## 结果导出
 ### 描述性统计结果导出
@@ -6705,6 +6612,38 @@ cat(html_table_ic, file = "data_export/descriptive_stats/ic_table.html")
 # 创建一个新的工作簿
 wb_performance <- createWorkbook()
 
+# 添加模型参数工作表
+addWorksheet(wb_performance, "Model Parameters")
+
+# 创建模型参数数据框
+model_parameters <- data.frame(
+    Model = c("Linear Regression", "KNN", "Random Forest", "SVM", "ANN", "XGBoost"),
+    Parameters = c(
+        "默认参数",
+        paste("k =", knn_fit$bestTune$k),
+        paste("mtry =", rf_fit$bestTune$mtry, 
+              ", splitrule =", rf_fit$bestTune$splitrule,
+              ", min.node.size =", rf_fit$bestTune$min.node.size),
+        paste("C =", svm_fit$bestTune$C, 
+              ", sigma =", svm_fit$bestTune$sigma),
+        paste("size =", ann_fit$bestTune$size,
+              ", decay =", ann_fit$bestTune$decay),
+        paste("nrounds =", xgb_fit$bestTune$nrounds,
+              ", max_depth =", xgb_fit$bestTune$max_depth,
+              ", eta =", xgb_fit$bestTune$eta,
+              ", gamma =", xgb_fit$bestTune$gamma,
+              ", colsample_bytree =", xgb_fit$bestTune$colsample_bytree,
+              ", min_child_weight =", xgb_fit$bestTune$min_child_weight,
+              ", subsample =", xgb_fit$bestTune$subsample)
+    )
+)
+
+# 写入模型参数
+writeData(wb_performance, "Model Parameters", model_parameters)
+
+# 设置列宽
+setColWidths(wb_performance, "Model Parameters", cols = 1:2, widths = c(15, 50))
+
 # 添加模型性能工作表
 addWorksheet(wb_performance, "Model Performance")
 
@@ -6749,7 +6688,9 @@ setColWidths(wb_performance, "Model Performance", cols = 1:7, widths = c(15, 12,
 
 # 保存工作簿
 saveWorkbook(wb_performance, "data_export/model_results/tables/model_performance.xlsx", overwrite = TRUE)
-
+```  
+### 所有模型结果可视化
+```{r 所有模型结果可视化}
 # 绘制6个模型的变量重要性图
 # 设置中文字体
 if (!require(showtext)) install.packages("showtext")
@@ -6802,7 +6743,6 @@ ann_imp <- get_importance_scores(ann_fit, "ANN") %>%
 xgb_imp <- get_importance_scores(xgb_fit, "XGBoost") %>%
   arrange(desc(Importance)) %>%
   head(30)
-
 
 # 合并所有模型的变量重要性
 all_imp <- rbind(lm_imp, knn_imp, rf_imp, svm_imp, ann_imp, xgb_imp)
@@ -6877,15 +6817,17 @@ ggplot(plot_data_long, aes(x = Actual, y = Predicted)) +
 # 保存图片为SVG
 ggsave("data_export/model_results/figures/prediction_vs_actual_comparison.svg",
        width = 16, height = 8, device = "svg", bg = "white")
-```  
-### 最佳模型结果导出
-```{r 最佳模型结果导出}
+```
+### 最佳模型重要性导出
+```{r 最佳模型重要性导出}
 # 导出最佳模型变量重要性排序
 # 加载字体
 showtext_auto()
 font_add("SimHei", "/System/Library/Fonts/STHeiti Light.ttc")
 
-vip(xgb_fit, geom = "col", aesthetics = list(fill = "skyblue"), num_features = 40) +
+vip(xgb_fit, geom = "col", num_features = 40) +
+  aes(fill = Importance) +  # 根据重要性值填充颜色
+  scale_fill_viridis_c() +  # 使用viridis渐变色
   labs(title = "XGBoost 变量重要性排序",
        x = "变量",
        y = "重要性") +
@@ -6894,10 +6836,7 @@ vip(xgb_fit, geom = "col", aesthetics = list(fill = "skyblue"), num_features = 4
 ggsave("data_export/model_results/figures/best_model_variable_importance.svg",
        width = 16, height = 8, device = "svg", bg = "white")
 
-xgb_booster <- xgb_fit %>%
-  extract_fit_engine()
-importance_matrix <- xgb.importance(model = xgb_fit)
-
+# 导出XGBoost模型的变量重要性参数
 xgb_booster <- xgb_fit$finalModel
 xgboost_importance_matrix <- xgb.importance(model = xgb_booster)
 print(xgboost_importance_matrix)
@@ -6932,6 +6871,85 @@ X_test_matrix <- processed_test %>%
   select(-ic_total_score) %>% 
   as.matrix()
 
+# 计算SHAP值
+if(!exists("shap_contrib_caret")) {
+  # 使用predict函数计算SHAP贡献值
+  shap_contrib_caret <- predict(xgb_model_from_caret, 
+                               newdata = X_test_matrix, 
+                               predcontrib = TRUE)
+}
+
+# 创建SHAP值数据框
+shap_values_df <- as.data.frame(shap_contrib_caret[, -ncol(shap_contrib_caret)])
+
+# 添加变量名称作为列名
+colnames(shap_values_df) <- colnames(X_test_matrix)
+
+# 添加行索引（观测ID）
+# 将观测id添加到第一列
+shap_values_df <- shap_values_df %>%
+  mutate(observation_id = 1:nrow(.)) %>%
+  select(observation_id, everything())
+
+# 计算每个变量的平均绝对SHAP值
+shap_importance <- data.frame(
+  variable = colnames(shap_values_df)[-1],  # 排除observation_id列
+  mean_abs_shap = colMeans(abs(shap_values_df[,-1])),  # 计算每个变量的平均绝对SHAP值
+  mean_shap = colMeans(shap_values_df[,-1])  # 计算每个变量的平均SHAP值
+) %>%
+  arrange(desc(mean_abs_shap))  # 按重要性降序排列
+
+# 将SHAP值转换为长格式，方便后续可视化
+shap_values_long <- shap_values_df %>%
+  pivot_longer(
+    cols = -observation_id,
+    names_to = "variable",
+    values_to = "shap_value"
+  )
+
+# 创建包含原始值和SHAP值的数据框
+# 首先获取原始数据（不包括目标变量）
+original_values_df <- as.data.frame(X_test_matrix)
+
+# 创建一个空的数据框来存储交替排列的数据
+alternating_df <- data.frame(observation_id = shap_values_df$observation_id)
+
+# 获取所有变量名（不包括observation_id）
+variable_names <- colnames(original_values_df)
+
+# 为了区分SHAP值和原始值，给列名添加前缀
+shap_values_with_prefix <- shap_values_df[, -which(names(shap_values_df) == "observation_id")]
+colnames(shap_values_with_prefix) <- paste0("shap_", colnames(shap_values_with_prefix))
+
+# 对每个变量，添加原始值和对应的SHAP值
+for (var in variable_names) {
+  alternating_df[[var]] <- original_values_df[[var]]
+  alternating_df[[paste0("shap_", var)]] <- shap_values_with_prefix[[paste0("shap_", var)]]
+}
+
+# 添加内在能力总分到数据框的最后
+alternating_df$ic_total_score <- ic_test$ic_total_score
+
+# 创建一个工作簿并导出所有SHAP相关表格
+wb <- createWorkbook()
+
+# 添加SHAP重要性表格到第一个工作表
+addWorksheet(wb, "SHAP重要性")
+writeData(wb, "SHAP重要性", shap_importance)
+
+# 添加长格式SHAP值到第二个工作表
+addWorksheet(wb, "长格式SHAP值")
+writeData(wb, "长格式SHAP值", shap_values_long)
+
+# 添加SHAP值到第三个工作表
+addWorksheet(wb, "SHAP值")
+writeData(wb, "SHAP值", alternating_df)
+
+# 保存工作簿
+saveWorkbook(wb, "data_export/model_results/tables/xgboost_shap_results.xlsx", overwrite = TRUE)
+```
+### 可视化SHAP值
+```{r 可视化SHAP值}
 # 创建DMatrix对象
 test_dmatrix <- xgb.DMatrix(X_test_matrix)
 
@@ -6952,65 +6970,12 @@ p2 <- sv_importance(shv_caret, kind = "bar", max_display = 15) +
 p3 <- sv_waterfall(shv_caret, row_id = 1, max_display = 20) +
   labs(title = "第1个观测的SHAP瀑布图")
 
-print(p1)
-print(p2)
-print(p3)
-# 计算SHAP值
-shap_contrib_caret <- predict(xgb_model_from_caret, 
-                             newdata = test_dmatrix, 
-                             predcontrib = TRUE)
+# 组合三个图表
+library(gridExtra)
 
-# 建立对象
-processed_test <- blueprint_xgb %>% 
-  prep() %>% 
-  bake(new_data = ic_test)
-X_test <- processed_test %>% 
-  select(-ic_total_score) %>% 
-  as.matrix()
-
-xgb_model <- extract_fit_engine(final_xgb_fit)
-
-# 2. 计算SHAP值
-shap_contrib <- predict(
-  xgb_model,
-  newdata = xgb.DMatrix(X_test),
-  predcontrib = TRUE
-)
-
-# 3. 创建shapviz对象
-shv <- shapviz(
-  object = shap_contrib[, -ncol(shap_contrib)],
-  X = X_test,
-  baseline = mean(shap_contrib[, ncol(shap_contrib)])
-)
-
-# 4. 生成各种可视化
-# 重要性图
-p1 <- sv_importance(shv, kind = "bee", max_display = 15) +
-  labs(title = "SHAP重要性图（蜂群图）")
-
-# 条形图
-p2 <- sv_importance(shv, kind = "bar", max_display = 15) +
-  labs(title = "SHAP重要性条形图")
-
-# 瀑布图
-p3 <- sv_waterfall(shv, row_id = 30, max_display = 20) +
-  labs(title = "第1个观测的SHAP瀑布图")
-
-
-# 依赖图（选择重要特征）
-top_features <- sv_importance(shv, kind = "bar", max_display = 5)$data$feature
-# 确保转换为字符串
-top_feature_name <- as.character(top_features[1])
-p4 <- sv_dependence(shv, v = top_feature_name) +
-  labs(title = paste("特征", top_feature_name, "的SHAP依赖图"))
-print(p4)
-
-# 5. 保存SHAP值数据
-shap_data <- as.data.frame(shap_contrib[, -ncol(shap_contrib)])
-write.csv(shap_data, "shap_values.csv", row.names = FALSE)
-
-# 6. 创建SHAP重要性表格
-shap_importance <- sv_importance(shv, kind = "bar")$data
-write.csv(shap_importance, "shap_importance.csv", row.names = FALSE)
+# 保存图片为svg格式
+ggsave("data_export/model_results/figures/xgb_shap.svg", 
+       grid.arrange(p1, p2, p3, ncol = 1),
+       width = 10, 
+       height = 30)
 ```
