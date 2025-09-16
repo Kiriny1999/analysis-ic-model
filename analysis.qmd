@@ -94,6 +94,8 @@ if (!requireNamespace("openxlsx", quietly = TRUE)) install.packages("openxlsx")
 if (!requireNamespace("arrow", quietly = TRUE)) install.packages("arrow")
 if (!requireNamespace("tidyr", quietly = TRUE)) install.packages("tidyr")
 if (!require(showtext)) install.packages("showtext")
+if (!require(shapviz)) install.packages("shapviz")
+if (!requireNamespace("gridExtra", quietly = TRUE)) install.packages("gridExtra")
 
 # 加载基础包
 library(haven)
@@ -103,6 +105,8 @@ library(openxlsx)
 library(arrow)
 library(tidyr)
 library(showtext)
+library(shapviz)
+library(gridExtra)
 
 # 安装变量筛选的包
 if (!requireNamespace("mice", quietly = TRUE)) install.packages("mice")
@@ -5935,6 +5939,17 @@ write_parquet(my_data_imputed, "data_export/data_calculated/my_data_imputed.parq
 # 导出插补后的数据框为csv
 write.csv(my_data_imputed, "data_export/data_calculated/my_data_imputed.csv", row.names = FALSE)
 ```
+## 组间比较与相关性分析
+### 组间比较
+```{r 组间比较}
+
+```
+
+### 相关性分析
+```{r 相关性分析}
+
+```
+
 ## 算法筛选
 ### RFE算法筛选
 ```{r RFE算法筛选}
@@ -6135,7 +6150,7 @@ common_data <- my_data_imputed %>%
 model_vif_before_filter <- lm(ic_total_score ~ . - ic_total_score, data = common_data)
 
 # 计算VIF值
-vif_results_before_filter <- vif(model_vif)
+vif_results_before_filter <- vif(model_vif_before_filter)
 
 # 打印筛选前VIF结果
 print(vif_results_before_filter)
@@ -6144,7 +6159,7 @@ print(vif_results_before_filter)
 write.csv(vif_results_before_filter, file = "data_export/data_auto_filter/vif_results_before_filter.csv", row.names = TRUE)
 
 # 构建筛选后模型公式
-model_vif_after_filter <- lm(ic_total_score ~. - ic_total_score - num_children_married - pain_knees - pain_head - pain_leg - pain, data = common_data)
+model_vif_after_filter <- lm(ic_total_score ~. - ic_total_score - num_children_married - pain_waist - pain_head - pain_leg - pain, data = common_data)
 
 # 计算筛选后VIF值
 vif_results_after_filter <- vif(model_vif_after_filter)
@@ -6306,9 +6321,6 @@ print(paste("KNN模型的测试集RMSE:", knn_rmse))
 knn_mae <- mean(abs(knn_predictions - ic_test$ic_total_score))
 print(paste("KNN模型的测试集MAE:", knn_mae))
 
-# 绘制knn在ic_test中预测值和真实值的散点图
-# 使用knn模型进行预测
-knn_predictions <- predict(knn_fit, newdata = ic_test)
 ```
 
 ### 随机森林
@@ -6418,6 +6430,7 @@ print(paste("SVM模型的测试集RMSE:", svm_rmse))
 svm_mae <- mean(abs(svm_predictions - ic_test$ic_total_score))
 print(paste("SVM模型的测试集MAE:", svm_mae))
 ```
+
 ### 人工神经网络
 ```{r ANN}
 # ANN蓝图构建
@@ -6477,14 +6490,12 @@ print(paste("ANN模型的测试集RMSE:", ann_rmse))
 ann_mae <- mean(abs(ann_predictions - ic_test$ic_total_score))
 print(paste("ANN模型的测试集MAE:", ann_mae))
 ```
-### XGBoost建模
+### XGBoost
 ```{r XGBoost}
 # caret建模
 # XGBoost蓝图构建
 blueprint_xgb <- recipe(ic_total_score ~ ., data = ic_train) %>%
-  # 移除零方差预测变量
   step_nzv(all_nominal()) %>%
-  # 对分类变量进行虚拟编码（必须步骤，XGBoost需要数值输入）
   step_dummy(all_nominal(), -all_outcomes(), one_hot = TRUE)
 
 # XGBoost的控制参数
@@ -6493,9 +6504,7 @@ ctrl_xgb <- trainControl(
     number = 10,
     repeats = 5,
     verboseIter = TRUE,
-    returnResamp = "all", 
-    early_stopping_rounds = 10,
-    maximize = FALSE
+    returnResamp = "all"
 )
 
 # 定义XGBoost的参数网格
@@ -6527,7 +6536,6 @@ print(xgb_fit$bestTune)
 
 # 使用XGBoost模型进行预测
 xgb_predictions <- predict(xgb_fit, newdata = ic_test)
-
 # 计算均方误差（MSE）
 xgb_mse <- mean((xgb_predictions - ic_test$ic_total_score)^2)
 print(paste("XGBoost模型的测试集MSE:", xgb_mse))
@@ -6539,6 +6547,14 @@ print(paste("XGBoost模型的测试集RMSE:", xgb_rmse))
 # 计算平均绝对误差（MAE）
 xgb_mae <- mean(abs(xgb_predictions - ic_test$ic_total_score))
 print(paste("XGBoost模型的测试集MAE:", xgb_mae))
+
+cal_id <- 79
+# 查看第79个个体的预测值和实际值
+print("第17个个体的预测值和实际值:")
+print(paste("预测值:", xgb_predictions[79]))
+print(paste("实际值:", ic_test$ic_total_score[79]))
+print(paste("预测误差:", xgb_predictions[79] - ic_test$ic_total_score[79]))
+
 ```
 ## 结果导出
 ### 描述性统计结果导出
@@ -6692,12 +6708,6 @@ saveWorkbook(wb_performance, "data_export/model_results/tables/model_performance
 ### 所有模型结果可视化
 ```{r 所有模型结果可视化}
 # 绘制6个模型的变量重要性图
-# 设置中文字体
-if (!require(showtext)) install.packages("showtext")
-library(showtext)
-showtext_auto()
-font_add("SimHei", "/System/Library/Fonts/STHeiti Light.ttc")
-
 # 创建一个函数来提取每个模型的变量重要性分数
 get_importance_scores <- function(model, model_name) {
   imp <- vip::vi(model)
@@ -6754,12 +6764,11 @@ print(ggplot(all_imp, aes(x = reorder(Variable, Importance), y = Importance)) +
   coord_flip() +
   theme_minimal() +
   labs(
-    title = "变量重要性比较",
-    x = "变量",
-    y = "重要性得分"
+    title = "Variable Importance Comparison",
+    x = "Variables", 
+    y = "Importance Score"
   ) +
   theme(
-    text = element_text(family = "SimHei"),
     axis.text.y = element_text(size = 8, family = "SimHei"),
     axis.text.x = element_text(family = "SimHei"),
     strip.text = element_text(size = 10, face = "bold", family = "SimHei"),
@@ -6790,23 +6799,18 @@ plot_data_long <- tidyr::pivot_longer(
   values_to = "Predicted"
 )
 
-# 设置中文字体
-showtext_auto()
-font_add("SimHei", "/System/Library/Fonts/STHeiti Light.ttc")
-
 # 创建散点图
 ggplot(plot_data_long, aes(x = Actual, y = Predicted)) +
   geom_point(alpha = 0.5, color = "#4477AA") +
   geom_abline(intercept = 0, slope = 1, color = "red", linetype = "dashed") +
   facet_wrap(~Model, scales = "free") +
   labs(
-    title = "各模型预测值与真实值的对比",
-    x = "真实值",
-    y = "预测值"
+    title = "Model Predictions vs Actual Values",
+    x = "Actual Values", 
+    y = "Predicted Values"
   ) +
   theme_minimal() +
   theme(
-    text = element_text(family = "SimHei"),
     plot.title = element_text(size = 18, hjust = 0.5, face = "bold"),
     strip.text = element_text(size = 16, face = "bold"),
     axis.title = element_text(size = 16),
@@ -6820,18 +6824,13 @@ ggsave("data_export/model_results/figures/prediction_vs_actual_comparison.svg",
 ```
 ### 最佳模型重要性导出
 ```{r 最佳模型重要性导出}
-# 导出最佳模型变量重要性排序
-# 加载字体
-showtext_auto()
-font_add("SimHei", "/System/Library/Fonts/STHeiti Light.ttc")
-
+# 可视化最佳模型变量重要性排序
 vip(xgb_fit, geom = "col", num_features = 40) +
   aes(fill = Importance) +  # 根据重要性值填充颜色
   scale_fill_viridis_c() +  # 使用viridis渐变色
-  labs(title = "XGBoost 变量重要性排序",
-       x = "变量",
-       y = "重要性") +
-  theme(text = element_text(family = "SimHei"))
+  labs(title = "XGBoost Variable Importance Ranking",
+       x = "Variables", 
+       y = "Importance")
 # 将这个图导出为svg
 ggsave("data_export/model_results/figures/best_model_variable_importance.svg",
        width = 16, height = 8, device = "svg", bg = "white")
@@ -6850,7 +6849,7 @@ print(xgboost_importance_table)
 write.xlsx(xgboost_importance_table, "data_export/model_results/tables/xgboost_importance_table.xlsx")
 
 # 合并重要性参数和重要性分数并导出为excel
-merged_data <- merge(xgboost_importance_table, importance_matrix, 
+merged_data <- merge(xgboost_importance_table, xgboost_importance_matrix, 
                     by.x = "Variable", by.y = "Feature") %>%
   arrange(desc(Importance))
 
@@ -6930,6 +6929,9 @@ for (var in variable_names) {
 # 添加内在能力总分到数据框的最后
 alternating_df$ic_total_score <- ic_test$ic_total_score
 
+# 计算XGBoost模型的预测值
+alternating_df$xgb_predicted <- xgb_predictions
+
 # 创建一个工作簿并导出所有SHAP相关表格
 wb <- createWorkbook()
 
@@ -6961,21 +6963,55 @@ shv_caret <- shapviz(
 )
 
 # 生成可视化
-p1 <- sv_importance(shv_caret, kind = "bee", max_display = 15) +
-  labs(title = "SHAP重要性图（蜂群图）")
+shap_beeswarm <- sv_importance(shv_caret, kind = "bee", max_display = 15) +
+  labs(title = "SHAP Importance Plot (Beeswarm)")
 
-p2 <- sv_importance(shv_caret, kind = "bar", max_display = 15) +
-  labs(title = "SHAP重要性条形图")
-
-p3 <- sv_waterfall(shv_caret, row_id = 1, max_display = 20) +
-  labs(title = "第1个观测的SHAP瀑布图")
-
-# 组合三个图表
-library(gridExtra)
-
-# 保存图片为svg格式
-ggsave("data_export/model_results/figures/xgb_shap.svg", 
-       grid.arrange(p1, p2, p3, ncol = 1),
+ggsave("data_export/model_results/figures/xgb_shap_beeswarm.svg", 
+       plot = shap_beeswarm,
        width = 10, 
-       height = 30)
+       height = 6,
+       dpi = 300)
+
+shap_bar <- sv_importance(shv_caret, kind = "bar", max_display = 15) +
+  labs(title = "SHAP Importance Bar Plot")
+
+# 导出SHAP条形图
+shap_bar <- sv_importance(shv_caret, kind = "bar", max_display = 20) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 12, face = "bold"),
+    axis.text = element_text(size = 10)
+  )
+
+# 保存为svg格式
+ggsave("data_export/model_results/figures/xgb_shap_bar.svg",
+       shap_bar,
+       width = 10,
+       height = 8,
+       dpi = 300)
+
+# 选择要展示的4个观测值ID
+selected_ids <- c(834, 791, 184, 688)
+
+# 创建4个瀑布图
+waterfall_plots <- list()
+for(i in 1:4) {
+  waterfall_plots[[i]] <- sv_waterfall(shv_caret, row_id = selected_ids[i], max_display = 20) +
+    labs(title = paste("SHAP Waterfall Plot - Observation #", selected_ids[i])) +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(size = 12, face = "bold"),
+      axis.text = element_text(size = 10)
+    )
+}
+
+# 使用grid.arrange将4个图合并
+combined_plot <- do.call(grid.arrange, c(waterfall_plots, ncol = 2))
+
+# 保存合并后的图
+ggsave("data_export/model_results/figures/xgb_shap_waterfalls.svg", 
+       combined_plot,
+       width = 15, 
+       height = 15,
+       dpi = 300)
 ```
