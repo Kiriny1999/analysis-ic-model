@@ -5940,14 +5940,320 @@ write_parquet(my_data_imputed, "data_export/data_calculated/my_data_imputed.parq
 write.csv(my_data_imputed, "data_export/data_calculated/my_data_imputed.csv", row.names = FALSE)
 ```
 ## 组间比较与相关性分析
+### 读取变量列表
+```{r 读取变量列表}
+# 定义文件路径
+var_desc_path <- "data_export/descriptive_stats/variables_descriptive.xlsx"
+
+# 读取变量描述文件
+cat("读取变量描述文件...\n")
+if (file.exists(var_desc_path)) {
+  var_types <- read_excel(var_desc_path)
+  cat(paste0("成功读取", var_desc_path, "，共包含", nrow(var_types), "个变量\n"))
+} else {
+  cat(paste0(var_desc_path, "文件不存在，请确认文件路径\n"))
+  quit(status = 1)
+}
+```
+
 ### 组间比较
 ```{r 组间比较}
+# 从variables_descriptive.xlsx中提取ordered factor类型变量
+factor_vars <- var_types %>%
+  filter(type == "factor") %>%
+  pull(variable)
+
+cat(paste0("找到", length(factor_vars), "个factor类型变量\n"))
+
+# 提取factor变量和IC总分
+factor_data <- my_data_imputed %>% select(c(factor_vars, "ic_total_score"))
+
+# 创建存储结果的列表
+group_comparison_results <- list()
+significant_results <- list()
+
+# 对每个factor变量进行组间比较
+for(var in factor_vars) {
+  
+  cat(paste0("\n=== 分析变量: ", var, " ===\n"))
+  
+  # 获取变量标签
+  var_label <- var
+  
+  if(length(var_label) == 0) var_label <- var
+  
+  # 提取当前变量的数据
+  current_data <- factor_data %>%
+    select(!!sym(var), ic_total_score) %>%
+    filter(!is.na(!!sym(var))) %>%
+    mutate(group = as.factor(!!sym(var)))
+  
+  # 进行非参数检验
+  if(n_groups == 2) {
+    # 两组比较：Mann-Whitney U检验（Wilcoxon秩和检验）
+    test_result <- wilcox.test(ic_total_score ~ group, data = current_data)
+    test_name <- "Mann-Whitney U检验"
+    test_statistic <- test_result$statistic
+    p_value <- test_result$p.value
+    
+  } else {
+    # 多组比较：Kruskal-Wallis检验
+    test_result <- kruskal.test(ic_total_score ~ group, data = current_data)
+    test_name <- "Kruskal-Wallis检验"
+    test_statistic <- test_result$statistic
+    p_value <- test_result$p.value
+  }
+  
+  cat(paste0("\n", test_name, "结果:\n"))
+  cat(paste0("统计量: ", round(test_statistic, 4), "\n"))
+  cat(paste0("p值: ", format(p_value, scientific = TRUE, digits = 3), "\n"))
+  
+  # 判断显著性
+  significance <- ifelse(p_value < 0.001, "***", 
+                        ifelse(p_value < 0.01, "**",
+                              ifelse(p_value < 0.05, "*", "ns")))
+  
+  cat(paste0("显著性: ", significance, "\n"))
+  
+  # 存储结果
+  result_summary <- data.frame(
+    变量 = var,
+    变量标签 = var_label,
+    组别数 = n_groups,
+    总样本量 = nrow(current_data),
+    检验方法 = test_name,
+    统计量 = round(test_statistic, 4),
+    P值 = p_value,
+    显著性 = significance,
+    stringsAsFactors = FALSE
+  )
+  
+  group_comparison_results[[var]] <- list(
+    summary = result_summary,
+    descriptive_stats = desc_stats,
+    test_result = test_result,
+    data = current_data
+  )
+  
+  # 如果显著，加入显著结果列表
+  if(p_value < 0.05) {
+    significant_results[[var]] <- group_comparison_results[[var]]
+  }
+}
+
+# 合并所有结果
+all_results_summary <- do.call(rbind, lapply(group_comparison_results, function(x) x$summary))
+
+cat(paste0("\n=== 组间比较分析完成 ===\n"))
+cat(paste0("总共分析了 ", nrow(all_results_summary), " 个factor变量\n"))
+cat(paste0("其中显著差异的变量有 ", length(significant_results), " 个\n"))
+
+# 显示结果汇总表
+knitr::kable(all_results_summary, 
+             caption = "Factor变量IC总分组间比较结果汇总",
+             digits = c(0,0,0,0,0,4,6,0))
+
+# 创建Excel工作簿
+wb <- createWorkbook()
+
+# 添加结果汇总表
+addWorksheet(wb, "组间比较汇总")
+writeData(wb, "组间比较汇总", all_results_summary)
+
+# 为每个显著差异的变量添加详细结果
+if(length(significant_results) > 0) {
+  for(var in names(significant_results)) {
+    # 添加描述性统计工作表
+    sheet_name <- paste0(substr(var, 1, 25), "_描述统计")
+    addWorksheet(wb, sheet_name)
+    writeData(wb, sheet_name, significant_results[[var]]$descriptive_stats)
+  }
+}
+
+# 添加所有变量的描述性统计
+addWorksheet(wb, "所有变量描述统计")
+all_desc_stats <- list()
+for(var in names(group_comparison_results)) {
+  desc_with_var <- group_comparison_results[[var]]$descriptive_stats %>%
+    mutate(变量 = var, .before = 1)
+  all_desc_stats[[var]] <- desc_with_var
+}
+all_desc_combined <- do.call(rbind, all_desc_stats)
+writeData(wb, "所有变量描述统计", all_desc_combined)
+
+# 保存工作簿
+saveWorkbook(wb, "data_export/model_results/tables/factor_variables_group_comparison_results.xlsx", 
+             overwrite = TRUE)
+
+cat("\n=== 分析完成 ===\n")
+cat("结果已保存到:\n")
+cat("- 表格: data_export/model_results/tables/factor_variables_group_comparison_results.xlsx\n")
+if(length(significant_results) > 0) {
+  cat("- 图形: data_export/model_results/figures/factor_variables_ic_group_comparison.png\n")
+}
+cat(paste0("共分析了 ", length(factor_vars), " 个factor变量\n"))
+cat(paste0("发现 ", length(significant_results), " 个变量存在显著组间差异\n")) 
+```
+### 等级变量相关性分析
+```{r 等级变量相关性分析}
+# 从variables_descriptive.xlsx中提取ordered factor类型变量
+ordered_factor_vars <- var_types %>%
+  filter(type == "ordered factor") %>%
+  pull(variable)
+
+cat(paste0("找到", length(ordered_factor_vars), "个ordered factor类型变量\n"))
+
+# 将ordered factor变量转换为numeric
+numeric_data <- my_data_imputed %>%
+  mutate(across(all_of(ordered_factor_vars), as.numeric))
+
+# 确保ic_total_score在数据集中
+if (!"ic_total_score" %in% names(numeric_data)) {
+  cat("错误: 数据集中没有找到'ic_total_score'变量\n")
+  quit(status = 1)
+}
+
+# 计算Spearman相关性
+cat("计算Spearman相关性...\n")
+correlations <- data.frame(variable = character(), correlation = numeric(), p_value = numeric())
+
+for (var in ordered_factor_vars) {
+  # 计算与ic_total_score的相关性
+  corr_test <- cor.test(numeric_data[[var]], numeric_data[["ic_total_score"]], 
+                        method = "spearman", exact = FALSE)
+  
+  correlations <- rbind(correlations, data.frame(
+    variable = var,
+    correlation = corr_test$estimate,
+    p_value = corr_test$p.value
+  ))
+}
+
+# 按相关性绝对值排序
+correlations <- correlations %>% 
+  mutate(abs_correlation = abs(correlation)) %>%
+  arrange(desc(abs_correlation)) %>%
+  select(-abs_correlation)
+
+# 添加显著性标记
+correlations <- correlations %>%
+  mutate(significance = case_when(
+    p_value < 0.001 ~ "***",
+    p_value < 0.01 ~ "**",
+    p_value < 0.05 ~ "*",
+    TRUE ~ ""
+  ))
+
+# 打印相关性结果
+print(correlations)
+
+# 保存相关性结果到文件
+write_xlsx(correlations, "data_export/descriptive_stats/ic_ordered_factor_correlations.xlsx")
+cat("已保存相关性分析结果到ic_oredered_factor_correlations.xlsx\n")
+
+# 可视化相关性结果
+cat("生成相关性可视化...\n")
+top_corrs <- head(correlations, 20)  # 取相关性最高的20个变量
+
+p <- ggplot(top_corrs, aes(x = correlation, y = reorder(variable, correlation))) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  theme_minimal() +
+  labs(title = "Top 20 Factor Variables Correlated with ic_total_score (Spearman)",
+       x = "Correlation",
+       y = "Variable") +
+  geom_text(aes(label = significance), hjust = -0.5)
+print(p)
+
+# 输出相关性最强的10个变量
+cat("\n相关性最强的10个变量：\n")
+print(head(correlations, 10))
+
+cat("\n分析完成！\n")
 
 ```
 
 ### 相关性分析
 ```{r 相关性分析}
+# 从variables_descriptive.xlsx中提取numeric类型变量
+numeric_vars <- var_types %>%
+  filter(type == "numeric") %>%
+  pull(variable)
 
+cat(paste0("找到", length(numeric_vars), "个numeric类型变量\n"))
+
+# 确保ic_total_score在数据集中
+if (!"ic_total_score" %in% names(my_data_imputed)) {
+  cat("错误: 数据集中没有找到'ic_total_score'变量\n")
+  quit(status = 1)
+}
+
+# 确保所有numeric变量都在数据集中
+valid_numeric_vars <- numeric_vars[numeric_vars %in% names(my_data_imputed)]
+if (length(valid_numeric_vars) < length(numeric_vars)) {
+  cat(paste0("警告: 有", length(numeric_vars) - length(valid_numeric_vars), "个numeric变量不在数据集中\n"))
+  numeric_vars <- valid_numeric_vars
+}
+
+# 创建新的数据框，只包含数值型变量和ic_total_score
+numeric_df <- my_data_imputed %>% select(c(numeric_vars, "ic_total_score"))
+cat(paste0("提取了", length(numeric_vars), "个数值型变量和ic_total_score\n"))
+
+# 计算Spearman相关性
+cat("计算Spearman相关性...\n")
+correlations <- data.frame(variable = character(), correlation = numeric(), p_value = numeric())
+
+for (var in numeric_vars) {
+  # 计算与ic_total_score的相关性
+  corr_test <- cor.test(numeric_df[[var]], numeric_df[["ic_total_score"]], 
+                        method = "spearman", exact = FALSE)
+  
+  correlations <- rbind(correlations, data.frame(
+    variable = var,
+    correlation = corr_test$estimate,
+    p_value = corr_test$p.value
+  ))
+}
+
+# 按相关性绝对值排序
+correlations <- correlations %>% 
+  mutate(abs_correlation = abs(correlation)) %>%
+  arrange(desc(abs_correlation)) %>%
+  select(-abs_correlation)
+
+# 添加显著性标记
+correlations <- correlations %>%
+  mutate(significance = case_when(
+    p_value < 0.001 ~ "***",
+    p_value < 0.01 ~ "**",
+    p_value < 0.05 ~ "*",
+    TRUE ~ ""
+  ))
+
+# 打印相关性结果
+print(correlations)
+
+# 保存相关性结果到文件
+write_xlsx(correlations, "data_export/descriptive_stats/ic_correlations.xlsx")
+cat("已保存相关性分析结果到ic_correlations.xlsx\n")
+
+# 可视化相关性结果
+cat("生成相关性可视化...\n")
+top_corrs <- head(correlations, 20)  # 取相关性最高的20个变量
+
+p <- ggplot(top_corrs, aes(x = correlation, y = reorder(variable, correlation))) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  theme_minimal() +
+  labs(title = "Top 20 Variables Correlated with ic_total_score (Spearman)",
+       x = "Correlation",
+       y = "Variable") +
+  geom_text(aes(label = significance), hjust = -0.5)
+print(p)
+
+# 输出相关性最强的10个变量
+cat("\n相关性最强的10个变量：\n")
+print(head(correlations, 10))
+
+cat("\n分析完成！\n")
 ```
 
 ## 算法筛选
