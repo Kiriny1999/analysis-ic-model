@@ -5987,8 +5987,22 @@ for(var in factor_vars) {
     select(!!sym(var), ic_total_score) %>%
     filter(!is.na(!!sym(var))) %>%
     mutate(group = as.factor(!!sym(var)))
+    
+  # 检查组别数量
+  n_groups <- length(unique(current_data$group))
+  group_sizes <- table(current_data$group)
+  
+  cat(paste0("变量标签: ", var_label, "\n"))
+  cat(paste0("组别数量: ", n_groups, "\n"))
+  cat("各组样本量:\n")
+  print(group_sizes)
   
   # 进行非参数检验
+  # 如果组别数量小于2，跳过
+  if(n_groups < 2) {
+    cat("组别数量不足，跳过分析\n")
+    next
+  }
   if(n_groups == 2) {
     # 两组比较：Mann-Whitney U检验（Wilcoxon秩和检验）
     test_result <- wilcox.test(ic_total_score ~ group, data = current_data)
@@ -6524,6 +6538,8 @@ ic_test <- testing(split)
 ic_test$martial_status[ic_test$martial_status == "同居"] <- "从未结婚"
 write.csv(ic_train, "data_export/model_data/ic_train.csv", row.names = FALSE)
 write.csv(ic_test, "data_export/model_data/ic_test.csv", row.names = FALSE)
+
+
 ```
 
 ### 多元线性回归
