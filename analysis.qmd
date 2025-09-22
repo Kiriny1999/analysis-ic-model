@@ -5960,87 +5960,87 @@ if (file.exists(var_desc_path)) {
 
 ### 组间比较
 ```{r 组间比较}
-# 从variables_descriptive.xlsx中提取factor类型变量
+# Extract factor variables from variables_descriptive.xlsx
 factor_vars <- var_types %>%
   filter(type == "factor" | type == "ordered factor") %>%
   pull(variable)
 
-cat(paste0("找到", length(factor_vars), "个factor类型变量\n"))
+cat(paste0("Found ", length(factor_vars), " factor variables\n"))
 
-# 提取factor变量和IC总分
+# Extract factor variables and IC total score
 factor_data <- my_data_imputed %>% select(c(all_of(factor_vars), "ic_total_score"))
 
-# 创建存储结果的列表
+# Create lists to store results
 group_comparison_results <- list()
 significant_results <- list()
 
-# 对每个factor变量进行组间比较
+# Perform group comparisons for each factor variable
 for(var in factor_vars) {
   
-  cat(paste0("\n=== 分析变量: ", var, " ===\n"))
+  cat(paste0("\n=== Analyzing variable: ", var, " ===\n"))
   
-  # 获取变量标签
+  # Get variable label
   var_label <- var
   
   if(length(var_label) == 0) var_label <- var
   
-  # 提取当前变量的数据
+  # Extract current variable data
   current_data <- factor_data %>%
     select(!!sym(var), ic_total_score) %>%
     filter(!is.na(!!sym(var))) %>%
     mutate(group = as.factor(!!sym(var)))
     
-  # 检查组别数量
+  # Check number of groups
   n_groups <- length(unique(current_data$group))
   group_sizes <- table(current_data$group)
   
-  cat(paste0("变量标签: ", var_label, "\n"))
-  cat(paste0("组别数量: ", n_groups, "\n"))
-  cat("各组样本量:\n")
+  cat(paste0("Variable label: ", var_label, "\n"))
+  cat(paste0("Number of groups: ", n_groups, "\n"))
+  cat("Sample size per group:\n")
   print(group_sizes)
   
-  # 进行非参数检验
-  # 如果组别数量小于2，跳过
+  # Perform non-parametric tests
+  # Skip if less than 2 groups
   if(n_groups < 2) {
-    cat("组别数量不足，跳过分析\n")
+    cat("Insufficient number of groups, skipping analysis\n")
     next
   }
   if(n_groups == 2) {
-    # 两组比较：Mann-Whitney U检验（Wilcoxon秩和检验）
+    # Two-group comparison: Mann-Whitney U test
     test_result <- wilcox.test(ic_total_score ~ group, data = current_data)
-    test_name <- "Mann-Whitney U检验"
+    test_name <- "Mann-Whitney U test"
     test_statistic <- test_result$statistic
     p_value <- test_result$p.value
     
   } else {
-    # 多组比较：Kruskal-Wallis检验
+    # Multi-group comparison: Kruskal-Wallis test
     test_result <- kruskal.test(ic_total_score ~ group, data = current_data)
-    test_name <- "Kruskal-Wallis检验"
+    test_name <- "Kruskal-Wallis test"
     test_statistic <- test_result$statistic
     p_value <- test_result$p.value
   }
   
-  cat(paste0("\n", test_name, "结果:\n"))
-  cat(paste0("统计量: ", round(test_statistic, 4), "\n"))
-  cat(paste0("p值: ", format(p_value, scientific = TRUE, digits = 3), "\n"))
+  cat(paste0("\n", test_name, " results:\n"))
+  cat(paste0("Test statistic: ", round(test_statistic, 4), "\n"))
+  cat(paste0("p-value: ", format(p_value, scientific = TRUE, digits = 3), "\n"))
   
-  # 判断显著性
+  # Determine significance
   significance <- ifelse(p_value < 0.001, "***", 
                         ifelse(p_value < 0.01, "**",
                               ifelse(p_value < 0.05, "*", "ns")))
   
-  cat(paste0("显著性: ", significance, "\n"))
+  cat(paste0("Significance: ", significance, "\n"))
   
-  # 存储结果
+  # Store results
   result_summary <- data.frame(
-    变量 = var,
-    变量标签 = var_label,
-    组别数 = n_groups,
-    总样本量 = nrow(current_data),
-    检验方法 = test_name,
-    统计量 = round(test_statistic, 4),
-    P值 = p_value,
-    显著性 = significance,
+    Variable = var,
+    Variable_Label = var_label,
+    Number_of_Groups = n_groups,
+    Total_Sample_Size = nrow(current_data),
+    Test_Method = test_name,
+    Test_Statistic = round(test_statistic, 4),
+    P_Value = p_value,
+    Significance = significance,
     stringsAsFactors = FALSE
   )
   
@@ -6050,41 +6050,26 @@ for(var in factor_vars) {
     data = current_data
   )
   
-  # 如果显著，加入显著结果列表
+  # Add to significant results if p < 0.05
   if(p_value < 0.05) {
     significant_results[[var]] <- group_comparison_results[[var]]
   }
 }
 
-# 合并所有结果
+# Combine all results
 all_results_summary <- do.call(rbind, lapply(group_comparison_results, function(x) x$summary))
 print(all_results_summary)
 ```
 
-### 相关性分析结果
+### 相关性分析
 ```{r 相关性分析}
 # 从variables_descriptive.xlsx中提取numeric类型变量
 numeric_vars <- var_types %>%
   filter(type == "numeric") %>%
   pull(variable)
 
-cat(paste0("找到", length(numeric_vars), "个numeric类型变量\n"))
-
-# 确保ic_total_score在数据集中
-if (!"ic_total_score" %in% names(my_data_imputed)) {
-  cat("错误: 数据集中没有找到'ic_total_score'变量\n")
-  quit(status = 1)
-}
-
-# 确保所有numeric变量都在数据集中
-valid_numeric_vars <- numeric_vars[numeric_vars %in% names(my_data_imputed)]
-if (length(valid_numeric_vars) < length(numeric_vars)) {
-  cat(paste0("警告: 有", length(numeric_vars) - length(valid_numeric_vars), "个numeric变量不在数据集中\n"))
-  numeric_vars <- valid_numeric_vars
-}
-
 # 创建新的数据框，只包含数值型变量和ic_total_score
-numeric_df <- my_data_imputed %>% select(c(numeric_vars, "ic_total_score"))
+numeric_df <- my_data_imputed %>% select(c(all_of(numeric_vars), "ic_total_score"))
 cat(paste0("提取了", length(numeric_vars), "个数值型变量和ic_total_score\n"))
 
 # 计算Spearman相关性
@@ -6793,8 +6778,8 @@ html_table_ic <- ic_table %>%
 # 导出为 HTML 文件
 cat(html_table_ic, file = "data_export/descriptive_stats/ic_table.html")
 ```
-### 训练集和验证集数据可比性结果导出
-```{r}
+### 训练集和验证集数据可比性结果导出（是否有必要做）
+```{r 训练集和验证集数据可比性结果导出}
 # 加载必要的库
 library(dplyr)
 library(ggplot2)
@@ -6806,10 +6791,11 @@ library(tidyr)
 
 # 基本信息比较
 basic_info <- data.frame(
-  数据集 = c("ic_train", "ic_test","all"),
-  样本数 = c(nrow(ic_train), nrow(ic_test),nrow(covered_individuals)),
-  变量数 = c(ncol(ic_train), ncol(ic_test),21)
+  data_set = c("ic_train", "ic_test","all"),
+  number = c(nrow(ic_train), nrow(ic_test),nrow(covered_individuals)),
+  number_variable = c(ncol(ic_train), ncol(ic_test),21)
 )
+str(ic_train$education_level)
 print(basic_info)
 
 # 识别变量类型
@@ -7088,21 +7074,17 @@ write_xlsx(results_list, "data_export/model_results/tables/ic_train_test_complet
 
 ### 组间比较和相关性分析导出
 ```{r 组间比较和相关性分析导出}
-### 导出组间比较和相关性分析结果到Excel
-# 加载必要的库
-library(openxlsx)
-
-# 创建一个新的工作簿
+# Create a new workbook
 wb <- createWorkbook()
 
-# 1. 添加组间比较结果汇总表
-addWorksheet(wb, "组间比较结果汇总")
-writeData(wb, "组间比较结果汇总", all_results_summary)
+# Add group comparison summary table
+addWorksheet(wb, "Group Comparison Summary")
+writeData(wb, "Group Comparison Summary", all_results_summary)
 
-# 设置列宽
-setColWidths(wb, "组间比较结果汇总", cols = 1:ncol(all_results_summary), widths = "auto")
+# Set column widths
+setColWidths(wb, "Group Comparison Summary", cols = 1:ncol(all_results_summary), widths = "auto")
 
-# 添加表头样式
+# Add header style
 headerStyle <- createStyle(
   fontSize = 12,
   fontColour = "white",
@@ -7113,39 +7095,17 @@ headerStyle <- createStyle(
   textDecoration = "bold"
 )
 
-addStyle(wb, "组间比较结果汇总", headerStyle, rows = 1, cols = 1:ncol(all_results_summary), gridExpand = TRUE)
+addStyle(wb, "Group Comparison Summary", headerStyle, rows = 1, cols = 1:ncol(all_results_summary), gridExpand = TRUE)
 
-# 2. 添加相关性分析结果
-addWorksheet(wb, "相关性分析结果")
-writeData(wb, "相关性分析结果", correlations)
-setColWidths(wb, "相关性分析结果", cols = 1:ncol(correlations), widths = "auto")
-addStyle(wb, "相关性分析结果", headerStyle, rows = 1, cols = 1:ncol(correlations), gridExpand = TRUE)
+# Add correlation analysis results
+addWorksheet(wb, "Correlation Analysis Results")
+writeData(wb, "Correlation Analysis Results", correlations)
+setColWidths(wb, "Correlation Analysis Results", cols = 1:ncol(correlations), widths = "auto")
+addStyle(wb, "Correlation Analysis Results", headerStyle, rows = 1, cols = 1:ncol(correlations), gridExpand = TRUE)
 
-# 3. 添加结果摘要
-summary_data <- data.frame(
-  分析类型 = c("组间比较分析", "组间比较分析", "相关性分析", "相关性分析"),
-  指标 = c("总分析变量数", "显著差异变量数", "总分析变量数", "显著相关变量数"),
-  数值 = c(
-    nrow(all_results_summary),
-    length(significant_results),
-    nrow(correlations),
-    nrow(significant_correlations)
-  ),
-  说明 = c(
-    "所有factor类型变量的组间比较",
-    "p < 0.05的显著差异变量",
-    "所有numeric类型变量的相关性分析",
-    "p < 0.05的显著相关变量"
-  )
-)
 
-addWorksheet(wb, "结果摘要")
-writeData(wb, "结果摘要", summary_data)
-setColWidths(wb, "结果摘要", cols = 1:ncol(summary_data), widths = "auto")
-addStyle(wb, "结果摘要", headerStyle, rows = 1, cols = 1:ncol(summary_data), gridExpand = TRUE)
-
-# 保存Excel文件
-output_file <- "data_export/model_results/tables/组间比较和相关性分析结果.xlsx"
+# Save Excel file
+output_file <- "data_export/model_results/tables/group_comparison_and_correlation_analysis_results.xlsx"
 saveWorkbook(wb, output_file, overwrite = TRUE)
 ```
 ### 所有模型结果导出
