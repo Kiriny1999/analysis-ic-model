@@ -6,5 +6,6 @@
 *.RData
 !data_export/data_manual_filter/variable_labels_manual_filtered.csv
 !data_export/data_second_manual_filter/variables_secondly_filltered.csv
+!data_export/descriptive_stats/variables_descriptive.xlsx
 .Rproj.user
 
