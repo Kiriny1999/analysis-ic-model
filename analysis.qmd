@@ -2309,7 +2309,7 @@ my_data_calculated <- my_data_calculated %>%
     mutate(
         travel_time_inpatientcare = case_when(
             inpatientcare_pastyear == 0 ~ 0,  # 如果没住院，时间为0
-            TRUE ~ my_data_manual_filtered$ee014_1  # 其他情况使用ee014_1的值
+            TRUE ~ my_data_manual_filtered$ee014_1  # 其他情况使用ee014_1
         )
     )
 attr(my_data_calculated$travel_time_inpatientcare, "label") <- "去住院所需时间"
@@ -6336,10 +6336,6 @@ model_data <- common_data %>%
         ic_total_score
     )
 
-# 查看建模前数据框的维度
-dim(model_data)
-str(model_data)
-
 # 给识字变量不同分类添加标签
 model_data$literate <- factor(model_data$literate, levels = c(0, 1), labels = c("不识字", "识字"))
 
@@ -6374,6 +6370,330 @@ ic_test <- testing(split)
 ic_test$martial_status[ic_test$martial_status == "同居"] <- "从未结婚"
 write.csv(ic_train, "data_export/model_data/ic_train.csv", row.names = FALSE)
 write.csv(ic_test, "data_export/model_data/ic_test.csv", row.names = FALSE)
+```
+### 训练集和验证集数据可比性分析
+```{r 训练集和验证集数据可比性分析}
+# 1. 创建数字编码转换为有序因子的函数
+convert_numeric_to_ordered_factors <- function(data) {
+  data_new <- data %>%
+    mutate(
+      # education_level 转换为有序因子 (原始编码1-11)
+      education_level = case_when(
+        education_level == 1 ~ "文盲",
+        education_level == 2 ~ "未读完小学",
+        education_level == 3 ~ "私塾毕业", 
+        education_level == 4 ~ "小学毕业",
+        education_level == 5 ~ "初中毕业",
+        education_level == 6 ~ "高中毕业",
+        education_level == 7 ~ "中专毕业",
+        education_level == 8 ~ "大专毕业",
+        education_level == 9 ~ "本科毕业",
+        education_level == 10 ~ "硕士毕业",
+        education_level == 11 ~ "博士毕业",
+        TRUE ~ NA_character_
+      ),
+      education_level = factor(education_level, 
+                              levels = c("文盲", "未读完小学", "私塾毕业", "小学毕业", "初中毕业", 
+                                       "高中毕业", "中专毕业", "大专毕业", "本科毕业", 
+                                       "硕士毕业", "博士毕业"),
+                              ordered = TRUE),
+      # health_compared 转换为有序因子 (原始编码1-3)
+      health_compared = case_when(
+        health_compared == 1 ~ "更好了",
+        health_compared == 2 ~ "差不多", 
+        health_compared == 3 ~ "更差了",
+        TRUE ~ NA_character_
+      ),
+      health_compared = factor(health_compared,
+                              levels = c("更差了", "差不多", "更好了"),
+                              ordered = TRUE),
+      
+      # life_satisfaction 转换为有序因子 (原始编码1-5)
+      life_satisfaction = case_when(
+        life_satisfaction == 1 ~ "完全满意",
+        life_satisfaction == 2 ~ "非常满意",
+        life_satisfaction == 3 ~ "一般满意",
+        life_satisfaction == 4 ~ "不太满意",
+        life_satisfaction == 5 ~ "完全不满意",
+        TRUE ~ NA_character_
+      ),
+      life_satisfaction = factor(life_satisfaction,
+                                levels = c("完全不满意", "不太满意", "一般满意", 
+                                         "非常满意", "完全满意"),
+                                ordered = TRUE),
+      
+      # health_satisfaction 转换为有序因子 (原始编码1-5)
+      health_satisfaction = case_when(
+        health_satisfaction == 1 ~ "完全满意",
+        health_satisfaction == 2 ~ "非常满意",
+        health_satisfaction == 3 ~ "一般满意",
+        health_satisfaction == 4 ~ "不太满意",
+        health_satisfaction == 5 ~ "完全不满意",
+        TRUE ~ NA_character_
+      ),
+      health_satisfaction = factor(health_satisfaction,
+                                  levels = c("完全不满意", "不太满意", "一般满意", 
+                                           "非常满意", "完全满意"),
+                                  ordered = TRUE)
+    )
+  
+  return(data_new)
+}
+
+# 2. 应用转换到训练集和测试集
+ic_train_ordered <- convert_numeric_to_ordered_factors(ic_train)
+ic_test_ordered <- convert_numeric_to_ordered_factors(ic_test)
+
+# 检查并剔除训练集和测试集中转换后没出现的分类
+# 获取所有分类变量
+categorical_vars <- names(ic_train_ordered)[sapply(ic_train_ordered, is.factor)]
+
+# 对每个分类变量进行检查
+for(var in categorical_vars) {
+  # 获取训练集和测试集中该变量的所有唯一值
+  train_levels <- unique(ic_train_ordered[[var]])
+  test_levels <- unique(ic_test_ordered[[var]])
+  
+  # 找出在任一数据集中都没出现的分类
+  all_levels <- levels(ic_train_ordered[[var]])
+  missing_levels <- setdiff(all_levels, union(train_levels, test_levels))
+  
+  # 如果存在这样的分类，则从两个数据集中移除该分类
+  if(length(missing_levels) > 0) {
+    # 创建新的因子水平，排除未出现的分类
+    new_levels <- setdiff(all_levels, missing_levels)
+    
+    # 更新训练集和测试集中的因子水平
+    ic_train_ordered[[var]] <- factor(ic_train_ordered[[var]], levels = new_levels)
+    ic_test_ordered[[var]] <- factor(ic_test_ordered[[var]], levels = new_levels)
+    
+    # 输出移除的分类信息
+    cat(sprintf("变量 %s 中移除了以下未出现的分类: %s\n", 
+                var, paste(missing_levels, collapse = ", ")))
+  }
+}
+
+# 检查结果
+cat("\n更新后的分类变量水平:\n")
+for(var in categorical_vars) {
+  cat(sprintf("\n%s 的分类水平:\n", var))
+  print(levels(ic_train_ordered[[var]]))
+}
+# 3. 验证转换结果
+cat("=== 转换后的变量属性（有序因子）===\n")
+target_vars <- c("education_level", "treat_pain", "health_compared", "life_satisfaction", "health_satisfaction")
+
+for(var in target_vars) {
+  cat(paste0("\n变量: ", var, "\n"))
+  cat("训练集:\n")
+  print(str(ic_train_ordered[[var]]))
+  cat("测试集:\n") 
+  print(str(ic_test_ordered[[var]]))
+  cat("训练集水平:", paste(levels(ic_train_ordered[[var]]), collapse = " < "), "\n")
+  cat("测试集水平:", paste(levels(ic_test_ordered[[var]]), collapse = " < "), "\n")
+  cat("训练集频数:\n")
+  print(table(ic_train_ordered[[var]], useNA = "ifany"))
+  cat("测试集频数:\n")
+  print(table(ic_test_ordered[[var]], useNA = "ifany"))
+}
+
+# 4. 显示原始编码对应关系
+cat("\n=== 原始数字编码对应关系 ===\n")
+cat("education_level: 1=文盲, 2=未读完小学, 3=私塾毕业, 4=小学毕业, 5=初中毕业, 6=高中毕业, 7=中专毕业, 8=大专毕业, 9=本科毕业, 10=硕士毕业, 11=博士毕业\n")
+cat("treat_pain: 0=没有疼痛, 1=有疼痛治疗, 2=有疼痛不治疗\n")
+cat("health_compared: 1=更好了, 2=差不多, 3=更差了\n")
+cat("life_satisfaction: 1=完全满意, 2=非常满意, 3=一般满意, 4=不太满意, 5=完全不满意\n")
+cat("health_satisfaction: 1=完全满意, 2=非常满意, 3=一般满意, 4=不太满意, 5=完全不满意\n")
+
+# 4. 创建可比性分析
+cat("\n=== 开始可比性分析 ===\n")
+
+# 为训练集和测试集添加标识列
+ic_train_ordered$dataset <- "train"
+ic_test_ordered$dataset <- "test"
+
+# 合并两个数据集
+combined_data <- rbind(ic_train_ordered, ic_test_ordered)
+
+# 获取所有变量名（除了dataset标识变量）
+all_vars <- names(combined_data)[names(combined_data) != "dataset"]
+
+# 分离数值变量和分类变量
+numeric_vars <- names(combined_data)[sapply(combined_data, is.numeric)]
+categorical_vars <- names(combined_data)[sapply(combined_data, function(x) is.factor(x) | is.character(x))]
+categorical_vars <- categorical_vars[categorical_vars != "dataset"]
+
+cat(paste0("数值变量数量: ", length(numeric_vars), "\n"))
+cat(paste0("分类变量数量: ", length(categorical_vars), "\n"))
+
+# 5. 使用tableone包进行可比性分析
+library(tableone)
+table_one <- CreateTableOne(
+  vars = all_vars,
+  strata = "dataset",
+  data = combined_data,
+  factorVars = categorical_vars,
+  test = TRUE,
+  smd = TRUE
+)
+
+# 打印结果
+print(table_one, smd = TRUE, test = TRUE)
+
+# 6. 详细的统计检验结果
+cat("\n=== 详细统计检验结果 ===\n")
+
+# 对数值变量进行t检验或Mann-Whitney U检验
+numeric_test_results <- data.frame()
+
+for(var in numeric_vars) {
+  if(var != "dataset") {
+    train_data <- ic_train_ordered[[var]]
+    test_data <- ic_test_ordered[[var]]
+    
+    # 去除缺失值
+    train_data <- train_data[!is.na(train_data)]
+    test_data <- test_data[!is.na(test_data)]
+    
+    if(length(train_data) > 0 && length(test_data) > 0) {
+      # Shapiro-Wilk正态性检验（样本量大时可能不适用）
+      if(length(train_data) > 5000 || length(test_data) > 5000) {
+        # 样本量大时使用Mann-Whitney U检验
+        test_result <- wilcox.test(train_data, test_data)
+        test_method <- "Mann-Whitney U"
+      } else {
+        # 先检验正态性
+        shapiro_train <- shapiro.test(sample(train_data, min(5000, length(train_data))))
+        shapiro_test <- shapiro.test(sample(test_data, min(5000, length(test_data))))
+        
+        if(shapiro_train$p.value > 0.05 && shapiro_test$p.value > 0.05) {
+          # 正态分布，使用t检验
+          test_result <- t.test(train_data, test_data)
+          test_method <- "t-test"
+        } else {
+          # 非正态分布，使用Mann-Whitney U检验
+          test_result <- wilcox.test(train_data, test_data)
+          test_method <- "Mann-Whitney U"
+        }
+      }
+      
+      # 计算效应量（Cohen's d或r）
+      if(test_method == "t-test") {
+        pooled_sd <- sqrt(((length(train_data)-1)*var(train_data) + (length(test_data)-1)*var(test_data)) / 
+                         (length(train_data) + length(test_data) - 2))
+        effect_size <- abs(mean(train_data) - mean(test_data)) / pooled_sd
+        effect_measure <- "Cohen's d"
+      } else {
+        # 对于Mann-Whitney U，计算r = Z/sqrt(N)
+        z_score <- qnorm(test_result$p.value/2)
+        effect_size <- abs(z_score) / sqrt(length(train_data) + length(test_data))
+        effect_measure <- "r"
+      }
+      
+      result_row <- data.frame(
+        variable = var,
+        test_method = test_method,
+        statistic = round(test_result$statistic, 4),
+        p_value = round(test_result$p.value, 6),
+        effect_size = round(effect_size, 4),
+        effect_measure = effect_measure,
+        train_mean = round(mean(train_data, na.rm = TRUE), 4),
+        test_mean = round(mean(test_data, na.rm = TRUE), 4),
+        significance = ifelse(test_result$p.value < 0.05, "significant", "non-significant"),
+        stringsAsFactors = FALSE
+      )
+      
+      numeric_test_results <- rbind(numeric_test_results, result_row)
+    }
+  }
+}
+
+# 对分类变量进行卡方检验
+categorical_test_results <- data.frame()
+
+for(var in categorical_vars) {
+  if(var != "dataset") {
+    # 创建列联表
+    contingency_table <- table(combined_data[[var]], combined_data$dataset)
+    
+    # 检查是否有足够的观测值进行卡方检验
+    if(all(contingency_table >= 5)) {
+      # 卡方检验
+      chi_test <- chisq.test(contingency_table)
+      test_method <- "Chi-square"
+      test_stat <- chi_test$statistic
+      p_value <- chi_test$p.value
+      
+      # 计算Cramér's V（效应量）
+      n <- sum(contingency_table)
+      cramers_v <- sqrt(chi_test$statistic / (n * (min(dim(contingency_table)) - 1)))
+      effect_size <- cramers_v
+      effect_measure <- "Cramér's V"
+    } else {
+      # Fisher精确检验（适用于小样本）
+      fisher_test <- fisher.test(contingency_table, simulate.p.value = TRUE)
+      test_method <- "Fisher's exact"
+      test_stat <- NA
+      p_value <- fisher_test$p.value
+      effect_size <- NA
+      effect_measure <- "NA"
+    }
+    
+    result_row <- data.frame(
+      variable = var,
+      test_method = test_method,
+      statistic = ifelse(is.na(test_stat), "NA", round(test_stat, 4)),
+      p_value = round(p_value, 6),
+      effect_size = ifelse(is.na(effect_size), "NA", round(effect_size, 4)),
+      effect_measure = effect_measure,
+      significance = ifelse(p_value < 0.05, "significant", "non-significant"),
+      stringsAsFactors = FALSE
+    )
+    
+    categorical_test_results <- rbind(categorical_test_results, result_row)
+  }
+}
+
+# 7. 汇总结果
+cat("\n=== 数值变量比较结果 ===\n")
+print(numeric_test_results)
+
+cat("\n=== 分类变量比较结果 ===\n")
+print(categorical_test_results)
+
+# 8. 识别显著差异的变量
+significant_numeric <- numeric_test_results[numeric_test_results$p_value < 0.05, ]
+significant_categorical <- categorical_test_results[categorical_test_results$p_value < 0.05, ]
+
+cat(paste0("\n=== 可比性分析总结 ===\n"))
+cat(paste0("总变量数量: ", length(all_vars), "\n"))
+cat(paste0("数值变量数量: ", nrow(numeric_test_results), "\n"))
+cat(paste0("分类变量数量: ", nrow(categorical_test_results), "\n"))
+cat(paste0("显著差异的数值变量数量: ", nrow(significant_numeric), "\n"))
+cat(paste0("显著差异的分类变量数量: ", nrow(significant_categorical), "\n"))
+cat(paste0("总体显著差异变量占比: ", 
+    round((nrow(significant_numeric) + nrow(significant_categorical)) / length(all_vars) * 100, 2), "%\n"))
+
+if(nrow(significant_numeric) > 0) {
+  cat("\n显著差异的数值变量:\n")
+  print(significant_numeric$variable)
+}
+
+if(nrow(significant_categorical) > 0) {
+  cat("\n显著差异的分类变量:\n")
+  print(significant_categorical$variable)
+}
+
+# 9. 保存转换后的数据集
+write.csv(ic_train_ordered, "data_export/model_data/ic_train_ordered.csv", row.names = FALSE)
+write.csv(ic_test_ordered, "data_export/model_data/ic_test_ordered.csv", row.names = FALSE)
+write.csv(combined_data, "data_export/model_data/combined_ordered_data.csv", row.names = FALSE)
+
+cat("转换后的数据集已保存:\n")
+cat("- 训练集: data_export/model_data/ic_train_ordered.csv\n")
+cat("- 测试集: data_export/model_data/ic_test_ordered.csv\n")
+cat("- 合并数据: data_export/model_data/combined_ordered_data.csv\n")
+
 ```
 ### 多元线性回归
 ```{r 多元线性回归}
@@ -6712,364 +7032,121 @@ print(paste("预测误差:", xgb_predictions[79] - ic_test$ic_total_score[79]))
 
 ```
 ## 结果导出
-### 描述性统计结果导出
+### 描述性统计结果导出（这段代码还是有问题，再改改）
 ```{r 描述性统计结果导出}
-# 定义标签
-label(my_data_imputed$age) <- "年龄"
-label(my_data_imputed$gender) <- "性别"
-label(my_data_imputed$address_type) <- "地址类型"
-label(my_data_imputed$address_urban_or_rural) <- "城乡类型"
-label(my_data_imputed$literate) <- "识字情况"
-label(my_data_imputed$martial_status) <- "婚姻状况"
-label(my_data_imputed$education_level) <- "教育水平"
-label(my_data_imputed$num_children_married) <- "已婚子女数"
-label(my_data_imputed$number_grandchildren_great_grandchildren) <- "孙子女/重孙数量"
-label(my_data_imputed$number_medical_insurance) <- "医疗保险数量"
-label(my_data_imputed$number_chronic_disease) <- "慢性病数量"
-label(my_data_imputed$health_compared) <- "健康状况比较"
-label(my_data_imputed$number_pain_locations) <- "疼痛部位数量"
+# 使用tableone包创建描述性统计表格
+# 定义变量标签
+vars_labels <- list(
+  age = "年龄",
+  gender = "性别", 
+  address_type = "居住地类型",
+  address_urban_or_rural = "城乡",
+  literate = "识字能力",
+  martial_status = "婚姻状况", 
+  education_level = "教育水平",
+  num_children_married = "已婚子女数量",
+  number_grandchildren_great_grandchildren = "孙子女/重孙子女数量",
+  number_medical_insurance = "医疗保险数量",
+  number_chronic_disease = "慢性病数量",
+  health_compared = "健康状况比较",
+  number_pain_locations = "疼痛部位数量"
+)
 
-# 创建描述性统计表格
-# 将变量命名为一般资料表格的英文形式 General Information Table
-general_info_table <- table1(~ age + gender + address_type + address_urban_or_rural +
-               literate + martial_status + education_level + num_children_married + 
-               number_grandchildren_great_grandchildren + number_medical_insurance + 
-               number_chronic_disease + health_compared + number_pain_locations, 
-               data = my_data_imputed)
-print(general_info_table)
+# 为变量添加标签
+for(var in names(vars_labels)) {
+  attr(my_data_imputed[[var]], "label") <- vars_labels[[var]]
+}
 
-# 将表格转换为 HTML 格式
-html_table_general_info <- general_info_table %>%
-  kable("html") %>%
-  kable_styling()
+# 创建一般资料表格
+vars <- names(vars_labels)
+general_table <- CreateTableOne(vars = vars, data = my_data_imputed)
+general_table_matrix <- print(general_table, printToggle = FALSE)
 
-# 导出为 HTML 文件
-cat(general_info_table, file = "data_export/descriptive_stats/general_info_table.html")
+# 定义内在能力变量标签
+ic_vars <- c("final_physical_score", "cognitive_level", 
+             "final_psychological_score", "final_sensory_score",
+             "final_vitality_score", "ic_total_score")
 
-# 确保分类变量被正确识别为因子类型
-covered_individuals$final_physical_score <- as.factor(covered_individuals$final_physical_score)
-covered_individuals$cognitive_level <- as.factor(covered_individuals$cognitive_level)
-covered_individuals$final_psychological_score <- as.factor(covered_individuals$final_psychological_score)
-covered_individuals$final_sensory_score <- as.factor(covered_individuals$final_sensory_score)
-covered_individuals$final_vitality_score <- as.factor(covered_individuals$final_vitality_score)
+ic_vars_labels <- list(
+  final_physical_score = "运动能力得分",
+  cognitive_level = "认知水平",
+  final_psychological_score = "心理能力得分", 
+  final_sensory_score = "感官能力得分",
+  final_vitality_score = "活力得分",
+  ic_total_score = "内在能力总分"
+)
 
-# 定义标签，使表格更易读（可选）
-label(covered_individuals$final_physical_score) <- "最终身体评分"
-label(covered_individuals$cognitive_level) <- "认知水平"
-label(covered_individuals$final_psychological_score) <- "最终心理评分"
-label(covered_individuals$final_sensory_score) <- "最终感官评分"
-label(covered_individuals$final_vitality_score) <- "最终活力评分"
-label(covered_individuals$ic_total_score) <- "IC总分"
+# 为内在能力变量添加标签
+for(var in names(ic_vars_labels)) {
+  attr(covered_individuals[[var]], "label") <- ic_vars_labels[[var]]
+}
 
-# 创建描述性统计表格
-ic_table <- table1(~ final_physical_score + cognitive_level + 
-                      final_psychological_score + final_sensory_score + 
-                      final_vitality_score + ic_total_score, 
-                    data = covered_individuals)
+# 确保分类变量为因子类型
+covered_individuals[ic_vars[-6]] <- lapply(covered_individuals[ic_vars[-6]], as.factor)
 
-# 显示表格
-print(ic_table)
+ic_table <- CreateTableOne(vars = ic_vars, data = covered_individuals)
+ic_table_matrix <- print(ic_table, printToggle = FALSE)
 
-# 将表格转换为 HTML 格式
-html_table_ic <- ic_table %>%
-  kable("html") %>%
-  kable_styling()
+# 创建Excel工作簿并导出结果
+wb <- createWorkbook()
+addWorksheet(wb, "一般资料")
+addWorksheet(wb, "内在能力")
 
-# 导出为 HTML 文件
-cat(html_table_ic, file = "data_export/descriptive_stats/ic_table.html")
+# 将矩阵转换为数据框并添加变量标签列
+general_df <- as.data.frame(general_table_matrix)
+general_df$Variable <- vars_labels[rownames(general_df)]
+
+ic_df <- as.data.frame(ic_table_matrix)
+ic_df$Variable <- ic_vars_labels[rownames(ic_df)]
+
+# 写入数据
+writeData(wb, "一般资料", general_df)
+writeData(wb, "内在能力", ic_df)
+
+# 保存Excel文件
+saveWorkbook(wb, "data_export/model_results/tables/descriptive_statistics.xlsx", overwrite = TRUE)
 ```
-### 训练集和验证集数据可比性结果导出（是否有必要做）
+### 训练集和验证集数据可比性结果导出（是否有必要做，再考虑一下）
 ```{r 训练集和验证集数据可比性结果导出}
-# 加载必要的库
-library(dplyr)
-library(ggplot2)
-library(gridExtra)
-library(writexl)
-library(knitr)
-library(kableExtra)
-library(tidyr)
+wb <- createWorkbook()
 
-# 基本信息比较
-basic_info <- data.frame(
-  data_set = c("ic_train", "ic_test","all"),
-  number = c(nrow(ic_train), nrow(ic_test),nrow(covered_individuals)),
-  number_variable = c(ncol(ic_train), ncol(ic_test),21)
-)
-str(ic_train$education_level)
-print(basic_info)
+# 添加工作表
+addWorksheet(wb, "Summary")
+addWorksheet(wb, "Numeric_Tests")
+addWorksheet(wb, "Categorical_Tests")
+addWorksheet(wb, "Significant_Variables")
+addWorksheet(wb, "TableOne_Results")
 
-# 识别变量类型
-numeric_vars <- ic_train %>% select(where(is.numeric)) %>% names()
-categorical_vars <- ic_train %>% select(where(~is.character(.) | is.factor(.))) %>% names()
-
-cat(paste0("\n数值型变量数量: ", length(numeric_vars), "\n"))
-cat(paste0("分类变量数量: ", length(categorical_vars), "\n"))
-
-# 查看训练集变量属性
-# 创建一个数据框来存储变量信息
-var_info <- data.frame(
-  variable = names(ic_train),
-  type = sapply(ic_train, class),
-  n_unique = sapply(ic_train, function(x) length(unique(x))),
-  n_missing = sapply(ic_train, function(x) sum(is.na(x))),
-  first_values = sapply(ic_train, function(x) {
-    if(is.numeric(x)) {
-      paste(head(sort(unique(x)), 3), collapse = ", ")
-    } else {
-      paste(head(unique(x), 3), collapse = ", ")
-    }
-  })
+# 写入数据
+summary_data <- data.frame(
+  Item = c("Total_Variables", "Numeric_Variables", "Categorical_Variables", 
+           "Significant_Numeric", "Significant_Categorical", "Overall_Significant_Percent"),
+  Value = c(length(all_vars), nrow(numeric_test_results), nrow(categorical_test_results),
+           nrow(significant_numeric), nrow(significant_categorical),
+           round((nrow(significant_numeric) + nrow(significant_categorical)) / length(all_vars) * 100, 2))
 )
 
-# 添加变量标签信息
-var_info$label <- sapply(names(ic_train), function(x) {
-  label <- attr(ic_train[[x]], "label")
-  if(is.null(label)) x else label
-})
+writeData(wb, "Summary", summary_data)
+writeData(wb, "Numeric_Tests", numeric_test_results)
+writeData(wb, "Categorical_Tests", categorical_test_results)
 
-# 计算每个变量的缺失值比例
-var_info$missing_pct <- round(var_info$n_missing / nrow(ic_train) * 100, 2)
-
-# 按变量名排序
-var_info <- var_info %>%
-  arrange(variable)
-
-# 打印变量信息表
-print(kable(var_info, 
-      caption = "训练集变量属性概览",
-      col.names = c("变量名", "数据类型", "唯一值数量", "缺失值数量", "前三个值示例", "变量标签", "缺失率(%)"),
-      align = c('l', 'l', 'r', 'r', 'l', 'l', 'r')))
-
-# 导出变量信息到Excel
-write_xlsx(var_info, "data_export/descriptive_stats/variables_descriptive.xlsx")
-
-cat("\n变量信息已导出到 variables_descriptive.xlsx\n")
-
-
-# 数值类型变量比较
-if(length(numeric_vars) > 0) {
-
-  # 计算描述性统计
-  desc_stats_train <- ic_train %>%
-    select(all_of(numeric_vars)) %>%
-    summarise_all(list(
-      mean = ~mean(., na.rm = TRUE),
-      sd = ~sd(., na.rm = TRUE),
-      median = ~median(., na.rm = TRUE),
-      min = ~min(., na.rm = TRUE),
-      max = ~max(., na.rm = TRUE),
-      na_count = ~sum(is.na(.))
-    )) %>%
-    pivot_longer(everything(), names_to = "variable_stat", values_to = "train_value") %>%
-    separate(variable_stat, into = c("variable", "statistic"), sep = "_(?=[^_]*$)")
-  
-  desc_stats_test <- ic_test %>%
-    select(all_of(numeric_vars)) %>%
-    summarise_all(list(
-      mean = ~mean(., na.rm = TRUE),
-      sd = ~sd(., na.rm = TRUE),
-      median = ~median(., na.rm = TRUE),
-      min = ~min(., na.rm = TRUE),
-      max = ~max(., na.rm = TRUE),
-      na_count = ~sum(is.na(.))
-    )) %>%
-    pivot_longer(everything(), names_to = "variable_stat", values_to = "test_value") %>%
-    separate(variable_stat, into = c("variable", "statistic"), sep = "_(?=[^_]*$)")
-  
-  # 合并统计结果
-  numeric_comparison <- desc_stats_train %>%
-    left_join(desc_stats_test, by = c("variable", "statistic")) %>%
-    mutate(
-      difference = test_value - train_value,
-      relative_diff = ifelse(train_value != 0, (test_value - train_value) / train_value * 100, NA)
-    )
-  
-  # 数值型变量统计检验
-  numeric_tests <- data.frame(
-    variable = character(),
-    t_test_p = numeric(),
-    ks_test_p = numeric(),
-    wilcox_test_p = numeric(),
-    stringsAsFactors = FALSE
+# 合并显著差异变量
+if(nrow(significant_numeric) > 0 || nrow(significant_categorical) > 0) {
+  significant_all <- rbind(
+    if(nrow(significant_numeric) > 0) significant_numeric else NULL,
+    if(nrow(significant_categorical) > 0) significant_categorical else NULL
   )
-  
-  for (var in numeric_vars) {
-    tryCatch({
-      # t检验
-      t_test <- t.test(ic_train[[var]], ic_test[[var]])
-      
-      # Kolmogorov-Smirnov检验
-      ks_test <- ks.test(ic_train[[var]], ic_test[[var]]) # 非参数检验
-      
-      # Wilcoxon秩和检验
-      wilcox_test <- wilcox.test(ic_train[[var]], ic_test[[var]])
-      
-      numeric_tests <- rbind(numeric_tests, data.frame(
-        variable = var,
-        t_test_p = t_test$p.value,
-        ks_test_p = ks_test$p.value,
-        wilcox_test_p = wilcox_test$p.value,
-        stringsAsFactors = FALSE
-      ))
-    }, error = function(e) {
-      cat(paste0("变量 ", var, " 检验出错: ", e$message, "\n"))
-    })
-  }
-  
-  # 添加显著性标记
-  if(nrow(numeric_tests) > 0) {
-    numeric_tests <- numeric_tests %>%
-      mutate(
-        t_test_sig = case_when(
-          t_test_p < 0.001 ~ "***",
-          t_test_p < 0.01 ~ "**",
-          t_test_p < 0.05 ~ "*",
-          TRUE ~ ""
-        ),
-        ks_test_sig = case_when(
-          ks_test_p < 0.001 ~ "***",
-          ks_test_p < 0.01 ~ "**",
-          ks_test_p < 0.05 ~ "*",
-          TRUE ~ ""
-        ),
-        wilcox_test_sig = case_when(
-          wilcox_test_p < 0.001 ~ "***",
-          wilcox_test_p < 0.01 ~ "**",
-          wilcox_test_p < 0.05 ~ "*",
-          TRUE ~ ""
-        )
-      )
-  }
+  writeData(wb, "Significant_Variables", significant_all)
 }
 
-# 分类变量比较
-if(length(categorical_vars) > 0) {
-  
-  # 分类变量频数比较
-  categorical_comparison <- list()
-  categorical_tests <- data.frame(
-    variable = character(),
-    chi_square_p = numeric(),
-    fisher_test_p = numeric(),
-    stringsAsFactors = FALSE
-  )
-  
-  for (var in categorical_vars) {
-    tryCatch({
-      # 计算频数表
-      train_freq <- table(ic_train[[var]], useNA = "ifany")
-      test_freq <- table(ic_test[[var]], useNA = "ifany")
-      
-      # 计算比例
-      train_prop <- prop.table(train_freq) * 100
-      test_prop <- prop.table(test_freq) * 100
-      
-      # 合并结果
-      all_levels <- union(names(train_freq), names(test_freq))
-      
-      comparison_df <- data.frame(
-        category = all_levels,
-        train_count = as.numeric(train_freq[all_levels]),
-        test_count = as.numeric(test_freq[all_levels]),
-        train_prop = as.numeric(train_prop[all_levels]),
-        test_prop = as.numeric(test_prop[all_levels])
-      )
-      
-      # 处理NA值
-      comparison_df[is.na(comparison_df)] <- 0
-      
-      # 计算差异
-      comparison_df <- comparison_df %>%
-        mutate(
-          count_diff = test_count - train_count,
-          prop_diff = test_prop - train_prop
-        )
-      
-      categorical_comparison[[var]] <- comparison_df
-      
-      # 卡方检验
-      if(length(all_levels) > 1 && sum(train_freq) > 0 && sum(test_freq) > 0) {
-        # 创建列联表
-        contingency_table <- rbind(train_freq[all_levels], test_freq[all_levels])
-        contingency_table[is.na(contingency_table)] <- 0
-        
-        # 卡方检验
-        if(all(contingency_table >= 0) && sum(contingency_table) > 0) {
-          chi_test <- chisq.test(contingency_table)
-          
-          # Fisher精确检验（适用于小样本）
-          if(all(dim(contingency_table) == c(2, 2))) {
-            fisher_test <- fisher.test(contingency_table)
-            fisher_p <- fisher_test$p.value
-          } else {
-            fisher_p <- NA
-          }
-          
-          categorical_tests <- rbind(categorical_tests, data.frame(
-            variable = var,
-            chi_square_p = chi_test$p.value,
-            fisher_test_p = fisher_p,
-            stringsAsFactors = FALSE
-          ))
-        }
-      }
-      
-      cat(paste0("\n变量: ", var, "\n"))
-      print(comparison_df)
-      
-    }, error = function(e) {
-      cat(paste0("变量 ", var, " 分析出错: ", e$message, "\n"))
-    })
-  }
-  
-  # 添加显著性标记
-  if(nrow(categorical_tests) > 0) {
-    categorical_tests <- categorical_tests %>%
-      mutate(
-        chi_square_sig = case_when(
-          chi_square_p < 0.001 ~ "***",
-          chi_square_p < 0.01 ~ "**",
-          chi_square_p < 0.05 ~ "*",
-          TRUE ~ ""
-        ),
-        fisher_test_sig = case_when(
-          !is.na(fisher_test_p) & fisher_test_p < 0.001 ~ "***",
-          !is.na(fisher_test_p) & fisher_test_p < 0.01 ~ "**",
-          !is.na(fisher_test_p) & fisher_test_p < 0.05 ~ "*",
-          TRUE ~ ""
-        )
-      )
-  }
-}
+# TableOne结果转换为数据框
+tableone_df <- as.data.frame(print(table_one, smd = TRUE, test = TRUE, printToggle = FALSE))
+writeData(wb, "TableOne_Results", tableone_df, rowNames = TRUE)
 
-# ==================== 保存结果 ====================
-cat("\n=== 保存分析结果 ===\n")
+# 保存Excel文件
+saveWorkbook(wb, "data_export/model_results/tables/train_test_comparability_analysis.xlsx", overwrite = TRUE)
 
-# 创建结果列表
-results_list <- list()
-
-if(exists("numeric_comparison")) {
-  results_list[["数值型变量统计"]] <- numeric_comparison
-}
-
-if(exists("numeric_tests")) {
-  results_list[["数值型变量检验"]] <- numeric_tests
-}
-
-if(exists("categorical_tests")) {
-  results_list[["分类变量检验"]] <- categorical_tests
-}
-
-# 保存分类变量详细比较
-if(length(categorical_comparison) > 0) {
-  for(var_name in names(categorical_comparison)) {
-    results_list[[paste0("分类变量_", var_name)]] <- categorical_comparison[[var_name]]
-  }
-}
-
-# 保存到Excel
-write_xlsx(results_list, "data_export/model_results/tables/ic_train_test_complete_comparison.xlsx")
-
+cat("\n结果已导出到: data_export/model_results/tables/train_test_comparability_analysis.xlsx\n")
 ```
 
 ### 组间比较和相关性分析导出
