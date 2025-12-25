@@ -103,8 +103,8 @@
 <rect x='237.99' y='410.33' width='0.00' height='13.32' style='stroke-width: 1.07; stroke: none; stroke-linecap: butt; stroke-linejoin: miter; fill: #440154;' />
 <rect x='237.99' y='528.73' width='0.00' height='13.32' style='stroke-width: 1.07; stroke: none; stroke-linecap: butt; stroke-linejoin: miter; fill: #440154;' />
 <rect x='237.99' y='484.33' width='0.00' height='13.32' style='stroke-width: 1.07; stroke: none; stroke-linecap: butt; stroke-linejoin: miter; fill: #440154;' />
-<rect x='237.99' y='499.13' width='0.00' height='13.32' style='stroke-width: 1.07; stroke: none; stroke-linecap: butt; stroke-linejoin: miter; fill: #440154;' />
 <rect x='237.99' y='513.93' width='0.00' height='13.32' style='stroke-width: 1.07; stroke: none; stroke-linecap: butt; stroke-linejoin: miter; fill: #440154;' />
+<rect x='237.99' y='499.13' width='0.00' height='13.32' style='stroke-width: 1.07; stroke: none; stroke-linecap: butt; stroke-linejoin: miter; fill: #440154;' />
 <rect x='237.99' y='425.13' width='0.00' height='13.32' style='stroke-width: 1.07; stroke: none; stroke-linecap: butt; stroke-linejoin: miter; fill: #440154;' />
 <rect x='237.99' y='439.93' width='0.00' height='13.32' style='stroke-width: 1.07; stroke: none; stroke-linecap: butt; stroke-linejoin: miter; fill: #440154;' />
 <rect x='237.99' y='469.53' width='0.00' height='13.32' style='stroke-width: 1.07; stroke: none; stroke-linecap: butt; stroke-linejoin: miter; fill: #440154;' />
@@ -112,8 +112,8 @@
 </g>
 <g clip-path='url(#cpMC4wMHwxMTUyLjAwfDAuMDB8NTc2LjAw)'>
 <text x='189.80' y='538.54' text-anchor='end' style='font-size: 8.80px;fill: #4D4D4D; font-family: "Arial";' textLength='126.71px' lengthAdjust='spacingAndGlyphs'>address_urban_or_rural_城乡结合部</text>
-<text x='189.80' y='523.74' text-anchor='end' style='font-size: 8.80px;fill: #4D4D4D; font-family: "Arial";' textLength='115.56px' lengthAdjust='spacingAndGlyphs'>address_urban_or_rural_乡中心</text>
-<text x='189.80' y='508.94' text-anchor='end' style='font-size: 8.80px;fill: #4D4D4D; font-family: "Arial";' textLength='121.13px' lengthAdjust='spacingAndGlyphs'>address_urban_or_rural_特殊区域</text>
+<text x='189.80' y='523.74' text-anchor='end' style='font-size: 8.80px;fill: #4D4D4D; font-family: "Arial";' textLength='121.13px' lengthAdjust='spacingAndGlyphs'>address_urban_or_rural_特殊区域</text>
+<text x='189.80' y='508.94' text-anchor='end' style='font-size: 8.80px;fill: #4D4D4D; font-family: "Arial";' textLength='115.56px' lengthAdjust='spacingAndGlyphs'>address_urban_or_rural_乡中心</text>
 <text x='189.80' y='494.14' text-anchor='end' style='font-size: 8.80px;fill: #4D4D4D; font-family: "Arial";' textLength='115.56px' lengthAdjust='spacingAndGlyphs'>address_urban_or_rural_镇中心</text>
 <text x='189.80' y='479.34' text-anchor='end' style='font-size: 8.80px;fill: #4D4D4D; font-family: "Arial";' textLength='81.95px' lengthAdjust='spacingAndGlyphs'>martial_status_从未结婚</text>
 <text x='189.80' y='464.54' text-anchor='end' style='font-size: 8.80px;fill: #4D4D4D; font-family: "Arial";' textLength='70.80px' lengthAdjust='spacingAndGlyphs'>martial_status_同居</text>

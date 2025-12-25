@@ -6693,6 +6693,246 @@ cat("转换后的数据集已保存:\n")
 cat("- 训练集: data_export/model_data/ic_train_ordered.csv\n")
 cat("- 测试集: data_export/model_data/ic_test_ordered.csv\n")
 cat("- 合并数据: data_export/model_data/combined_ordered_data.csv\n")
+# 5. 转换后数据集的描述性统计（医学研究格式）
+cat("\n=== 基线特征表 (Table 1) ===\n")
+
+# 加载必要的库
+library(dplyr)
+library(tableone)
+library(VIM)
+library(openxlsx)
+library(knitr)
+library(kableExtra)
+
+# 基本信息
+cat("训练集样本量:", nrow(ic_train_ordered), "\n")
+cat("测试集样本量:", nrow(ic_test_ordered), "\n")
+cat("总样本量:", nrow(ic_train_ordered) + nrow(ic_test_ordered), "\n\n")
+
+# 为数据集添加标识
+ic_train_ordered$dataset <- "Training"
+ic_test_ordered$dataset <- "Test"
+combined_data <- rbind(ic_train_ordered, ic_test_ordered)
+
+# 分离变量类型
+numeric_vars <- names(combined_data)[sapply(combined_data, is.numeric)]
+numeric_vars <- numeric_vars[numeric_vars != "dataset"]
+categorical_vars <- names(combined_data)[sapply(combined_data, function(x) is.factor(x) | is.character(x))]
+categorical_vars <- categorical_vars[categorical_vars != "dataset"]
+
+# 创建医学研究标准的基线特征表
+table_one <- CreateTableOne(
+  vars = c(numeric_vars, categorical_vars),
+  strata = "dataset",
+  data = combined_data,
+  factorVars = categorical_vars,
+  test = FALSE,  # 先不显示p值，专注于描述性统计
+  smd = FALSE
+)
+
+# 打印标准格式的Table 1
+cat("=== 基线特征表 (Baseline Characteristics) ===\n")
+print(table_one, 
+      nonnormal = numeric_vars,  # 假设数值变量为非正态分布，显示中位数和IQR
+      exact = categorical_vars,   # 分类变量显示精确计数
+      quote = FALSE,
+      noSpaces = TRUE,
+      printToggle = TRUE)
+
+# 创建更详细的医学格式表格
+cat("\n=== 详细基线特征表 ===\n")
+
+# 初始化结果数据框
+baseline_table <- data.frame(
+  Characteristic = character(),
+  Training_Set = character(),
+  Test_Set = character(),
+  Total = character(),
+  stringsAsFactors = FALSE
+)
+
+# 样本量行
+baseline_table <- rbind(baseline_table, data.frame(
+  Characteristic = "Sample size, n",
+  Training_Set = as.character(nrow(ic_train_ordered)),
+  Test_Set = as.character(nrow(ic_test_ordered)),
+  Total = as.character(nrow(combined_data))
+))
+
+# 处理数值变量（使用中位数和IQR格式）
+for(var in numeric_vars) {
+  # 训练集统计
+  train_data <- ic_train_ordered[[var]][!is.na(ic_train_ordered[[var]])]
+  test_data <- ic_test_ordered[[var]][!is.na(ic_test_ordered[[var]])]
+  total_data <- combined_data[[var]][!is.na(combined_data[[var]])]
+  
+  if(length(train_data) > 0 && length(test_data) > 0) {
+    # 计算中位数和IQR
+    train_median <- median(train_data)
+    train_q1 <- quantile(train_data, 0.25)
+    train_q3 <- quantile(train_data, 0.75)
+    train_summary <- sprintf("%.2f (%.2f-%.2f)", train_median, train_q1, train_q3)
+    
+    test_median <- median(test_data)
+    test_q1 <- quantile(test_data, 0.25)
+    test_q3 <- quantile(test_data, 0.75)
+    test_summary <- sprintf("%.2f (%.2f-%.2f)", test_median, test_q1, test_q3)
+    
+    total_median <- median(total_data)
+    total_q1 <- quantile(total_data, 0.25)
+    total_q3 <- quantile(total_data, 0.75)
+    total_summary <- sprintf("%.2f (%.2f-%.2f)", total_median, total_q1, total_q3)
+    
+    # 添加缺失值信息
+    train_missing <- sum(is.na(ic_train_ordered[[var]]))
+    test_missing <- sum(is.na(ic_test_ordered[[var]]))
+    total_missing <- sum(is.na(combined_data[[var]]))
+    
+    if(train_missing > 0 || test_missing > 0) {
+      train_summary <- paste0(train_summary, sprintf(" [%d missing]", train_missing))
+      test_summary <- paste0(test_summary, sprintf(" [%d missing]", test_missing))
+      total_summary <- paste0(total_summary, sprintf(" [%d missing]", total_missing))
+    }
+    
+    baseline_table <- rbind(baseline_table, data.frame(
+      Characteristic = paste0(var, ", median (IQR)"),
+      Training_Set = train_summary,
+      Test_Set = test_summary,
+      Total = total_summary
+    ))
+  }
+}
+
+# 处理分类变量（使用n (%)格式）
+for(var in categorical_vars) {
+  # 获取变量的所有水平
+  all_levels <- levels(combined_data[[var]])
+  if(is.null(all_levels)) {
+    all_levels <- unique(combined_data[[var]])
+  }
+  
+  # 添加变量名行
+  baseline_table <- rbind(baseline_table, data.frame(
+    Characteristic = paste0(var, ", n (%)"),
+    Training_Set = "",
+    Test_Set = "",
+    Total = ""
+  ))
+  
+  # 为每个水平添加行
+  for(level in all_levels) {
+    if(!is.na(level)) {
+      # 训练集计数
+      train_count <- sum(ic_train_ordered[[var]] == level, na.rm = TRUE)
+      train_total <- sum(!is.na(ic_train_ordered[[var]]))
+      train_pct <- ifelse(train_total > 0, (train_count / train_total) * 100, 0)
+      train_summary <- sprintf("%d (%.1f%%)", train_count, train_pct)
+      
+      # 测试集计数
+      test_count <- sum(ic_test_ordered[[var]] == level, na.rm = TRUE)
+      test_total <- sum(!is.na(ic_test_ordered[[var]]))
+      test_pct <- ifelse(test_total > 0, (test_count / test_total) * 100, 0)
+      test_summary <- sprintf("%d (%.1f%%)", test_count, test_pct)
+      
+      # 总计
+      total_count <- sum(combined_data[[var]] == level, na.rm = TRUE)
+      total_total <- sum(!is.na(combined_data[[var]]))
+      total_pct <- ifelse(total_total > 0, (total_count / total_total) * 100, 0)
+      total_summary <- sprintf("%d (%.1f%%)", total_count, total_pct)
+      
+      baseline_table <- rbind(baseline_table, data.frame(
+        Characteristic = paste0("  ", level),
+        Training_Set = train_summary,
+        Test_Set = test_summary,
+        Total = total_summary
+      ))
+    }
+  }
+  
+  # 添加缺失值行（如果有）
+  train_missing <- sum(is.na(ic_train_ordered[[var]]))
+  test_missing <- sum(is.na(ic_test_ordered[[var]]))
+  total_missing <- sum(is.na(combined_data[[var]]))
+  
+  if(train_missing > 0 || test_missing > 0) {
+    train_missing_pct <- (train_missing / nrow(ic_train_ordered)) * 100
+    test_missing_pct <- (test_missing / nrow(ic_test_ordered)) * 100
+    total_missing_pct <- (total_missing / nrow(combined_data)) * 100
+    
+    baseline_table <- rbind(baseline_table, data.frame(
+      Characteristic = "  Missing",
+      Training_Set = sprintf("%d (%.1f%%)", train_missing, train_missing_pct),
+      Test_Set = sprintf("%d (%.1f%%)", test_missing, test_missing_pct),
+      Total = sprintf("%d (%.1f%%)", total_missing, total_missing_pct)
+    ))
+  }
+}
+
+# 打印格式化的表格
+cat("\n")
+print(kable(baseline_table, 
+            col.names = c("Characteristic", "Training Set", "Test Set", "Total"),
+            align = c("l", "c", "c", "c"),
+            format = "simple"))
+
+# 导出为医学期刊格式的Excel文件
+cat("\n=== 导出医学格式报告 ===\n")
+
+wb <- createWorkbook()
+
+# 添加基线特征表工作表
+addWorksheet(wb, "Baseline_Characteristics")
+
+# 设置表头样式
+header_style <- createStyle(
+  fontSize = 12,
+  fontName = "Times New Roman",
+  textDecoration = "bold",
+  halign = "center",
+  valign = "center",
+  border = "TopBottomLeftRight",
+  borderStyle = "thin"
+)
+
+# 设置数据样式
+data_style <- createStyle(
+  fontSize = 11,
+  fontName = "Times New Roman",
+  halign = "center",
+  valign = "center",
+  border = "TopBottomLeftRight",
+  borderStyle = "thin"
+)
+
+# 写入数据
+writeData(wb, "Baseline_Characteristics", baseline_table, startRow = 1)
+
+# 应用样式
+addStyle(wb, "Baseline_Characteristics", header_style, rows = 1, cols = 1:4)
+addStyle(wb, "Baseline_Characteristics", data_style, rows = 2:(nrow(baseline_table)+1), cols = 1:4)
+
+# 设置列宽
+setColWidths(wb, "Baseline_Characteristics", cols = 1:4, widths = c(25, 15, 15, 15))
+
+# 添加表格标题
+writeData(wb, "Baseline_Characteristics", 
+          "Table 1. Baseline Characteristics of Study Population", 
+          startRow = 1, startCol = 1)
+mergeCells(wb, "Baseline_Characteristics", cols = 1:4, rows = 1)
+
+# 向下移动数据
+writeData(wb, "Baseline_Characteristics", baseline_table, startRow = 3)
+
+# 添加脚注
+footnote_row <- nrow(baseline_table) + 5
+writeData(wb, "Baseline_Characteristics", 
+          "Data are presented as median (interquartile range) for continuous variables and n (%) for categorical variables.", 
+          startRow = footnote_row, startCol = 1)
+
+# 保存文件
+saveWorkbook(wb, "data_export/model_data/baseline_characteristics_table1.xlsx", overwrite = TRUE)
+
+cat("医学格式基线特征表已保存到: data_export/model_data/baseline_characteristics_table1.xlsx\n")
 
 ```
 ### 多元线性回归
@@ -7029,7 +7269,20 @@ print("第17个个体的预测值和实际值:")
 print(paste("预测值:", xgb_predictions[79]))
 print(paste("实际值:", ic_test$ic_total_score[79]))
 print(paste("预测误差:", xgb_predictions[79] - ic_test$ic_total_score[79]))
+```
+## 计算器生成
+```{r 保存XgBoost结果}
+# 仅保存训练后的模型，便于后续随时调用
+# 假设环境中已有：xgb_fit（caret::train 的结果）
+dir.create("data_export/models", showWarnings = FALSE)
 
+# 1) 保存完整训练对象（推荐用于 predict(newdata = data.frame)）
+saveRDS(xgb_fit, file = "data_export/models/xgb_fit.rds")
+
+# 2) 保存纯 xgboost Booster（用于矩阵预测与 SHAP）
+saveRDS(xgb_fit$finalModel, file = "data_export/models/xgb_booster.rds")
+
+message("已保存：data_export/models/xgb_fit.rds 和 data_export/models/xgb_booster.rds")
 ```
 ## 结果导出
 ### 描述性统计结果导出（这段代码还是有问题，再改改）
@@ -7147,6 +7400,7 @@ writeData(wb, "TableOne_Results", tableone_df, rowNames = TRUE)
 saveWorkbook(wb, "data_export/model_results/tables/train_test_comparability_analysis.xlsx", overwrite = TRUE)
 
 cat("\n结果已导出到: data_export/model_results/tables/train_test_comparability_analysis.xlsx\n")
+
 ```
 
 ### 组间比较和相关性分析导出
@@ -7380,6 +7634,7 @@ ggplot(plot_data_long, aes(x = Actual, y = Predicted)) +
     # 添加边框
     panel.border = element_rect(color = "black", fill = NA),
   )
+
 # 保存图片为SVG
 ggsave("data_export/model_results/figures/prediction_vs_actual_comparison.svg",
        width = 16, height = 8, device = "svg", bg = "white")
