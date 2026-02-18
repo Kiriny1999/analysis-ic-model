@@ -6325,6 +6325,7 @@ print(vif_results_after_filter)
 
 # 将筛选后VIF结果导出为csv
 write.csv(vif_results_after_filter, file = "data_export/data_auto_filter/vif_results_after_filter.csv", row.names = TRUE)
+
 ```
 ## 建模及验证
 ### 建模前预处理
@@ -7270,20 +7271,6 @@ print(paste("预测值:", xgb_predictions[79]))
 print(paste("实际值:", ic_test$ic_total_score[79]))
 print(paste("预测误差:", xgb_predictions[79] - ic_test$ic_total_score[79]))
 ```
-## 计算器生成
-```{r 保存XgBoost结果}
-# 仅保存训练后的模型，便于后续随时调用
-# 假设环境中已有：xgb_fit（caret::train 的结果）
-dir.create("data_export/models", showWarnings = FALSE)
-
-# 1) 保存完整训练对象（推荐用于 predict(newdata = data.frame)）
-saveRDS(xgb_fit, file = "data_export/models/xgb_fit.rds")
-
-# 2) 保存纯 xgboost Booster（用于矩阵预测与 SHAP）
-saveRDS(xgb_fit$finalModel, file = "data_export/models/xgb_booster.rds")
-
-message("已保存：data_export/models/xgb_fit.rds 和 data_export/models/xgb_booster.rds")
-```
 ## 结果导出
 ### 描述性统计结果导出（这段代码还是有问题，再改改）
 ```{r 描述性统计结果导出}
@@ -7638,6 +7625,20 @@ ggplot(plot_data_long, aes(x = Actual, y = Predicted)) +
 # 保存图片为SVG
 ggsave("data_export/model_results/figures/prediction_vs_actual_comparison.svg",
        width = 16, height = 8, device = "svg", bg = "white")
+```
+### 最佳模型结果导出
+```{r 保存XgBoost结果}
+# 仅保存训练后的模型，便于后续随时调用
+# 假设环境中已有：xgb_fit（caret::train 的结果）
+dir.create("data_export/models", showWarnings = FALSE)
+
+# 1) 保存完整训练对象（推荐用于 predict(newdata = data.frame)）
+saveRDS(xgb_fit, file = "data_export/models/xgb_fit.rds")
+
+# 2) 保存纯 xgboost Booster（用于矩阵预测与 SHAP）
+saveRDS(xgb_fit$finalModel, file = "data_export/models/xgb_booster.rds")
+
+message("已保存：data_export/models/xgb_fit.rds 和 data_export/models/xgb_booster.rds")
 ```
 ### 最佳模型重要性导出
 ```{r 最佳模型重要性导出}

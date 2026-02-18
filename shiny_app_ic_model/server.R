@@ -62,11 +62,45 @@ server <- function(input, output) {
     output$prediction_result <- renderText({
       paste0("预测的内在能力分数 (Predicted Intrinsic Capacity Score): ", round(prediction, 4))
     })
+
+    # 7. Generate SHAP waterfall plot
+    output$importance_plot <- renderPlot({
+      # Calculate SHAP values for the single instance
+      shap_obj <- shapviz(xgb_model, X_pred = input_matrix)
+      
+      # Rename columns in shap_obj to Chinese labels
+      # Note: shapviz object structure usually allows direct column renaming or via colnames()
+      # Depending on version, we might need to be careful.
+      # Safest way: iterate and replace if match found
+      current_cols <- colnames(shap_obj)
+      new_cols <- feature_labels[current_cols]
+      # If any NA (no match), keep original name
+      new_cols[is.na(new_cols)] <- current_cols[is.na(new_cols)]
+      colnames(shap_obj) <- new_cols
+      
+      # Plot waterfall chart for the first (and only) observation
+      sv_waterfall(shap_obj, row_id = 1) +
+        ggtitle("SHAP 瀑布图 (个体预测解释)") +
+        theme(text = element_text(size = 14, family = "noto_sans"))
+    })
   })
   
-  # Plot feature importance
+  # Initial placeholder plot or empty
   output$importance_plot <- renderPlot({
+    # Optional: Display a message or global importance before prediction
     importance_matrix <- xgb.importance(model = xgb_model)
-    xgb.plot.importance(importance_matrix, top_n = 10, main = "Top 10 Feature Importance")
+    
+    # Map feature names to Chinese labels
+    importance_matrix$Feature <- feature_labels[importance_matrix$Feature]
+    
+    # Plot all features (remove top_n limit)
+    # Convert to ggplot for better font control
+    importance_df <- as.data.frame(importance_matrix)
+    ggplot(importance_df, aes(x = reorder(Feature, Gain), y = Gain)) +
+      geom_bar(stat = "identity", fill = "steelblue") +
+      coord_flip() +
+      labs(title = "全局变量重要性 (Global Feature Importance)", x = "特征 (Feature)", y = "增益 (Gain)") +
+      theme_minimal() +
+      theme(text = element_text(size = 14, family = "noto_sans"))
   })
 }
