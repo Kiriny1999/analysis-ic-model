@@ -171,6 +171,10 @@ my_data_raw <- Reduce(function(x, y) {
     merged <- merged %>% select(-all_of(dups))
     merged
 }, data_list)
+# 查看这数据中总共多少人
+total_n <- nrow(my_data_raw)
+print(paste("原始数据共:", total_n, "人"))
+
 ```
 ## 内在能力变量重命名
 ```{r 变量重命名}
@@ -360,6 +364,10 @@ my_data_elder <- my_data_age %>%
 # 输出现在总共多少人
 total_individuals <- nrow(my_data_elder)
 print(paste("总共人数:", total_individuals))
+
+# 查看年龄剔除掉了多少人
+removed_by_age <- total_n - total_individuals
+print(paste("因年龄<60岁剔除:", removed_by_age, "人"))
 
 my_data_wash <- my_data_elder
 ```
@@ -960,6 +968,11 @@ write.csv(covered_individuals, "data_export/data_ic/covered_individuals.csv", ro
 # 输出覆盖百分之百内在能力变量的个体数量
 covered_count <- nrow(covered_individuals)
 print(paste("覆盖百分之百内在能力变量的个体数量:", covered_count))
+
+# 查看剔除掉了多少人
+removed_by_ic <- total_individuals - covered_count
+print(paste("因缺失内在能力变量剔除:", removed_by_ic, "人"))
+
 
 # 导出覆盖100%的个体数据导出为parquet
 my_data_filtered_100_ic <- my_data_wash %>%
@@ -5732,6 +5745,11 @@ write_parquet(my_data_calculated, "data_export/data_calculated/my_data_calculate
 
 # 导出计算后的数据框为csv
 write.csv(my_data_calculated, "data_export/data_second_manual_filter/my_data_calculated.csv", row.names = FALSE)
+
+# 查看计算后的自变量有多少个（不含ID与因变量ic_total_score）
+n_predictors <- ncol(my_data_calculated) - 2
+cat("计算后的自变量数量为：", n_predictors, "\n")
+
 ```
 ### 二次手动筛选
 ```{r 二次手动筛选}
@@ -5758,6 +5776,12 @@ dim(my_data_secondly_filtered)
 # 导出提取后的数据框
 write_parquet(my_data_secondly_filtered, "data_export/data_second_manual_filter/my_data_secondly_filtered.parquet")
 write.csv(my_data_secondly_filtered, "data_export/data_second_manual_filter/my_data_secondly_filtered.csv", row.names = FALSE)
+
+# 去掉内在能力五个维度、总分及ID后查看二次手动筛选后数据框的维度（即变量个数）
+dim(my_data_secondly_filtered %>% select(-final_physical_score, -cognitive_level, 
+                                         -final_psychological_score, -final_sensory_score, 
+                                         -final_vitality_score, -ic_total_score, -ID))
+
 ```
 
 ### 数字生物标志物添加（暂时不要）
@@ -5855,10 +5879,10 @@ preprocessed_data <- preprocessed_data %>%
 dim(preprocessed_data)
 
 # 导出预处理后数据为parquet
-write_parquet(preprocessed_data, "data_export/data_calculated/preprocessed_data.parquet")
+write_parquet(preprocessed_data, "data_export/data_auto_filter/preprocessed_data.parquet")
 
 # 导出预处理后数据为csv
-write.csv(preprocessed_data, "data_export/data_calculated/preprocessed_data.csv", row.names = FALSE)
+write.csv(preprocessed_data, "data_export/data_auto_filter/preprocessed_data.csv", row.names = FALSE)
 ```
 
 ## 缺失值筛选及处理
@@ -5878,14 +5902,15 @@ for(var in high_na_vars) {
 my_data_na_filtered <- preprocessed_data %>%
     select_if(~sum(is.na(.)) / nrow(preprocessed_data) <= 0.2)
 
-# 查看缺失值筛选后的数据框的维度
-dim(my_data_na_filtered)
+
+# 查看缺失值筛选后变量数量
+cat("缺失值筛选后变量数量:", length(my_data_na_filtered), "个\n")
 
 # 导出缺失值筛选后的数据
 # 导出为parquet格式
-write_parquet(my_data_na_filtered, "data_export/data_calculated/my_data_na_filtered.parquet")
+write_parquet(my_data_na_filtered, "data_export/data_auto_filter/my_data_na_filtered.parquet")
 # 导出为csv格式
-write.csv(my_data_na_filtered, "data_export/data_calculated/my_data_na_filtered.csv", row.names = FALSE)
+write.csv(my_data_na_filtered, "data_export/data_auto_filter/my_data_na_filtered.csv", row.names = FALSE)
 
 # 查看各变量的插补方法
 initial_mice <- mice(my_data_na_filtered, maxit = 0)
@@ -5935,11 +5960,15 @@ missing_values <- colSums(is.na(my_data_imputed[, c("self_payfor_inpatientcare",
 print("插补后的缺失值数量：")
 print(missing_values)
 
-str(my_data_imputed)
+# 查看插补后数据框的维度
+dim(my_data_imputed)
+# 查看插补后变量数量
+cat("插补后变量数量:", length(my_data_imputed)-2, "个\n")
+
 # 导出插补后的数据框为parquet
-write_parquet(my_data_imputed, "data_export/data_calculated/my_data_imputed.parquet")
+write_parquet(my_data_imputed, "data_export/data_auto_filter/my_data_imputed.parquet")
 # 导出插补后的数据框为csv
-write.csv(my_data_imputed, "data_export/data_calculated/my_data_imputed.csv", row.names = FALSE)
+write.csv(my_data_imputed, "data_export/data_auto_filter/my_data_imputed.csv", row.names = FALSE)
 ```
 ## 组间比较与相关性分析
 ### 读取变量列表
@@ -5957,7 +5986,6 @@ if (file.exists(var_desc_path)) {
   quit(status = 1)
 }
 ```
-
 ### 组间比较
 ```{r 组间比较}
 # Extract factor variables from variables_descriptive.xlsx
@@ -6120,6 +6148,7 @@ rfeControl <- rfeControl(
 # 定义预测变量
 predictors <- my_data_imputed %>%
     select(-ic_total_score, -ID)
+
 # 准备数据
 # 移除不需要的列（如ID等）并处理缺失值
 # 执行RFE
@@ -6138,6 +6167,12 @@ variables_rfe_filter <- data.frame(Variables = rfe_result$optVariables)
 
 # 将结果保存到CSV文件
 write.csv(variables_rfe_filter, "data_export/data_auto_filter/variables_rfe_filter.csv",row.names = FALSE)
+
+# 查看RFE筛选出几个变量
+cat("RFE最终保留的变量数量:", length(rfe_result$optVariables), "个\n")
+cat("RFE保留的变量列表:\n")
+print(rfe_result$optVariables)
+
 ```
 ### ETC算法筛选
 ```{r ETC算法筛选}
@@ -6174,12 +6209,16 @@ variables_etc_filter <- data.frame(
   Variable_Name = selected_vars,
   stringsAsFactors = FALSE
 )
+# 查看ETC筛选出几个变量
+cat("ETC筛选保留的变量数量:", nrow(variables_etc_filter), "个\n")
+cat("ETC保留的变量列表:\n")
+print(variables_etc_filter$Variable_Name)
 
-# 导出变量列表到csv
 write.csv(variables_etc_filter, 
           "data_export/data_auto_filter/variables_etc_filter.csv", 
           row.names = FALSE,
           fileEncoding = "UTF-8")
+
 
 ```
 ### MI算法进行筛选
@@ -6216,6 +6255,12 @@ var_importance_df <- data.frame(
 # 选择互信息得分大于平均值的变量
 mean_mi_score <- mean(var_importance_df$MI_Score)
 variables_mi_filter <- data.frame(Variable_Name = var_importance_df$Variable[var_importance_df$MI_Score > mean_mi_score])
+
+# 查看MI筛选出几个变量
+cat("MI筛选保留的变量数量:", nrow(variables_mi_filter), "个\n")
+cat("MI保留的变量列表:\n")
+print(variables_mi_filter$Variable_Name)
+
 # 将筛选结果导出到csv文件
 write.csv(variables_mi_filter, "data_export/data_auto_filter/variables_mi_filter.csv", row.names = FALSE)
 ```
@@ -6265,6 +6310,11 @@ variables_boruta_filter <- data.frame(
              rep("可能纳入", length(tentative_vars)))
 )
 
+# 查看Boruta筛选出几个变量
+cat("Boruta筛选保留的变量数量:", nrow(variables_boruta_filter), "个\n")
+cat("Boruta保留的变量列表:\n")
+print(variables_boruta_filter$variable_name)
+
 # 导出变量信息到CSV文件
 write.csv(vars_info, 
           "data_export/data_auto_filter/variables_boruta_filter.csv", 
@@ -6292,6 +6342,11 @@ print(common_vars)
 write.csv(data.frame(variable_name = common_vars), 
           "/Users/kiriny/Desktop/analysis-ic-model/data_export/data_auto_filter/common_variables.csv", 
           row.names = FALSE)
+    
+# 查看交集变量数量
+cat("交集变量数量:", length(common_vars), "个\n")
+cat("交集变量列表:\n")
+print(common_vars)
 
 # 从插值后数据框中提取共同变量
 common_data <- my_data_imputed %>%
@@ -6325,6 +6380,11 @@ print(vif_results_after_filter)
 
 # 将筛选后VIF结果导出为csv
 write.csv(vif_results_after_filter, file = "data_export/data_auto_filter/vif_results_after_filter.csv", row.names = TRUE)
+
+# 查看多重共线性筛选后变量数量
+cat("多重共线性筛选后变量数量:", length(rownames(as.data.frame(vif_results_after_filter))), "个\n")
+cat("多重共线性筛选后变量列表:\n")
+print(rownames(as.data.frame(vif_results_after_filter)))
 
 ```
 ## 建模及验证
@@ -6362,6 +6422,8 @@ model_data <- model_data %>%
 
 # 将建模数据导出为parquet格式
 write_parquet(model_data, "data_export/model_data/model_data.parquet")
+# 将建模数据导出为csv格式
+write.csv(model_data, "data_export/model_data/model_data.csv", row.names = FALSE)
 
 # 设置随机种子并分割数据
 set.seed(123)
@@ -6371,570 +6433,6 @@ ic_test <- testing(split)
 ic_test$martial_status[ic_test$martial_status == "同居"] <- "从未结婚"
 write.csv(ic_train, "data_export/model_data/ic_train.csv", row.names = FALSE)
 write.csv(ic_test, "data_export/model_data/ic_test.csv", row.names = FALSE)
-```
-### 训练集和验证集数据可比性分析
-```{r 训练集和验证集数据可比性分析}
-# 1. 创建数字编码转换为有序因子的函数
-convert_numeric_to_ordered_factors <- function(data) {
-  data_new <- data %>%
-    mutate(
-      # education_level 转换为有序因子 (原始编码1-11)
-      education_level = case_when(
-        education_level == 1 ~ "文盲",
-        education_level == 2 ~ "未读完小学",
-        education_level == 3 ~ "私塾毕业", 
-        education_level == 4 ~ "小学毕业",
-        education_level == 5 ~ "初中毕业",
-        education_level == 6 ~ "高中毕业",
-        education_level == 7 ~ "中专毕业",
-        education_level == 8 ~ "大专毕业",
-        education_level == 9 ~ "本科毕业",
-        education_level == 10 ~ "硕士毕业",
-        education_level == 11 ~ "博士毕业",
-        TRUE ~ NA_character_
-      ),
-      education_level = factor(education_level, 
-                              levels = c("文盲", "未读完小学", "私塾毕业", "小学毕业", "初中毕业", 
-                                       "高中毕业", "中专毕业", "大专毕业", "本科毕业", 
-                                       "硕士毕业", "博士毕业"),
-                              ordered = TRUE),
-      # health_compared 转换为有序因子 (原始编码1-3)
-      health_compared = case_when(
-        health_compared == 1 ~ "更好了",
-        health_compared == 2 ~ "差不多", 
-        health_compared == 3 ~ "更差了",
-        TRUE ~ NA_character_
-      ),
-      health_compared = factor(health_compared,
-                              levels = c("更差了", "差不多", "更好了"),
-                              ordered = TRUE),
-      
-      # life_satisfaction 转换为有序因子 (原始编码1-5)
-      life_satisfaction = case_when(
-        life_satisfaction == 1 ~ "完全满意",
-        life_satisfaction == 2 ~ "非常满意",
-        life_satisfaction == 3 ~ "一般满意",
-        life_satisfaction == 4 ~ "不太满意",
-        life_satisfaction == 5 ~ "完全不满意",
-        TRUE ~ NA_character_
-      ),
-      life_satisfaction = factor(life_satisfaction,
-                                levels = c("完全不满意", "不太满意", "一般满意", 
-                                         "非常满意", "完全满意"),
-                                ordered = TRUE),
-      
-      # health_satisfaction 转换为有序因子 (原始编码1-5)
-      health_satisfaction = case_when(
-        health_satisfaction == 1 ~ "完全满意",
-        health_satisfaction == 2 ~ "非常满意",
-        health_satisfaction == 3 ~ "一般满意",
-        health_satisfaction == 4 ~ "不太满意",
-        health_satisfaction == 5 ~ "完全不满意",
-        TRUE ~ NA_character_
-      ),
-      health_satisfaction = factor(health_satisfaction,
-                                  levels = c("完全不满意", "不太满意", "一般满意", 
-                                           "非常满意", "完全满意"),
-                                  ordered = TRUE)
-    )
-  
-  return(data_new)
-}
-
-# 2. 应用转换到训练集和测试集
-ic_train_ordered <- convert_numeric_to_ordered_factors(ic_train)
-ic_test_ordered <- convert_numeric_to_ordered_factors(ic_test)
-
-# 检查并剔除训练集和测试集中转换后没出现的分类
-# 获取所有分类变量
-categorical_vars <- names(ic_train_ordered)[sapply(ic_train_ordered, is.factor)]
-
-# 对每个分类变量进行检查
-for(var in categorical_vars) {
-  # 获取训练集和测试集中该变量的所有唯一值
-  train_levels <- unique(ic_train_ordered[[var]])
-  test_levels <- unique(ic_test_ordered[[var]])
-  
-  # 找出在任一数据集中都没出现的分类
-  all_levels <- levels(ic_train_ordered[[var]])
-  missing_levels <- setdiff(all_levels, union(train_levels, test_levels))
-  
-  # 如果存在这样的分类，则从两个数据集中移除该分类
-  if(length(missing_levels) > 0) {
-    # 创建新的因子水平，排除未出现的分类
-    new_levels <- setdiff(all_levels, missing_levels)
-    
-    # 更新训练集和测试集中的因子水平
-    ic_train_ordered[[var]] <- factor(ic_train_ordered[[var]], levels = new_levels)
-    ic_test_ordered[[var]] <- factor(ic_test_ordered[[var]], levels = new_levels)
-    
-    # 输出移除的分类信息
-    cat(sprintf("变量 %s 中移除了以下未出现的分类: %s\n", 
-                var, paste(missing_levels, collapse = ", ")))
-  }
-}
-
-# 检查结果
-cat("\n更新后的分类变量水平:\n")
-for(var in categorical_vars) {
-  cat(sprintf("\n%s 的分类水平:\n", var))
-  print(levels(ic_train_ordered[[var]]))
-}
-# 3. 验证转换结果
-cat("=== 转换后的变量属性（有序因子）===\n")
-target_vars <- c("education_level", "treat_pain", "health_compared", "life_satisfaction", "health_satisfaction")
-
-for(var in target_vars) {
-  cat(paste0("\n变量: ", var, "\n"))
-  cat("训练集:\n")
-  print(str(ic_train_ordered[[var]]))
-  cat("测试集:\n") 
-  print(str(ic_test_ordered[[var]]))
-  cat("训练集水平:", paste(levels(ic_train_ordered[[var]]), collapse = " < "), "\n")
-  cat("测试集水平:", paste(levels(ic_test_ordered[[var]]), collapse = " < "), "\n")
-  cat("训练集频数:\n")
-  print(table(ic_train_ordered[[var]], useNA = "ifany"))
-  cat("测试集频数:\n")
-  print(table(ic_test_ordered[[var]], useNA = "ifany"))
-}
-
-# 4. 显示原始编码对应关系
-cat("\n=== 原始数字编码对应关系 ===\n")
-cat("education_level: 1=文盲, 2=未读完小学, 3=私塾毕业, 4=小学毕业, 5=初中毕业, 6=高中毕业, 7=中专毕业, 8=大专毕业, 9=本科毕业, 10=硕士毕业, 11=博士毕业\n")
-cat("treat_pain: 0=没有疼痛, 1=有疼痛治疗, 2=有疼痛不治疗\n")
-cat("health_compared: 1=更好了, 2=差不多, 3=更差了\n")
-cat("life_satisfaction: 1=完全满意, 2=非常满意, 3=一般满意, 4=不太满意, 5=完全不满意\n")
-cat("health_satisfaction: 1=完全满意, 2=非常满意, 3=一般满意, 4=不太满意, 5=完全不满意\n")
-
-# 4. 创建可比性分析
-cat("\n=== 开始可比性分析 ===\n")
-
-# 为训练集和测试集添加标识列
-ic_train_ordered$dataset <- "train"
-ic_test_ordered$dataset <- "test"
-
-# 合并两个数据集
-combined_data <- rbind(ic_train_ordered, ic_test_ordered)
-
-# 获取所有变量名（除了dataset标识变量）
-all_vars <- names(combined_data)[names(combined_data) != "dataset"]
-
-# 分离数值变量和分类变量
-numeric_vars <- names(combined_data)[sapply(combined_data, is.numeric)]
-categorical_vars <- names(combined_data)[sapply(combined_data, function(x) is.factor(x) | is.character(x))]
-categorical_vars <- categorical_vars[categorical_vars != "dataset"]
-
-cat(paste0("数值变量数量: ", length(numeric_vars), "\n"))
-cat(paste0("分类变量数量: ", length(categorical_vars), "\n"))
-
-# 5. 使用tableone包进行可比性分析
-library(tableone)
-table_one <- CreateTableOne(
-  vars = all_vars,
-  strata = "dataset",
-  data = combined_data,
-  factorVars = categorical_vars,
-  test = TRUE,
-  smd = TRUE
-)
-
-# 打印结果
-print(table_one, smd = TRUE, test = TRUE)
-
-# 6. 详细的统计检验结果
-cat("\n=== 详细统计检验结果 ===\n")
-
-# 对数值变量进行t检验或Mann-Whitney U检验
-numeric_test_results <- data.frame()
-
-for(var in numeric_vars) {
-  if(var != "dataset") {
-    train_data <- ic_train_ordered[[var]]
-    test_data <- ic_test_ordered[[var]]
-    
-    # 去除缺失值
-    train_data <- train_data[!is.na(train_data)]
-    test_data <- test_data[!is.na(test_data)]
-    
-    if(length(train_data) > 0 && length(test_data) > 0) {
-      # Shapiro-Wilk正态性检验（样本量大时可能不适用）
-      if(length(train_data) > 5000 || length(test_data) > 5000) {
-        # 样本量大时使用Mann-Whitney U检验
-        test_result <- wilcox.test(train_data, test_data)
-        test_method <- "Mann-Whitney U"
-      } else {
-        # 先检验正态性
-        shapiro_train <- shapiro.test(sample(train_data, min(5000, length(train_data))))
-        shapiro_test <- shapiro.test(sample(test_data, min(5000, length(test_data))))
-        
-        if(shapiro_train$p.value > 0.05 && shapiro_test$p.value > 0.05) {
-          # 正态分布，使用t检验
-          test_result <- t.test(train_data, test_data)
-          test_method <- "t-test"
-        } else {
-          # 非正态分布，使用Mann-Whitney U检验
-          test_result <- wilcox.test(train_data, test_data)
-          test_method <- "Mann-Whitney U"
-        }
-      }
-      
-      # 计算效应量（Cohen's d或r）
-      if(test_method == "t-test") {
-        pooled_sd <- sqrt(((length(train_data)-1)*var(train_data) + (length(test_data)-1)*var(test_data)) / 
-                         (length(train_data) + length(test_data) - 2))
-        effect_size <- abs(mean(train_data) - mean(test_data)) / pooled_sd
-        effect_measure <- "Cohen's d"
-      } else {
-        # 对于Mann-Whitney U，计算r = Z/sqrt(N)
-        z_score <- qnorm(test_result$p.value/2)
-        effect_size <- abs(z_score) / sqrt(length(train_data) + length(test_data))
-        effect_measure <- "r"
-      }
-      
-      result_row <- data.frame(
-        variable = var,
-        test_method = test_method,
-        statistic = round(test_result$statistic, 4),
-        p_value = round(test_result$p.value, 6),
-        effect_size = round(effect_size, 4),
-        effect_measure = effect_measure,
-        train_mean = round(mean(train_data, na.rm = TRUE), 4),
-        test_mean = round(mean(test_data, na.rm = TRUE), 4),
-        significance = ifelse(test_result$p.value < 0.05, "significant", "non-significant"),
-        stringsAsFactors = FALSE
-      )
-      
-      numeric_test_results <- rbind(numeric_test_results, result_row)
-    }
-  }
-}
-
-# 对分类变量进行卡方检验
-categorical_test_results <- data.frame()
-
-for(var in categorical_vars) {
-  if(var != "dataset") {
-    # 创建列联表
-    contingency_table <- table(combined_data[[var]], combined_data$dataset)
-    
-    # 检查是否有足够的观测值进行卡方检验
-    if(all(contingency_table >= 5)) {
-      # 卡方检验
-      chi_test <- chisq.test(contingency_table)
-      test_method <- "Chi-square"
-      test_stat <- chi_test$statistic
-      p_value <- chi_test$p.value
-      
-      # 计算Cramér's V（效应量）
-      n <- sum(contingency_table)
-      cramers_v <- sqrt(chi_test$statistic / (n * (min(dim(contingency_table)) - 1)))
-      effect_size <- cramers_v
-      effect_measure <- "Cramér's V"
-    } else {
-      # Fisher精确检验（适用于小样本）
-      fisher_test <- fisher.test(contingency_table, simulate.p.value = TRUE)
-      test_method <- "Fisher's exact"
-      test_stat <- NA
-      p_value <- fisher_test$p.value
-      effect_size <- NA
-      effect_measure <- "NA"
-    }
-    
-    result_row <- data.frame(
-      variable = var,
-      test_method = test_method,
-      statistic = ifelse(is.na(test_stat), "NA", round(test_stat, 4)),
-      p_value = round(p_value, 6),
-      effect_size = ifelse(is.na(effect_size), "NA", round(effect_size, 4)),
-      effect_measure = effect_measure,
-      significance = ifelse(p_value < 0.05, "significant", "non-significant"),
-      stringsAsFactors = FALSE
-    )
-    
-    categorical_test_results <- rbind(categorical_test_results, result_row)
-  }
-}
-
-# 7. 汇总结果
-cat("\n=== 数值变量比较结果 ===\n")
-print(numeric_test_results)
-
-cat("\n=== 分类变量比较结果 ===\n")
-print(categorical_test_results)
-
-# 8. 识别显著差异的变量
-significant_numeric <- numeric_test_results[numeric_test_results$p_value < 0.05, ]
-significant_categorical <- categorical_test_results[categorical_test_results$p_value < 0.05, ]
-
-cat(paste0("\n=== 可比性分析总结 ===\n"))
-cat(paste0("总变量数量: ", length(all_vars), "\n"))
-cat(paste0("数值变量数量: ", nrow(numeric_test_results), "\n"))
-cat(paste0("分类变量数量: ", nrow(categorical_test_results), "\n"))
-cat(paste0("显著差异的数值变量数量: ", nrow(significant_numeric), "\n"))
-cat(paste0("显著差异的分类变量数量: ", nrow(significant_categorical), "\n"))
-cat(paste0("总体显著差异变量占比: ", 
-    round((nrow(significant_numeric) + nrow(significant_categorical)) / length(all_vars) * 100, 2), "%\n"))
-
-if(nrow(significant_numeric) > 0) {
-  cat("\n显著差异的数值变量:\n")
-  print(significant_numeric$variable)
-}
-
-if(nrow(significant_categorical) > 0) {
-  cat("\n显著差异的分类变量:\n")
-  print(significant_categorical$variable)
-}
-
-# 9. 保存转换后的数据集
-write.csv(ic_train_ordered, "data_export/model_data/ic_train_ordered.csv", row.names = FALSE)
-write.csv(ic_test_ordered, "data_export/model_data/ic_test_ordered.csv", row.names = FALSE)
-write.csv(combined_data, "data_export/model_data/combined_ordered_data.csv", row.names = FALSE)
-
-cat("转换后的数据集已保存:\n")
-cat("- 训练集: data_export/model_data/ic_train_ordered.csv\n")
-cat("- 测试集: data_export/model_data/ic_test_ordered.csv\n")
-cat("- 合并数据: data_export/model_data/combined_ordered_data.csv\n")
-# 5. 转换后数据集的描述性统计（医学研究格式）
-cat("\n=== 基线特征表 (Table 1) ===\n")
-
-# 加载必要的库
-library(dplyr)
-library(tableone)
-library(VIM)
-library(openxlsx)
-library(knitr)
-library(kableExtra)
-
-# 基本信息
-cat("训练集样本量:", nrow(ic_train_ordered), "\n")
-cat("测试集样本量:", nrow(ic_test_ordered), "\n")
-cat("总样本量:", nrow(ic_train_ordered) + nrow(ic_test_ordered), "\n\n")
-
-# 为数据集添加标识
-ic_train_ordered$dataset <- "Training"
-ic_test_ordered$dataset <- "Test"
-combined_data <- rbind(ic_train_ordered, ic_test_ordered)
-
-# 分离变量类型
-numeric_vars <- names(combined_data)[sapply(combined_data, is.numeric)]
-numeric_vars <- numeric_vars[numeric_vars != "dataset"]
-categorical_vars <- names(combined_data)[sapply(combined_data, function(x) is.factor(x) | is.character(x))]
-categorical_vars <- categorical_vars[categorical_vars != "dataset"]
-
-# 创建医学研究标准的基线特征表
-table_one <- CreateTableOne(
-  vars = c(numeric_vars, categorical_vars),
-  strata = "dataset",
-  data = combined_data,
-  factorVars = categorical_vars,
-  test = FALSE,  # 先不显示p值，专注于描述性统计
-  smd = FALSE
-)
-
-# 打印标准格式的Table 1
-cat("=== 基线特征表 (Baseline Characteristics) ===\n")
-print(table_one, 
-      nonnormal = numeric_vars,  # 假设数值变量为非正态分布，显示中位数和IQR
-      exact = categorical_vars,   # 分类变量显示精确计数
-      quote = FALSE,
-      noSpaces = TRUE,
-      printToggle = TRUE)
-
-# 创建更详细的医学格式表格
-cat("\n=== 详细基线特征表 ===\n")
-
-# 初始化结果数据框
-baseline_table <- data.frame(
-  Characteristic = character(),
-  Training_Set = character(),
-  Test_Set = character(),
-  Total = character(),
-  stringsAsFactors = FALSE
-)
-
-# 样本量行
-baseline_table <- rbind(baseline_table, data.frame(
-  Characteristic = "Sample size, n",
-  Training_Set = as.character(nrow(ic_train_ordered)),
-  Test_Set = as.character(nrow(ic_test_ordered)),
-  Total = as.character(nrow(combined_data))
-))
-
-# 处理数值变量（使用中位数和IQR格式）
-for(var in numeric_vars) {
-  # 训练集统计
-  train_data <- ic_train_ordered[[var]][!is.na(ic_train_ordered[[var]])]
-  test_data <- ic_test_ordered[[var]][!is.na(ic_test_ordered[[var]])]
-  total_data <- combined_data[[var]][!is.na(combined_data[[var]])]
-  
-  if(length(train_data) > 0 && length(test_data) > 0) {
-    # 计算中位数和IQR
-    train_median <- median(train_data)
-    train_q1 <- quantile(train_data, 0.25)
-    train_q3 <- quantile(train_data, 0.75)
-    train_summary <- sprintf("%.2f (%.2f-%.2f)", train_median, train_q1, train_q3)
-    
-    test_median <- median(test_data)
-    test_q1 <- quantile(test_data, 0.25)
-    test_q3 <- quantile(test_data, 0.75)
-    test_summary <- sprintf("%.2f (%.2f-%.2f)", test_median, test_q1, test_q3)
-    
-    total_median <- median(total_data)
-    total_q1 <- quantile(total_data, 0.25)
-    total_q3 <- quantile(total_data, 0.75)
-    total_summary <- sprintf("%.2f (%.2f-%.2f)", total_median, total_q1, total_q3)
-    
-    # 添加缺失值信息
-    train_missing <- sum(is.na(ic_train_ordered[[var]]))
-    test_missing <- sum(is.na(ic_test_ordered[[var]]))
-    total_missing <- sum(is.na(combined_data[[var]]))
-    
-    if(train_missing > 0 || test_missing > 0) {
-      train_summary <- paste0(train_summary, sprintf(" [%d missing]", train_missing))
-      test_summary <- paste0(test_summary, sprintf(" [%d missing]", test_missing))
-      total_summary <- paste0(total_summary, sprintf(" [%d missing]", total_missing))
-    }
-    
-    baseline_table <- rbind(baseline_table, data.frame(
-      Characteristic = paste0(var, ", median (IQR)"),
-      Training_Set = train_summary,
-      Test_Set = test_summary,
-      Total = total_summary
-    ))
-  }
-}
-
-# 处理分类变量（使用n (%)格式）
-for(var in categorical_vars) {
-  # 获取变量的所有水平
-  all_levels <- levels(combined_data[[var]])
-  if(is.null(all_levels)) {
-    all_levels <- unique(combined_data[[var]])
-  }
-  
-  # 添加变量名行
-  baseline_table <- rbind(baseline_table, data.frame(
-    Characteristic = paste0(var, ", n (%)"),
-    Training_Set = "",
-    Test_Set = "",
-    Total = ""
-  ))
-  
-  # 为每个水平添加行
-  for(level in all_levels) {
-    if(!is.na(level)) {
-      # 训练集计数
-      train_count <- sum(ic_train_ordered[[var]] == level, na.rm = TRUE)
-      train_total <- sum(!is.na(ic_train_ordered[[var]]))
-      train_pct <- ifelse(train_total > 0, (train_count / train_total) * 100, 0)
-      train_summary <- sprintf("%d (%.1f%%)", train_count, train_pct)
-      
-      # 测试集计数
-      test_count <- sum(ic_test_ordered[[var]] == level, na.rm = TRUE)
-      test_total <- sum(!is.na(ic_test_ordered[[var]]))
-      test_pct <- ifelse(test_total > 0, (test_count / test_total) * 100, 0)
-      test_summary <- sprintf("%d (%.1f%%)", test_count, test_pct)
-      
-      # 总计
-      total_count <- sum(combined_data[[var]] == level, na.rm = TRUE)
-      total_total <- sum(!is.na(combined_data[[var]]))
-      total_pct <- ifelse(total_total > 0, (total_count / total_total) * 100, 0)
-      total_summary <- sprintf("%d (%.1f%%)", total_count, total_pct)
-      
-      baseline_table <- rbind(baseline_table, data.frame(
-        Characteristic = paste0("  ", level),
-        Training_Set = train_summary,
-        Test_Set = test_summary,
-        Total = total_summary
-      ))
-    }
-  }
-  
-  # 添加缺失值行（如果有）
-  train_missing <- sum(is.na(ic_train_ordered[[var]]))
-  test_missing <- sum(is.na(ic_test_ordered[[var]]))
-  total_missing <- sum(is.na(combined_data[[var]]))
-  
-  if(train_missing > 0 || test_missing > 0) {
-    train_missing_pct <- (train_missing / nrow(ic_train_ordered)) * 100
-    test_missing_pct <- (test_missing / nrow(ic_test_ordered)) * 100
-    total_missing_pct <- (total_missing / nrow(combined_data)) * 100
-    
-    baseline_table <- rbind(baseline_table, data.frame(
-      Characteristic = "  Missing",
-      Training_Set = sprintf("%d (%.1f%%)", train_missing, train_missing_pct),
-      Test_Set = sprintf("%d (%.1f%%)", test_missing, test_missing_pct),
-      Total = sprintf("%d (%.1f%%)", total_missing, total_missing_pct)
-    ))
-  }
-}
-
-# 打印格式化的表格
-cat("\n")
-print(kable(baseline_table, 
-            col.names = c("Characteristic", "Training Set", "Test Set", "Total"),
-            align = c("l", "c", "c", "c"),
-            format = "simple"))
-
-# 导出为医学期刊格式的Excel文件
-cat("\n=== 导出医学格式报告 ===\n")
-
-wb <- createWorkbook()
-
-# 添加基线特征表工作表
-addWorksheet(wb, "Baseline_Characteristics")
-
-# 设置表头样式
-header_style <- createStyle(
-  fontSize = 12,
-  fontName = "Times New Roman",
-  textDecoration = "bold",
-  halign = "center",
-  valign = "center",
-  border = "TopBottomLeftRight",
-  borderStyle = "thin"
-)
-
-# 设置数据样式
-data_style <- createStyle(
-  fontSize = 11,
-  fontName = "Times New Roman",
-  halign = "center",
-  valign = "center",
-  border = "TopBottomLeftRight",
-  borderStyle = "thin"
-)
-
-# 写入数据
-writeData(wb, "Baseline_Characteristics", baseline_table, startRow = 1)
-
-# 应用样式
-addStyle(wb, "Baseline_Characteristics", header_style, rows = 1, cols = 1:4)
-addStyle(wb, "Baseline_Characteristics", data_style, rows = 2:(nrow(baseline_table)+1), cols = 1:4)
-
-# 设置列宽
-setColWidths(wb, "Baseline_Characteristics", cols = 1:4, widths = c(25, 15, 15, 15))
-
-# 添加表格标题
-writeData(wb, "Baseline_Characteristics", 
-          "Table 1. Baseline Characteristics of Study Population", 
-          startRow = 1, startCol = 1)
-mergeCells(wb, "Baseline_Characteristics", cols = 1:4, rows = 1)
-
-# 向下移动数据
-writeData(wb, "Baseline_Characteristics", baseline_table, startRow = 3)
-
-# 添加脚注
-footnote_row <- nrow(baseline_table) + 5
-writeData(wb, "Baseline_Characteristics", 
-          "Data are presented as median (interquartile range) for continuous variables and n (%) for categorical variables.", 
-          startRow = footnote_row, startCol = 1)
-
-# 保存文件
-saveWorkbook(wb, "data_export/model_data/baseline_characteristics_table1.xlsx", overwrite = TRUE)
-
-cat("医学格式基线特征表已保存到: data_export/model_data/baseline_characteristics_table1.xlsx\n")
-
 ```
 ### 多元线性回归
 ```{r 多元线性回归}
@@ -7293,7 +6791,64 @@ vars_labels <- list(
   number_pain_locations = "疼痛部位数量"
 )
 
+# 定义连续变量和分类变量
+continuous_vars <- c("age", "num_children_married", "number_grandchildren_great_grandchildren", 
+                     "number_medical_insurance", "number_chronic_disease", "number_pain_locations")
+categorical_vars <- c("gender", "address_type", "address_urban_or_rural", "literate", 
+                      "martial_status", "education_level", "health_compared")
 
+# 检查哪些变量在数据中存在
+existing_vars <- intersect(names(vars_labels), names(ic_train))
+cat("在训练集中存在的变量:\n")
+print(existing_vars)
+
+# 为存在的变量添加标签
+for(var in existing_vars) {
+  attr(ic_train[[var]], "label") <- vars_labels[[var]]
+  attr(ic_test[[var]], "label") <- vars_labels[[var]]
+}
+
+# 训练集描述性统计
+train_table <- CreateTableOne(
+  vars = c(continuous_vars, categorical_vars),
+  data = ic_train,
+  factorVars = categorical_vars
+)
+
+# 测试集描述性统计
+test_table <- CreateTableOne(
+  vars = c(continuous_vars, categorical_vars),
+  data = ic_test,
+  factorVars = categorical_vars
+)
+
+# 打印训练集描述性统计
+cat("=== 训练集描述性统计 ===\n")
+print(train_table)
+
+# 打印测试集描述性统计
+cat("\n=== 测试集描述性统计 ===\n")
+print(test_table)
+
+# 创建Excel工作簿并导出结果
+wb <- createWorkbook()
+addWorksheet(wb, "训练集_描述性统计")
+addWorksheet(wb, "测试集_描述性统计")
+
+# 将训练集结果转换为数据框并导出
+train_table_matrix <- print(train_table, printToggle = FALSE)
+train_df <- as.data.frame(train_table_matrix)
+writeData(wb, "训练集_描述性统计", train_df, rowNames = TRUE)
+
+# 将测试集结果转换为数据框并导出
+test_table_matrix <- print(test_table, printToggle = FALSE)
+test_df <- as.data.frame(test_table_matrix)
+writeData(wb, "测试集_描述性统计", test_df, rowNames = TRUE)
+
+# 保存Excel文件
+saveWorkbook(wb, "data_export/model_results/tables/descriptive_statistics_train_test.xlsx", overwrite = TRUE)
+
+cat("\n描述性统计结果已导出到: data_export/model_results/tables/descriptive_statistics_train_test.xlsx\n")
 
 ```
 ### 训练集和验证集数据可比性结果导出（是否有必要做，再考虑一下）
