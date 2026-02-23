@@ -5861,7 +5861,7 @@ write_parquet(preprocessed_data, "data_export/data_calculated/preprocessed_data.
 write.csv(preprocessed_data, "data_export/data_calculated/preprocessed_data.csv", row.names = FALSE)
 ```
 
-## 缺失值筛选
+## 缺失值筛选及处理
 ```{r 缺失值筛选及处理}
 # 计算每个变量的缺失值比例
 na_proportions <- colMeans(is.na(preprocessed_data))
