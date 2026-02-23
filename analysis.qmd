@@ -7272,8 +7272,9 @@ print(paste("实际值:", ic_test$ic_total_score[79]))
 print(paste("预测误差:", xgb_predictions[79] - ic_test$ic_total_score[79]))
 ```
 ## 结果导出
-### 描述性统计结果导出（这段代码还是有问题，再改改）
+### 描述性统计结果导出
 ```{r 描述性统计结果导出}
+library(tableone)
 # 使用tableone包创建描述性统计表格
 # 定义变量标签
 vars_labels <- list(
@@ -7292,59 +7293,8 @@ vars_labels <- list(
   number_pain_locations = "疼痛部位数量"
 )
 
-# 为变量添加标签
-for(var in names(vars_labels)) {
-  attr(my_data_imputed[[var]], "label") <- vars_labels[[var]]
-}
 
-# 创建一般资料表格
-vars <- names(vars_labels)
-general_table <- CreateTableOne(vars = vars, data = my_data_imputed)
-general_table_matrix <- print(general_table, printToggle = FALSE)
 
-# 定义内在能力变量标签
-ic_vars <- c("final_physical_score", "cognitive_level", 
-             "final_psychological_score", "final_sensory_score",
-             "final_vitality_score", "ic_total_score")
-
-ic_vars_labels <- list(
-  final_physical_score = "运动能力得分",
-  cognitive_level = "认知水平",
-  final_psychological_score = "心理能力得分", 
-  final_sensory_score = "感官能力得分",
-  final_vitality_score = "活力得分",
-  ic_total_score = "内在能力总分"
-)
-
-# 为内在能力变量添加标签
-for(var in names(ic_vars_labels)) {
-  attr(covered_individuals[[var]], "label") <- ic_vars_labels[[var]]
-}
-
-# 确保分类变量为因子类型
-covered_individuals[ic_vars[-6]] <- lapply(covered_individuals[ic_vars[-6]], as.factor)
-
-ic_table <- CreateTableOne(vars = ic_vars, data = covered_individuals)
-ic_table_matrix <- print(ic_table, printToggle = FALSE)
-
-# 创建Excel工作簿并导出结果
-wb <- createWorkbook()
-addWorksheet(wb, "一般资料")
-addWorksheet(wb, "内在能力")
-
-# 将矩阵转换为数据框并添加变量标签列
-general_df <- as.data.frame(general_table_matrix)
-general_df$Variable <- vars_labels[rownames(general_df)]
-
-ic_df <- as.data.frame(ic_table_matrix)
-ic_df$Variable <- ic_vars_labels[rownames(ic_df)]
-
-# 写入数据
-writeData(wb, "一般资料", general_df)
-writeData(wb, "内在能力", ic_df)
-
-# 保存Excel文件
-saveWorkbook(wb, "data_export/model_results/tables/descriptive_statistics.xlsx", overwrite = TRUE)
 ```
 ### 训练集和验证集数据可比性结果导出（是否有必要做，再考虑一下）
 ```{r 训练集和验证集数据可比性结果导出}
