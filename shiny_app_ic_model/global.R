@@ -76,7 +76,7 @@ feature_labels <- c(
   "health_satisfaction" = "健康满意度",
   "number_chronic_disease" = "慢性病数量",
   "year_diseases_arthritis" = "关节炎患病年数",
-  "health_compared" = "健康状况比较",
+  "health_compared" = "与两年前健康状况比较",
   "number_social_activities" = "社会活动数量",
   "life_satisfaction" = "生活满意度",
   "number_smoke" = "吸烟数量",
